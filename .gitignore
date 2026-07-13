@@ -1,0 +1,13 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Segredos e banco local — NUNCA versionar
+backend/.env
+backend/.secret_key
+backend/custeio.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
