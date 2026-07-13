@@ -1,0 +1,15 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+sqlalchemy>=2.0.44
+pydantic>=2.12
+pydantic-settings>=2.6
+httpx>=0.28
+cryptography>=44.0
+openpyxl>=3.1
+python-dateutil>=2.9
+alembic>=1.14
+# Driver PostgreSQL (opcional em dev; o app cai para SQLite se DATABASE_URL nao for definido)
+psycopg[binary]>=3.2.13
+# Testes
+pytest>=8.3
+respx>=0.22
