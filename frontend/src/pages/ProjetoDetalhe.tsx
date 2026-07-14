@@ -81,11 +81,11 @@ export default function ProjetoDetalhe() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-5 flex flex-wrap items-center gap-3">
         <Link to={`/projetos?${filtrosProjetos.toString()}`} className="btn btn-ghost">
           ← Projetos
         </Link>
-        <h2 className="text-lg font-bold">{f?.projeto || nome}</h2>
+        <h1 className="text-2xl font-extrabold tracking-tight">{f?.projeto || nome}</h1>
         {f && <BadgeLucro resultado={f.resultado} />}
         {f && (
           <span className="text-sm" style={{ color: 'var(--text-muted)' }} title={f.empresas}>
