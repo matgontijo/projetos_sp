@@ -101,6 +101,19 @@ def test_transiente_persistente_estoura_apos_tentativas():
 
 
 @respx.mock
+def test_fault_de_instabilidade_faz_retry():
+    """'SOAP-ERROR: Broken response...' e instabilidade da Omie, nao erro de negocio."""
+    respostas = [
+        httpx.Response(500, json={"faultstring": "SOAP-ERROR: Broken response from Application Server (BG)"}),
+        httpx.Response(200, json=_page(1, 1, [{"codigo_lancamento_omie": 9}])),
+    ]
+    rota = respx.post(URL_CR).mock(side_effect=respostas)
+    data = _client().call("financas/contareceber", "ListarContasReceber", {"pagina": 1})
+    assert data["conta_receber_cadastro"][0]["codigo_lancamento_omie"] == 9
+    assert rota.call_count == 2
+
+
+@respx.mock
 def test_http_425_bloqueio_falha_imediatamente():
     rota = respx.post(URL_CR).mock(return_value=httpx.Response(425, text="Too Early"))
     with pytest.raises(OmieRateLimitError):

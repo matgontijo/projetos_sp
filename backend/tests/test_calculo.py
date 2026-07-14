@@ -71,6 +71,34 @@ def test_consolida_mesmo_projeto_entre_empresas(db, empresa):
     assert _linha(so_simples, "BR26_055")["receita"] == 5_000.0
 
 
+def test_nomes_com_espacos_divergentes_consolidam(db, empresa):
+    """'BR25_460 _B10' e 'BR25_460_B10' sao o mesmo projeto (erro de digitacao na Omie)."""
+    criar_projeto(db, empresa, 100, "BR25_460_B10")
+    criar_projeto(db, empresa, 200, "BR25_460 _B10")
+    criar_titulo(db, empresa, "receber", 1, 1000.0, projeto=100)
+    criar_titulo(db, empresa, "receber", 2, 500.0, projeto=200)
+
+    resultado = calculo.fechar_projetos(db, [empresa.id])
+    assert resultado["consolidado"]["qtd_projetos"] == 1
+    assert resultado["projetos"][0]["receita"] == 1500.0
+
+
+def test_ponto_e_underscore_sao_o_mesmo_projeto(db, empresa):
+    """'BR25_485_33.B01.A' vs 'BR25_485_33_B01.A': receita numa grafia, custo na outra."""
+    criar_projeto(db, empresa, 100, "BR25_485_33.B01.A")
+    criar_projeto(db, empresa, 200, "BR25_485_33_B01.A")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    criar_titulo(db, empresa, "receber", 1, 682_000.0, projeto=100)
+    criar_titulo(db, empresa, "pagar", 2, 610_000.0, projeto=200, categoria="2.01.01")
+
+    resultado = calculo.fechar_projetos(db, [empresa.id])
+    assert resultado["consolidado"]["qtd_projetos"] == 1
+    linha = resultado["projetos"][0]
+    assert linha["receita"] == 682_000.0
+    assert linha["producao"] == 610_000.0
+    assert linha["resultado"] == pytest.approx(72_000.0)
+
+
 def test_titulo_cancelado_fica_fora(db, empresa):
     criar_projeto(db, empresa, 100, "BR26_055")
     criar_titulo(db, empresa, "receber", 1, 1000.0, projeto=100)
@@ -202,6 +230,45 @@ def test_consolidado_e_margem_media(db, empresa):
     assert consolidado["qtd_projetos"] == 2
 
 
+def test_aliquota_extra_sobre_receita(db, empresa):
+    """IRPJ/CSLL do Presumido (fora da NF-e): % extra sobre a receita da empresa."""
+    empresa.aliquota_extra = 3.4
+    db.commit()
+    criar_projeto(db, empresa, 100, "BR26_055")
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
+    criar_nfe(db, empresa, 555, projeto=100, v_icms=1_000.0)
+
+    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_055")
+    assert linha["imposto_extra"] == pytest.approx(340.0)
+    assert linha["imposto"] == pytest.approx(1_340.0)  # NF-e + extra
+
+
+def test_consolidado_exclui_sem_projeto(db, empresa):
+    """KPIs consolidados nao podem ser distorcidos por despesas sem projeto."""
+    criar_projeto(db, empresa, 100, "BR26_055")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    criar_titulo(db, empresa, "receber", 1, 1_000.0, projeto=100)
+    criar_titulo(db, empresa, "pagar", 2, 50_000.0, projeto=None, categoria="9.99.99")  # folha etc.
+
+    resultado = calculo.fechar_projetos(db, [empresa.id])
+    assert resultado["consolidado"]["receita"] == 1_000.0
+    assert resultado["consolidado"]["resultado"] == 1_000.0
+    assert resultado["consolidado"]["qtd_projetos"] == 1
+    # a linha "Sem projeto" continua visivel na lista
+    assert _linha(resultado, calculo.SEM_PROJETO_NOME)["outros"] == 50_000.0
+
+
+def test_pdf_do_fechamento_gera_bytes(db, empresa):
+    from app.services.export import fechamento_pdf
+
+    criar_projeto(db, empresa, 100, "BR26_055")
+    criar_titulo(db, empresa, "receber", 1, 1_000.0, projeto=100)
+    dados = calculo.fechar_projetos(db, [empresa.id])
+    pdf = fechamento_pdf(dados["projetos"], dados["consolidado"], "Período: 01/01/2026 a 30/06/2026")
+    assert pdf[:5] == b"%PDF-"
+    assert len(pdf) > 800
+
+
 def test_detalhe_consolidado_entre_empresas(db, empresa):
     empresa2 = models.Empresa(nome="Empresa 2", cnpj="2", app_key_enc="x", app_secret_enc="y")
     db.add(empresa2)
@@ -247,6 +314,56 @@ def test_ajuste_move_titulo_de_projeto(db, empresa):
     resultado = calculo.fechar_projetos(db, [empresa.id])
     assert _linha(resultado, "B")["receita"] == 800.0
     assert all(p["projeto"] != "A" or p["receita"] == 0 for p in resultado["projetos"])
+
+
+def test_ajuste_move_titulo_para_sem_projeto(db, empresa):
+    """Regressao: valor_novo='0' (sem projeto) era ignorado pelo `or` falsy."""
+    criar_projeto(db, empresa, 100, "BR26_055")
+    titulo = criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
+    db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="titulo", alvo_id=titulo.id, campo="codigo_projeto",
+                         valor_anterior="100", valor_novo="0", usuario="tester"))
+    db.commit()
+
+    resultado = calculo.fechar_projetos(db, [empresa.id])
+    assert _linha(resultado, calculo.SEM_PROJETO_NOME)["receita"] == 10_000.0
+    assert all(p["receita"] == 0 for p in resultado["projetos"] if p["projeto"] == "BR26_055")
+
+
+def test_ajuste_move_nfe_para_sem_projeto(db, empresa):
+    criar_projeto(db, empresa, 100, "BR26_055")
+    nfe = criar_nfe(db, empresa, 555, projeto=100, v_icms=500.0)
+    db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="nfe", alvo_id=nfe.id, campo="codigo_projeto",
+                         valor_anterior="100", valor_novo="0", usuario="tester"))
+    db.commit()
+
+    resultado = calculo.fechar_projetos(db, [empresa.id])
+    assert _linha(resultado, calculo.SEM_PROJETO_NOME)["imposto"] == 500.0
+
+
+def test_detalhe_concilia_titulo_com_rateio(db, empresa):
+    """Regressao: o detalhe mostrava grupo unico do cabecalho, divergindo do fechamento."""
+    criar_projeto(db, empresa, 100, "BR26_055")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    mapear_categoria(db, empresa, "2.02.01", "frete")
+    criar_titulo(
+        db, empresa, "pagar", 10, 1000.0, projeto=100, categoria="2.01.01",
+        rateio=[
+            {"codigo_categoria": "2.01.01", "valor": 700.0, "percentual": 70},
+            {"codigo_categoria": "2.02.01", "valor": 300.0, "percentual": 30},
+        ],
+    )
+
+    detalhe = calculo.detalhe_projeto(db, [empresa.id], "BR26_055")
+    titulo = next(t for t in detalhe["titulos"] if t["tipo"] == "pagar")
+
+    assert titulo["grupo"] == "rateado"
+    assert titulo["parcelas"] == [
+        {"grupo": "producao", "valor": 700.0},
+        {"grupo": "frete", "valor": 300.0},
+    ]
+    # soma das parcelas do detalhe == linha do fechamento
+    assert detalhe["fechamento"]["producao"] == 700.0
+    assert detalhe["fechamento"]["frete"] == 300.0
 
 
 def test_ajuste_corrige_imposto_da_nfe(db, empresa):

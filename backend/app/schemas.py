@@ -13,6 +13,7 @@ class EmpresaCreate(BaseModel):
     app_secret: str = Field(min_length=1)
     regime: str = "nota"  # 'nota' | 'simples'
     simples_anexo: str | None = None  # 'I'..'V'
+    aliquota_extra: float = Field(default=0, ge=0, le=100)  # % s/ receita (IRPJ/CSLL etc.)
 
 
 class EmpresaUpdate(BaseModel):
@@ -22,6 +23,7 @@ class EmpresaUpdate(BaseModel):
     app_secret: str | None = None
     regime: str | None = None
     simples_anexo: str | None = None
+    aliquota_extra: float | None = Field(default=None, ge=0, le=100)
     ativa: bool | None = None
 
 
@@ -33,6 +35,7 @@ class EmpresaOut(BaseModel):
     cnpj: str
     regime: str
     simples_anexo: str | None
+    aliquota_extra: float
     ativa: bool
     criado_em: datetime
 

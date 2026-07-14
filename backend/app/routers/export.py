@@ -34,6 +34,26 @@ def exportar_csv(
     )
 
 
+@router.get("/fechamento.pdf")
+def exportar_pdf(
+    empresa_ids: str | None = Query(default=None),
+    de: date | None = None,
+    ate: date | None = None,
+    db: Session = Depends(get_db),
+):
+    dados = _dados(db, empresa_ids, de, ate)
+    periodo = ""
+    if de or ate:
+        fmt = lambda d: d.strftime("%d/%m/%Y") if d else "…"  # noqa: E731
+        periodo = f"Período: {fmt(de)} a {fmt(ate)}"
+    conteudo = export_svc.fechamento_pdf(dados["projetos"], dados.get("consolidado", {}), periodo)
+    return Response(
+        content=conteudo,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="fechamento.pdf"'},
+    )
+
+
 @router.get("/fechamento.xlsx")
 def exportar_xlsx(
     empresa_ids: str | None = Query(default=None),

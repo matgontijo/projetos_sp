@@ -26,6 +26,8 @@ _BACKOFF_BASE = 1.5  # segundos: 1.5, 3, 6
 # Chaves possiveis de paginacao na resposta (endpoints de produto podem variar)
 _KEYS_TOTAL_PAGINAS = ("total_de_paginas", "nTotPaginas", "total_paginas")
 _RE_SEM_REGISTROS = re.compile(r"n[aã]o\s+exist[e|em]+\s+registros?", re.IGNORECASE)
+# Faults de instabilidade do servidor Omie (nao sao erro de negocio) — retentar
+_RE_FAULT_TRANSIENTE = re.compile(r"SOAP-ERROR|Broken response|Application Server", re.IGNORECASE)
 
 
 class OmieError(Exception):
@@ -116,6 +118,14 @@ class OmieClient:
                 faultcode = str(data.get("faultcode", ""))
                 if _RE_SEM_REGISTROS.search(faultstring):
                     raise OmieNoRecordsError(faultstring, faultcode)
+                if _RE_FAULT_TRANSIENTE.search(faultstring):
+                    # instabilidade do servidor Omie disfarçada de fault — retentar
+                    last_exc = OmieError(faultstring, faultcode)
+                    logger.warning(
+                        "Omie %s/%s: fault transiente (tentativa %d): %s", endpoint, method, attempt + 1, faultstring
+                    )
+                    self._sleep(_BACKOFF_BASE * (2**attempt))
+                    continue
                 raise OmieError(faultstring, faultcode)
 
             if resp.status_code >= 500 or data is None:

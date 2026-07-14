@@ -51,6 +51,22 @@ def test_empresa_regime_nota_nao_aplica_simples(db, empresa):
     assert linha["imposto_simples"] == 0.0
 
 
+def test_rbt12_manual_zero_usa_nominal_da_primeira_faixa(db, empresa):
+    """Regressao: RBT12=0 informado era tratado como ausente (caia no derivado)."""
+    empresa.regime = "simples"
+    empresa.simples_anexo = "I"
+    db.add(models.SimplesPeriodo(empresa_id=empresa.id, competencia="2026-05", rbt12=0))
+    db.commit()
+    criar_projeto(db, empresa, 100, "BR26_055")
+    # cache com receita alta nos 12 meses anteriores NAO pode sobrepor o manual=0
+    criar_titulo(db, empresa, "receber", 50, 500_000.0, projeto=100, emissao=date(2025, 8, 15))
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100, emissao=date(2026, 5, 10))
+
+    resultado = calculo.fechar_projetos(db, [empresa.id], de=date(2026, 5, 1), ate=date(2026, 5, 31))
+    # aliquota nominal da 1a faixa do Anexo I = 4%
+    assert resultado["projetos"][0]["imposto_simples"] == pytest.approx(400.0)
+
+
 def test_rbt12_derivado_do_cache_quando_nao_informado(db, empresa):
     empresa.regime = "simples"
     empresa.simples_anexo = "I"

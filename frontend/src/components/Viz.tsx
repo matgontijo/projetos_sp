@@ -147,6 +147,35 @@ export function RankingMargem({
   )
 }
 
+/** Nome curto da empresa: 1ª palavra (ou duas, se a 1ª for muito curta). */
+export function siglaEmpresa(nome: string): string {
+  const palavras = nome.trim().split(/\s+/)
+  if (!palavras[0]) return nome
+  return palavras[0].length >= 4 ? palavras[0] : palavras.slice(0, 2).join(' ')
+}
+
+/** Chips compactos para a lista "Empresa A, Empresa B" (tooltip com o nome completo). */
+export function ChipsEmpresas({ empresas }: { empresas: string }) {
+  const nomes = empresas.split(',').map((n) => n.trim()).filter(Boolean)
+  return (
+    <span className="inline-flex flex-wrap gap-1" title={empresas}>
+      {nomes.map((nome) => (
+        <span
+          key={nome}
+          className="rounded px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap"
+          style={{
+            background: 'color-mix(in srgb, var(--serie-producao) 10%, transparent)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--gridline)',
+          }}
+        >
+          {siglaEmpresa(nome)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function BadgeLucro({ resultado }: { resultado: number }) {
   const lucro = resultado >= 0
   return (

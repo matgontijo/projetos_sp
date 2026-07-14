@@ -56,7 +56,11 @@ export default function Sincronizar() {
   return (
     <div>
       <div className="card px-5 py-4">
-        <h2 className="mb-3 text-sm font-bold">Sincronizar dados da Omie</h2>
+        <h2 className="mb-1 text-sm font-bold">Buscar dados da Omie</h2>
+        <p className="help mb-3">
+          O app busca notas fiscais, contas a receber e contas a pagar do período e monta o fechamento por projeto.
+          Pode rodar quantas vezes quiser — só atualiza o que mudou, sem duplicar nada.
+        </p>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <div className="mb-1 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
@@ -97,12 +101,12 @@ export default function Sincronizar() {
             disabled={sync.isPending || !empresas?.length}
             onClick={() => sync.mutate()}
           >
-            {sync.isPending ? 'Iniciando…' : 'Sincronizar'}
+            {sync.isPending ? 'Iniciando…' : 'Buscar dados'}
           </button>
         </div>
         {sync.isSuccess && (
           <p className="mt-2 text-sm" style={{ color: 'var(--status-good-text)' }}>
-            Sincronização iniciada — acompanhe o progresso abaixo.
+            Busca iniciada — acompanhe o progresso abaixo. Com muitos lançamentos pode levar alguns minutos.
           </p>
         )}
         {sync.isError && (
@@ -110,10 +114,6 @@ export default function Sincronizar() {
             Erro: {(sync.error as Error).message}
           </p>
         )}
-        <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-          Busca Projetos, Categorias, Clientes, Contas a Receber, Contas a Pagar e NF-e emitidas do período (todas as
-          páginas), respeitando os limites de requisição da Omie. Rodar de novo apenas atualiza o cache.
-        </p>
       </div>
 
       <div className="card mt-4 overflow-x-auto">

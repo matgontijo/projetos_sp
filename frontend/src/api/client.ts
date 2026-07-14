@@ -6,6 +6,7 @@ export interface Empresa {
   cnpj: string
   regime: 'nota' | 'simples'
   simples_anexo: string | null
+  aliquota_extra: number
   ativa: boolean
   criado_em: string
 }
@@ -40,6 +41,7 @@ export interface LinhaFechamento {
   imposto: number
   imposto_nfe: number
   imposto_simples: number
+  imposto_extra: number
   cp_impostos: number
   nao_classificado: number
   custo_total: number
@@ -80,6 +82,7 @@ export interface TituloDetalhe {
   valor_documento: number
   codigo_categoria: string
   grupo: string | null
+  parcelas: { grupo: string | null; valor: number }[]
   grupo_ajustado: boolean
   status_titulo: string
   numero_documento: string
@@ -149,7 +152,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'X-Usuario': usuarioAtual(),
+      // percent-encoding: headers so aceitam Latin-1; o backend decodifica (unquote)
+      'X-Usuario': encodeURIComponent(usuarioAtual()),
       ...init?.headers,
     },
   })
@@ -223,4 +227,6 @@ export const api = {
     `/api/export/fechamento.csv${qs({ empresa_ids: empresaIds, de, ate })}`,
   urlExportXlsx: (empresaIds?: string, de?: string, ate?: string) =>
     `/api/export/fechamento.xlsx${qs({ empresa_ids: empresaIds, de, ate })}`,
+  urlExportPdf: (empresaIds?: string, de?: string, ate?: string) =>
+    `/api/export/fechamento.pdf${qs({ empresa_ids: empresaIds, de, ate })}`,
 }

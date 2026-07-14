@@ -18,6 +18,7 @@ Regras (do levantamento de requisitos):
 - Ajustes manuais auditaveis sao aplicados por cima do cache.
 """
 
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date
@@ -36,7 +37,11 @@ def _f(value) -> float:
 
 
 def chave_projeto(nome: str) -> str:
-    return (nome or "").strip().upper()
+    # A numeracao de projetos e digitada com variacoes ("BR25_460 _B10",
+    # "BR25_485_33.B01.A" vs "BR25_485_33_B01.A"). Espacos, '.' e '_' nao sao
+    # significativos na numeracao (que e zero-padded), entao a chave os ignora
+    # para unir as duplicatas de digitacao.
+    return re.sub(r"[\s._]+", "", (nome or "")).upper()
 
 
 @dataclass
@@ -49,6 +54,7 @@ class LinhaFechamento:
     outros: float = 0.0
     imposto_nfe: float = 0.0
     imposto_simples: float = 0.0
+    imposto_extra: float = 0.0  # % extra s/ receita (ex.: IRPJ/CSLL Presumido)
     cp_impostos: float = 0.0  # informativo, fora do custo
     nao_classificado: float = 0.0  # parcela de 'outros' sem categoria mapeada
     qtd_receber: int = 0
@@ -59,7 +65,7 @@ class LinhaFechamento:
 
     @property
     def imposto(self) -> float:
-        return self.imposto_nfe + self.imposto_simples
+        return self.imposto_nfe + self.imposto_simples + self.imposto_extra
 
     @property
     def custo_total(self) -> float:
@@ -85,6 +91,7 @@ class LinhaFechamento:
             "imposto": round(self.imposto, 2),
             "imposto_nfe": round(self.imposto_nfe, 2),
             "imposto_simples": round(self.imposto_simples, 2),
+            "imposto_extra": round(self.imposto_extra, 2),
             "cp_impostos": round(self.cp_impostos, 2),
             "nao_classificado": round(self.nao_classificado, 2),
             "custo_total": round(self.custo_total, 2),
@@ -217,11 +224,14 @@ class _Contexto:
         return f"Projeto {codigo}"
 
     def projeto_do_titulo(self, titulo: models.Titulo) -> str:
-        codigo = self.ajustes.projeto("titulo", titulo.id) or titulo.codigo_projeto_omie
+        # ajuste 0 = "mover para Sem projeto" — distinto de None (sem ajuste)
+        ajuste = self.ajustes.projeto("titulo", titulo.id)
+        codigo = ajuste if ajuste is not None else titulo.codigo_projeto_omie
         return self.nome_projeto(titulo.empresa_id, codigo)
 
     def projeto_da_nfe(self, nfe: models.NFe) -> str:
-        codigo = self.ajustes.projeto("nfe", nfe.id) or nfe.codigo_projeto_omie
+        ajuste = self.ajustes.projeto("nfe", nfe.id)
+        codigo = ajuste if ajuste is not None else nfe.codigo_projeto_omie
         return self.nome_projeto(nfe.empresa_id, codigo)
 
 
@@ -260,6 +270,9 @@ def fechar_projetos(
         if empresa and empresa.regime == "simples" and titulo.data_emissao:
             competencia = titulo.data_emissao.strftime("%Y-%m")
             receita_simples[(titulo.empresa_id, chave_projeto(nome), competencia)] += valor
+        if empresa and _f(empresa.aliquota_extra) > 0:
+            # impostos fora da NF-e (ex.: IRPJ/CSLL do Presumido), % sobre a receita
+            ln.imposto_extra += valor * _f(empresa.aliquota_extra) / 100.0
 
     # --- Contas a Pagar: custos por grupo ---
     for titulo in ctx.titulos:
@@ -323,17 +336,22 @@ def fechar_projetos(
                 ln.cliente = cliente.nome_fantasia or cliente.razao_social
 
     resultado = sorted(linhas.values(), key=lambda l: l.receita, reverse=True)
+    # KPIs consolidados so consideram projetos de verdade — o bucket "Sem projeto"
+    # (folha, emprestimos, despesas gerais sem vinculo) apareceria como custo e
+    # distorceria o resultado/margem dos fechamentos
+    chave_sem_projeto = chave_projeto(SEM_PROJETO_NOME)
+    reais = [l for l in resultado if chave_projeto(l.projeto) != chave_sem_projeto]
     consolidado = {
-        "receita": round(sum(l.receita for l in resultado), 2),
-        "producao": round(sum(l.producao for l in resultado), 2),
-        "frete": round(sum(l.frete for l in resultado), 2),
-        "outros": round(sum(l.outros for l in resultado), 2),
-        "imposto": round(sum(l.imposto for l in resultado), 2),
-        "cp_impostos": round(sum(l.cp_impostos for l in resultado), 2),
-        "nao_classificado": round(sum(l.nao_classificado for l in resultado), 2),
-        "custo_total": round(sum(l.custo_total for l in resultado), 2),
-        "resultado": round(sum(l.resultado for l in resultado), 2),
-        "qtd_projetos": len(resultado),
+        "receita": round(sum(l.receita for l in reais), 2),
+        "producao": round(sum(l.producao for l in reais), 2),
+        "frete": round(sum(l.frete for l in reais), 2),
+        "outros": round(sum(l.outros for l in reais), 2),
+        "imposto": round(sum(l.imposto for l in reais), 2),
+        "cp_impostos": round(sum(l.cp_impostos for l in reais), 2),
+        "nao_classificado": round(sum(l.nao_classificado for l in reais), 2),
+        "custo_total": round(sum(l.custo_total for l in reais), 2),
+        "resultado": round(sum(l.resultado for l in reais), 2),
+        "qtd_projetos": len(reais),
     }
     receita_total = consolidado["receita"]
     consolidado["margem_media"] = round(consolidado["resultado"] / receita_total, 6) if receita_total > 0 else 0.0
@@ -360,7 +378,15 @@ def detalhe_projeto(
         if chave_projeto(ctx.projeto_do_titulo(t)) != chave:
             continue
         grupo_override = ctx.ajustes.get("titulo", t.id, "grupo")
-        grupo = grupo_override or ctx.grupos.get((t.empresa_id, t.codigo_categoria))
+        # mesmas parcelas usadas no fechamento (respeita rateio de categorias),
+        # para o detalhe SEMPRE conciliar com a linha consolidada
+        parcelas = _parcelas_do_titulo(t, ctx.grupos, grupo_override) if t.tipo == "pagar" else []
+        if grupo_override:
+            grupo = grupo_override
+        elif len(parcelas) > 1:
+            grupo = "rateado"
+        else:
+            grupo = ctx.grupos.get((t.empresa_id, t.codigo_categoria))
         titulos_out.append(
             {
                 "id": t.id,
@@ -373,6 +399,7 @@ def detalhe_projeto(
                 "valor_documento": _f(t.valor_documento),
                 "codigo_categoria": t.codigo_categoria,
                 "grupo": grupo,
+                "parcelas": [{"grupo": g, "valor": round(v, 2)} for g, v in parcelas] if len(parcelas) > 1 else [],
                 "grupo_ajustado": bool(grupo_override),
                 "status_titulo": t.status_titulo,
                 "numero_documento": t.numero_documento,

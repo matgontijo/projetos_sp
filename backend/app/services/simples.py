@@ -91,7 +91,7 @@ def rbt12_derivado(db: Session, empresa_id: int, competencia: str) -> float | No
             func.upper(models.Titulo.status_titulo) != "CANCELADO",
         )
     )
-    return float(total) if total else None
+    return float(total) if total is not None else None
 
 
 def aliquota_da_competencia(db: Session, empresa: models.Empresa, competencia: str) -> float:
@@ -102,7 +102,9 @@ def aliquota_da_competencia(db: Session, empresa: models.Empresa, competencia: s
             models.SimplesPeriodo.competencia == competencia,
         )
     )
-    rbt12 = float(manual) if manual else rbt12_derivado(db, empresa.id, competencia)
+    # RBT12=0 e valor valido (empresa recem-optante -> aliquota nominal da 1a faixa);
+    # so cai no derivado quando NAO informado (None)
+    rbt12 = float(manual) if manual is not None else rbt12_derivado(db, empresa.id, competencia)
     if rbt12 is None:
         return 0.0
     return aliquota_efetiva(rbt12, empresa.simples_anexo or "I")
