@@ -108,13 +108,27 @@ export const SERIES = [
   { key: 'resultado', label: 'Resultado', cor: 'var(--serie-resultado)' },
 ] as const
 
-export function KPICard({ titulo, valor, sub, tom }: { titulo: string; valor: string; sub?: ReactNode; tom?: 'pos' | 'neg' }) {
+export function KPICard({
+  titulo,
+  valor,
+  sub,
+  tom,
+  dica,
+}: {
+  titulo: string
+  valor: string
+  sub?: ReactNode
+  tom?: 'pos' | 'neg'
+  dica?: string
+}) {
   return (
-    <div className="card px-4 py-3.5">
-      <div className="titulo-secao">{titulo}</div>
+    <div className="card px-4 py-3.5" title={dica}>
+      <div className="titulo-secao whitespace-nowrap">{titulo}</div>
       <div
-        className="mt-1.5 text-[26px] leading-none font-extrabold tracking-tight"
+        className="mt-1.5 leading-none font-extrabold tracking-tight whitespace-nowrap"
         style={{
+          // nunca quebra linha: encolhe conforme a largura disponível
+          fontSize: 'clamp(13px, 1.55vw, 24px)',
           fontVariantNumeric: 'tabular-nums',
           color: tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good-text)' : 'var(--text-primary)',
         }}

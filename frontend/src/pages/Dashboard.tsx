@@ -126,7 +126,8 @@ export default function Dashboard() {
               }
             />
             <KPICard
-              titulo="Custos (prod. + frete + outros)"
+              titulo="Custos"
+              dica="Produção + frete + outros custos (impostos ficam no card ao lado)"
               valor={fmtBRL(consolidado.producao + consolidado.frete + consolidado.outros)}
               sub={
                 consolidadoAnterior && (
