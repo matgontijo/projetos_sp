@@ -258,6 +258,20 @@ def test_consolidado_exclui_sem_projeto(db, empresa):
     assert _linha(resultado, calculo.SEM_PROJETO_NOME)["outros"] == 50_000.0
 
 
+def test_sugestao_automatica_de_grupo():
+    from app.services.sync import sugestao_grupo
+
+    assert sugestao_grupo("6.1.1 Compras de Mercadorias para Revenda") == "producao"
+    assert sugestao_grupo("6.1.2 Compras de Matéria Prima") == "producao"
+    assert sugestao_grupo("Manutenção de Molde") == "producao"
+    assert sugestao_grupo("6.2.3 Loggi") == "frete"
+    assert sugestao_grupo("Serviços de Terceiros - Fretes") == "frete"
+    assert sugestao_grupo("1.4.7 Correios") == "frete"
+    assert sugestao_grupo("ICMS a recolher") == "imposto"
+    assert sugestao_grupo("1.1.5 Aluguel") is None
+    assert sugestao_grupo("Consultorias") is None
+
+
 def test_serie_mensal_agrupa_por_mes_e_exclui_sem_projeto(db, empresa):
     criar_projeto(db, empresa, 100, "BR26_055")
     mapear_categoria(db, empresa, "2.01.01", "producao")
