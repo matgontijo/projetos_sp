@@ -71,6 +71,13 @@ export default function ProjetoDetalhe() {
   const f = data?.fechamento
   const receber = (data?.titulos || []).filter((t) => t.tipo === 'receber')
   const pagar = (data?.titulos || []).filter((t) => t.tipo === 'pagar')
+  const [aba, setAba] = useState<'receber' | 'pagar' | 'nfe' | 'ajustes'>('receber')
+  const abas = [
+    { id: 'receber' as const, rotulo: `Recebimentos (${receber.length})` },
+    { id: 'pagar' as const, rotulo: `Pagamentos (${pagar.length})` },
+    { id: 'nfe' as const, rotulo: `Notas fiscais (${data?.nfes.length || 0})` },
+    { id: 'ajustes' as const, rotulo: `Ajustes (${data?.ajustes.length || 0})` },
+  ]
 
   return (
     <div>
@@ -139,6 +146,17 @@ export default function ProjetoDetalhe() {
         </>
       )}
 
+      {data && (
+        <div className="mt-4 flex gap-1 border-b" style={{ borderColor: 'var(--baseline)' }}>
+          {abas.map((a) => (
+            <button key={a.id} className={`tab ${aba === a.id ? 'tab-ativa' : ''}`} onClick={() => setAba(a.id)}>
+              {a.rotulo}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {aba === 'receber' && data && (
       <Secao titulo={`Contas a Receber (${receber.length})`}>
         <table className="data">
           <thead>
@@ -190,7 +208,9 @@ export default function ProjetoDetalhe() {
           </tbody>
         </table>
       </Secao>
+      )}
 
+      {aba === 'pagar' && data && (
       <Secao titulo={`Contas a Pagar (${pagar.length})`}>
         <table className="data">
           <thead>
@@ -261,7 +281,9 @@ export default function ProjetoDetalhe() {
           </tbody>
         </table>
       </Secao>
+      )}
 
+      {aba === 'nfe' && data && (
       <Secao titulo={`NF-e emitidas (${data?.nfes.length || 0})`}>
         <table className="data">
           <thead>
@@ -335,7 +357,9 @@ export default function ProjetoDetalhe() {
           </tbody>
         </table>
       </Secao>
+      )}
 
+      {aba === 'ajustes' && data && (
       <Secao titulo={`Histórico de ajustes (${data?.ajustes.length || 0})`}>
         <table className="data">
           <thead>
@@ -373,6 +397,7 @@ export default function ProjetoDetalhe() {
           </tbody>
         </table>
       </Secao>
+      )}
 
       {modal && (
         <div

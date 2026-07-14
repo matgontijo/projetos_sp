@@ -1,5 +1,104 @@
 import type { ReactNode } from 'react'
+import type { MesFechamento } from '../api/client'
 import { fmtBRL, fmtPct } from '../lib/format'
+
+const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+export function Skeleton({ altura = 20, largura = '100%' }: { altura?: number; largura?: number | string }) {
+  return <div className="skeleton" style={{ height: altura, width: largura }} />
+}
+
+/** Variação percentual vs o período anterior, com seta e cor. */
+export function Delta({ atual, anterior, invertido = false }: { atual: number; anterior: number; invertido?: boolean }) {
+  if (!anterior) return null
+  const variacao = (atual - anterior) / Math.abs(anterior)
+  if (!isFinite(variacao)) return null
+  const positivo = invertido ? variacao < 0 : variacao > 0
+  return (
+    <span
+      className="font-semibold"
+      style={{ color: positivo ? 'var(--status-good-text)' : 'var(--neg)' }}
+      title={`Período anterior: ${fmtBRL(anterior)}`}
+    >
+      {variacao >= 0 ? '↑' : '↓'} {fmtPct(Math.abs(variacao))} vs anterior
+    </span>
+  )
+}
+
+/** Evolução mensal: barras de receita e resultado lado a lado, com linha de zero. */
+export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
+  if (!serie.length) return null
+  const maxPos = Math.max(...serie.map((m) => Math.max(m.receita, m.resultado, 0)), 1)
+  const maxNeg = Math.max(...serie.map((m) => Math.max(0, -m.resultado)), 0)
+  const ALTURA = 150
+  const areaPos = maxNeg > 0 ? ALTURA * (maxPos / (maxPos + maxNeg)) : ALTURA
+  const areaNeg = ALTURA - areaPos
+
+  const rotulo = (mes: string) => {
+    const [ano, m] = mes.split('-')
+    return `${MES_CURTO[Number(m) - 1]}/${ano.slice(2)}`
+  }
+
+  return (
+    <div>
+      <div className="flex items-end gap-1" style={{ height: ALTURA + 4 }}>
+        {serie.map((m) => {
+          const hReceita = (m.receita / maxPos) * areaPos
+          const hResultado = (Math.abs(m.resultado) / (m.resultado >= 0 ? maxPos : maxNeg || 1)) * (m.resultado >= 0 ? areaPos : areaNeg)
+          return (
+            <div
+              key={m.mes}
+              className="group flex flex-1 flex-col items-center"
+              title={`${rotulo(m.mes)} — receita ${fmtBRL(m.receita)} · custos ${fmtBRL(m.custos)} · impostos ${fmtBRL(m.imposto)} · resultado ${fmtBRL(m.resultado)}`}
+            >
+              <div className="relative flex w-full items-end justify-center gap-0.5" style={{ height: areaPos }}>
+                <div
+                  className="w-2/5 rounded-t-sm transition-opacity group-hover:opacity-80"
+                  style={{ height: Math.max(hReceita, m.receita > 0 ? 2 : 0), background: 'var(--serie-producao)' }}
+                />
+                <div
+                  className="w-2/5 rounded-t-sm transition-opacity group-hover:opacity-80"
+                  style={{
+                    height: m.resultado >= 0 ? Math.max(hResultado, m.resultado > 0 ? 2 : 0) : 0,
+                    background: 'var(--status-good)',
+                  }}
+                />
+              </div>
+              {areaNeg > 0 && (
+                <div
+                  className="flex w-full items-start justify-center gap-0.5"
+                  style={{ height: areaNeg, borderTop: '1px solid var(--baseline)' }}
+                >
+                  <div className="w-2/5" />
+                  <div
+                    className="w-2/5 rounded-b-sm transition-opacity group-hover:opacity-80"
+                    style={{ height: m.resultado < 0 ? Math.max(hResultado, 2) : 0, background: 'var(--neg)' }}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-1 flex gap-1 border-t pt-1" style={{ borderColor: 'var(--baseline)' }}>
+        {serie.map((m) => (
+          <div key={m.mes} className="flex-1 text-center text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            {rotulo(m.mes)}
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--serie-producao)' }} /> Receita
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--status-good)' }} /> Resultado
+          (vermelho quando negativo)
+        </span>
+      </div>
+    </div>
+  )
+}
 
 export const SERIES = [
   { key: 'producao', label: 'Produção', cor: 'var(--serie-producao)' },
@@ -101,8 +200,10 @@ export function LegendaSeries({ incluirResultado = true }: { incluirResultado?: 
 /** Ranking de margem: barras horizontais divergentes (azul positivo, vermelho negativo) em HTML puro. */
 export function RankingMargem({
   itens,
+  aoClicar,
 }: {
   itens: { chave: string; rotulo: string; margem: number; detalhe: string }[]
+  aoClicar?: (chave: string) => void
 }) {
   const maxAbs = Math.max(...itens.map((i) => Math.abs(i.margem)), 0.0001)
   return (
@@ -111,7 +212,16 @@ export function RankingMargem({
         const positivo = i.margem >= 0
         const largura = (Math.abs(i.margem) / maxAbs) * 100
         return (
-          <div key={i.chave} className="flex items-center gap-2" role="listitem" title={i.detalhe}>
+          <div
+            key={i.chave}
+            className="flex items-center gap-2 rounded px-1 transition-colors"
+            role="listitem"
+            title={i.detalhe}
+            style={aoClicar ? { cursor: 'pointer' } : undefined}
+            onClick={aoClicar ? () => aoClicar(i.chave) : undefined}
+            onMouseEnter={(e) => aoClicar && (e.currentTarget.style.background = 'color-mix(in srgb, var(--gridline) 50%, transparent)')}
+            onMouseLeave={(e) => aoClicar && (e.currentTarget.style.background = 'transparent')}
+          >
             <span
               className="w-36 shrink-0 truncate text-right text-xs"
               style={{ color: 'var(--text-secondary)' }}

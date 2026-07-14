@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { api } from '../api/client'
+import { Link, useNavigate } from 'react-router-dom'
+import { api, type LinhaFechamento } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
-import { BadgeLucro, BarraComposicao, ChipsEmpresas, LegendaSeries } from '../components/Viz'
+import { BadgeLucro, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
+
+type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado' | 'margem'
 
 export default function Projetos() {
   const { empresaIds, de, ate, params } = useFiltros()
@@ -13,13 +15,38 @@ export default function Projetos() {
     queryFn: () => api.fechamento(empresaIds, de, ate),
   })
 
+  const navigate = useNavigate()
   const [busca, setBusca] = useState('')
+  const [ordem, setOrdem] = useState<{ campo: CampoOrdenavel; desc: boolean }>({ campo: 'receita', desc: true })
+
+  function ordenarPor(campo: CampoOrdenavel) {
+    setOrdem((o) => ({ campo, desc: o.campo === campo ? !o.desc : true }))
+  }
+
   const todos = data?.projetos || []
-  const projetos = busca
+  const filtrados = busca
     ? todos.filter((p) =>
         `${p.projeto} ${p.cliente} ${p.empresas}`.toLowerCase().includes(busca.toLowerCase()),
       )
     : todos
+  const projetos = [...filtrados].sort((a, b) => {
+    const va = a[ordem.campo]
+    const vb = b[ordem.campo]
+    const cmp = typeof va === 'string' ? String(va).localeCompare(String(vb)) : Number(va) - Number(vb)
+    return ordem.desc ? -cmp : cmp
+  })
+
+  const Th = ({ campo, children, numerica = true }: { campo: CampoOrdenavel; children: React.ReactNode; numerica?: boolean }) => (
+    <th
+      className={`ordenavel ${numerica ? 'num' : ''}`}
+      onClick={() => ordenarPor(campo)}
+      title="Clique para ordenar"
+    >
+      {children} {ordem.campo === campo ? (ordem.desc ? '▾' : '▴') : ''}
+    </th>
+  )
+
+  const abrir = (p: LinhaFechamento) => navigate(`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`)
 
   return (
     <div>
@@ -60,28 +87,29 @@ export default function Projetos() {
         <table className="data">
           <thead>
             <tr>
-              <th>Projeto</th>
+              <Th campo="projeto" numerica={false}>Projeto</Th>
               <th>Empresas</th>
               <th>Cliente</th>
-              <th className="num">Receita</th>
-              <th className="num">Produção</th>
-              <th className="num">Frete</th>
-              <th className="num">Impostos</th>
-              <th className="num">Outros</th>
-              <th className="num">Resultado</th>
-              <th className="num">Margem</th>
+              <Th campo="receita">Receita</Th>
+              <Th campo="producao">Produção</Th>
+              <Th campo="frete">Frete</Th>
+              <Th campo="imposto">Impostos</Th>
+              <Th campo="outros">Outros</Th>
+              <Th campo="resultado">Resultado</Th>
+              <Th campo="margem">Margem</Th>
               <th style={{ minWidth: 140 }}>Composição</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            {isLoading && (
-              <tr>
-                <td colSpan={12} style={{ color: 'var(--text-muted)' }}>
-                  Carregando…
-                </td>
-              </tr>
-            )}
+            {isLoading &&
+              [1, 2, 3, 4, 5, 6].map((i) => (
+                <tr key={i}>
+                  <td colSpan={12}>
+                    <Skeleton altura={18} />
+                  </td>
+                </tr>
+              ))}
             {!isLoading && !error && projetos.length === 0 && (
               <tr>
                 <td colSpan={12} style={{ color: 'var(--text-muted)' }}>
@@ -90,7 +118,7 @@ export default function Projetos() {
               </tr>
             )}
             {projetos.map((p) => (
-              <tr key={p.projeto}>
+              <tr key={p.projeto} className="linha-clicavel" onClick={() => abrir(p)}>
                 <td className="whitespace-nowrap">
                   <Link
                     to={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`}

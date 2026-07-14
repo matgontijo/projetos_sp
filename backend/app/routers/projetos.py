@@ -35,6 +35,19 @@ def fechamento(
     return calculo.fechar_projetos(db, ids, de, ate)
 
 
+@router.get("/fechamento/mensal")
+def fechamento_mensal(
+    empresa_ids: str | None = Query(default=None),
+    de: date | None = None,
+    ate: date | None = None,
+    db: Session = Depends(get_db),
+):
+    ids = _empresa_ids(db, empresa_ids)
+    if not ids:
+        return []
+    return calculo.serie_mensal(db, ids, de, ate)
+
+
 @router.get("/projetos/detalhe")
 def detalhe(
     nome: str = Query(min_length=1, description="número do projeto (ex.: BR26_055) ou 'Sem projeto'"),
