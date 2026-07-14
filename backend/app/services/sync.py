@@ -2,6 +2,7 @@
 
 import logging
 import re
+import unicodedata
 from datetime import date, datetime
 
 from sqlalchemy import select
@@ -20,6 +21,28 @@ _RE_IMPOSTO = re.compile(
     r"icms|ipi|pis|cofins|iss|csll|irpj|irrf|inss|das\b|simples|imposto|tribut|fgts|difal|ibs\b|cbs\b",
     re.IGNORECASE,
 )
+# Plano de contas da operacao: grupo 6.1 = producao, 6.2 = logistica/frete.
+# Sugestoes valem para QUALQUER ambiente (o banco de producao comeca vazio),
+# e o usuario pode sobrescrever na tela de classificacao.
+_RE_PRODUCAO = re.compile(r"^6\.1|manutencao de molde|materia[- ]prima|compras? de mercadoria", re.IGNORECASE)
+_RE_FRETE = re.compile(r"^6\.2|frete|carreto|correios|motoboy|loggi|lalamove|transporte|logistic", re.IGNORECASE)
+
+
+def _normaliza(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", texto or "")
+    return "".join(c for c in texto if not unicodedata.combining(c)).strip()
+
+
+def sugestao_grupo(descricao: str) -> str | None:
+    """Pre-classificacao automatica de categorias novas (auditavel e reversivel)."""
+    d = _normaliza(descricao)
+    if _RE_IMPOSTO.search(d):
+        return "imposto"
+    if _RE_PRODUCAO.search(d):
+        return "producao"
+    if _RE_FRETE.search(d):
+        return "frete"
+    return None
 
 
 def _num(value) -> float:
@@ -108,12 +131,12 @@ def sync_categorias(db: Session, empresa: models.Empresa, client: OmieClient) ->
         descricao = str(reg.get("descricao") or "")
         row = existentes.get(codigo)
         if row is None:
+            grupo = sugestao_grupo(descricao)
             row = models.CategoriaGrupo(
                 empresa_id=empresa.id,
                 codigo_categoria=codigo,
-                # pre-sugestao: tributos gerados pela Omie nunca podem cair em producao/frete
-                grupo="imposto" if _RE_IMPOSTO.search(descricao) else None,
-                atualizado_por="sync (sugestão automática)" if _RE_IMPOSTO.search(descricao) else "",
+                grupo=grupo,
+                atualizado_por="sync (sugestão automática)" if grupo else "",
             )
             db.add(row)
             existentes[codigo] = row
