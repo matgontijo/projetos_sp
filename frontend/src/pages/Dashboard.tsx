@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
+import { PageHeader } from '../components/Layout'
 import {
   BarraComposicao,
   Delta,
@@ -60,6 +61,10 @@ export default function Dashboard() {
 
   return (
     <div>
+      <PageHeader
+        titulo="Visão geral"
+        subtitulo="Resultado consolidado dos projetos — as duas empresas somadas por número de projeto"
+      />
       <FiltrosBar />
       {isLoading && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

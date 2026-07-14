@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, type TesteConexao } from '../api/client'
+import { PageHeader } from '../components/Layout'
 import { fmtBRL } from '../lib/format'
 
 const GRUPOS = [
@@ -79,16 +80,15 @@ export default function Empresas() {
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-lg font-bold">Empresas conectadas</h2>
-        <button className="btn btn-primary" onClick={() => setForm({ ...FORM_VAZIO })}>
-          + Conectar empresa
-        </button>
-      </div>
-      <p className="help mb-4">
-        Cada CNPJ tem sua própria conta Omie. O app junta tudo por número de projeto — quem fatura e quem paga podem
-        ser empresas diferentes que o fechamento sai certo.
-      </p>
+      <PageHeader
+        titulo="Empresas"
+        subtitulo="Cada CNPJ tem sua conta Omie — o app junta tudo por número de projeto, mesmo quando quem fatura e quem paga são empresas diferentes"
+        acoes={
+          <button className="btn btn-primary" onClick={() => setForm({ ...FORM_VAZIO })}>
+            + Conectar empresa
+          </button>
+        }
+      />
 
       <div className="grid gap-3 lg:grid-cols-2">
         {(empresas || []).map((e) => {

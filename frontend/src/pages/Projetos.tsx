@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type LinhaFechamento } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
+import { PageHeader } from '../components/Layout'
 import { BadgeLucro, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
@@ -50,6 +51,23 @@ export default function Projetos() {
 
   return (
     <div>
+      <PageHeader
+        titulo="Projetos"
+        subtitulo="Um fechamento por projeto — clique na linha para abrir o detalhe"
+        acoes={
+          <>
+            <a className="btn btn-primary" href={api.urlExportPdf(empresaIds, de, ate)} download>
+              Exportar PDF
+            </a>
+            <a className="btn btn-ghost" href={api.urlExportCsv(empresaIds, de, ate)} download>
+              CSV
+            </a>
+            <a className="btn btn-ghost" href={api.urlExportXlsx(empresaIds, de, ate)} download>
+              Excel
+            </a>
+          </>
+        }
+      />
       <FiltrosBar />
       {error && (
         <p className="mb-3 text-sm" style={{ color: 'var(--neg)' }}>
@@ -69,19 +87,8 @@ export default function Projetos() {
               {projetos.length} de {todos.length}
             </span>
           )}
-          <LegendaSeries />
         </div>
-        <div className="flex gap-2">
-          <a className="btn btn-ghost" href={api.urlExportPdf(empresaIds, de, ate)} download>
-            Exportar PDF
-          </a>
-          <a className="btn btn-ghost" href={api.urlExportCsv(empresaIds, de, ate)} download>
-            CSV
-          </a>
-          <a className="btn btn-ghost" href={api.urlExportXlsx(empresaIds, de, ate)} download>
-            Excel
-          </a>
-        </div>
+        <LegendaSeries />
       </div>
       <div className="card overflow-x-auto">
         <table className="data">

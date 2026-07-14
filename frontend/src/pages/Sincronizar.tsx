@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
+import { PageHeader } from '../components/Layout'
 import { fmtData, fmtDataHora } from '../lib/format'
 
 function hoje(): string {
@@ -57,10 +58,12 @@ export default function Sincronizar() {
 
   return (
     <div>
+      <PageHeader
+        titulo="Buscar dados"
+        subtitulo="Puxa notas fiscais, contas a receber e contas a pagar da Omie e monta o fechamento por projeto"
+      />
       <div className="card px-5 py-4">
-        <h2 className="mb-1 text-sm font-bold">Buscar dados da Omie</h2>
         <p className="help mb-3">
-          O app busca notas fiscais, contas a receber e contas a pagar do período e monta o fechamento por projeto.
           Pode rodar quantas vezes quiser — só atualiza o que mudou, sem duplicar nada. Dica: inclua o ano anterior
           no período para o imposto do Simples sair certinho (ele depende do faturamento dos 12 meses anteriores).
         </p>

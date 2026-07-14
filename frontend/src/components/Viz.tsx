@@ -110,18 +110,19 @@ export const SERIES = [
 
 export function KPICard({ titulo, valor, sub, tom }: { titulo: string; valor: string; sub?: ReactNode; tom?: 'pos' | 'neg' }) {
   return (
-    <div className="card px-4 py-3">
-      <div className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-        {titulo}
-      </div>
+    <div className="card px-4 py-3.5">
+      <div className="titulo-secao">{titulo}</div>
       <div
-        className="mt-1 text-2xl font-bold"
-        style={{ color: tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good-text)' : 'var(--text-primary)' }}
+        className="mt-1.5 text-[26px] leading-none font-extrabold tracking-tight"
+        style={{
+          fontVariantNumeric: 'tabular-nums',
+          color: tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good-text)' : 'var(--text-primary)',
+        }}
       >
         {valor}
       </div>
       {sub && (
-        <div className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+        <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
           {sub}
         </div>
       )}
