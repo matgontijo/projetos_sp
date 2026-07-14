@@ -13,10 +13,13 @@ export default function Dashboard() {
   })
 
   const consolidado = data?.consolidado
+  // margem dos 15 MAIORES projetos por receita — ranking por margem pura deixaria
+  // projetos minúsculos (ex.: R$ 1.620 sem custo = 100%) na frente dos relevantes
   const ranking = [...(data?.projetos || [])]
     .filter((p) => p.receita > 0)
-    .sort((a, b) => b.margem - a.margem)
+    .sort((a, b) => b.receita - a.receita)
     .slice(0, 15)
+    .sort((a, b) => b.margem - a.margem)
     .map((p) => ({
       chave: p.projeto,
       rotulo: p.projeto,
@@ -120,9 +123,10 @@ export default function Dashboard() {
           </div>
 
           <div className="card mt-4 px-5 py-4">
-            <h2 className="mb-1 text-sm font-bold">Ranking de margem por projeto</h2>
+            <h2 className="mb-1 text-sm font-bold">Margem dos 15 maiores projetos</h2>
             <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-              Margem % (resultado ÷ receita) — azul = positiva, vermelho = negativa. Top 15 por margem.
+              Os 15 projetos de maior receita no período, ordenados pela margem (azul = lucro, vermelho = prejuízo).
+              Passe o mouse para ver os valores.
             </p>
             {ranking.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>

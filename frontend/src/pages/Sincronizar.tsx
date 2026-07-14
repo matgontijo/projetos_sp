@@ -3,11 +3,13 @@ import { useState } from 'react'
 import { api } from '../api/client'
 import { fmtData, fmtDataHora } from '../lib/format'
 
-function primeiroDiaDoAno(): string {
-  return `${new Date().getFullYear()}-01-01`
-}
 function hoje(): string {
   return new Date().toISOString().slice(0, 10)
+}
+// padrao: ano passado inteiro + ano atual — assim o imposto do Simples consegue
+// derivar o faturamento dos 12 meses anteriores a cada competencia
+function inicioPadrao(): string {
+  return `${new Date().getFullYear() - 1}-01-01`
 }
 
 const RECURSO_LABEL: Record<string, string> = {
@@ -23,7 +25,7 @@ export default function Sincronizar() {
   const queryClient = useQueryClient()
   const { data: empresas } = useQuery({ queryKey: ['empresas'], queryFn: api.listarEmpresas })
   const [selecionadas, setSelecionadas] = useState<Set<number>>(new Set())
-  const [de, setDe] = useState(primeiroDiaDoAno())
+  const [de, setDe] = useState(inicioPadrao())
   const [ate, setAte] = useState(hoje())
 
   const { data: logs } = useQuery({
@@ -59,7 +61,8 @@ export default function Sincronizar() {
         <h2 className="mb-1 text-sm font-bold">Buscar dados da Omie</h2>
         <p className="help mb-3">
           O app busca notas fiscais, contas a receber e contas a pagar do período e monta o fechamento por projeto.
-          Pode rodar quantas vezes quiser — só atualiza o que mudou, sem duplicar nada.
+          Pode rodar quantas vezes quiser — só atualiza o que mudou, sem duplicar nada. Dica: inclua o ano anterior
+          no período para o imposto do Simples sair certinho (ele depende do faturamento dos 12 meses anteriores).
         </p>
         <div className="flex flex-wrap items-end gap-4">
           <div>

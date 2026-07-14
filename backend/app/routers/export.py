@@ -18,6 +18,13 @@ def _dados(db: Session, empresa_ids: str | None, de: date | None, ate: date | No
     return calculo.fechar_projetos(db, ids, de, ate)
 
 
+def _nome_arquivo(extensao: str, de: date | None, ate: date | None) -> str:
+    if de or ate:
+        fmt = lambda d: d.strftime("%Y-%m-%d") if d else "inicio"  # noqa: E731
+        return f"fechamento_{fmt(de)}_a_{ate.strftime('%Y-%m-%d') if ate else 'hoje'}.{extensao}"
+    return f"fechamento.{extensao}"
+
+
 @router.get("/fechamento.csv")
 def exportar_csv(
     empresa_ids: str | None = Query(default=None),
@@ -30,7 +37,7 @@ def exportar_csv(
     return Response(
         content=conteudo.encode("utf-8-sig"),  # BOM p/ Excel abrir acentos corretamente
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="fechamento.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="{_nome_arquivo("csv", de, ate)}"'},
     )
 
 
@@ -50,7 +57,7 @@ def exportar_pdf(
     return Response(
         content=conteudo,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="fechamento.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{_nome_arquivo("pdf", de, ate)}"'},
     )
 
 
@@ -66,5 +73,5 @@ def exportar_xlsx(
     return Response(
         content=conteudo,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="fechamento.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="{_nome_arquivo("xlsx", de, ate)}"'},
     )

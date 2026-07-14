@@ -134,6 +134,34 @@ export default function Projetos() {
               </tr>
             ))}
           </tbody>
+          {(() => {
+            const linhas = projetos.filter((p) => p.projeto !== 'Sem projeto')
+            if (!linhas.length) return null
+            const soma = (campo: 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado') =>
+              linhas.reduce((s, p) => s + p[campo], 0)
+            const receita = soma('receita')
+            const resultado = soma('resultado')
+            return (
+              <tfoot>
+                <tr style={{ fontWeight: 700, borderTop: '2px solid var(--baseline)' }}>
+                  <td title="Soma das linhas exibidas (a linha 'Sem projeto' fica de fora)">Total</td>
+                  <td colSpan={2} className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {linhas.length} projetos
+                  </td>
+                  <td className="num">{fmtBRL(receita)}</td>
+                  <td className="num">{fmtBRL(soma('producao'))}</td>
+                  <td className="num">{fmtBRL(soma('frete'))}</td>
+                  <td className="num">{fmtBRL(soma('imposto'))}</td>
+                  <td className="num">{fmtBRL(soma('outros'))}</td>
+                  <td className="num" style={{ color: resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+                    {fmtBRL(resultado)}
+                  </td>
+                  <td className="num">{fmtPct(receita > 0 ? resultado / receita : 0)}</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            )
+          })()}
         </table>
       </div>
     </div>
