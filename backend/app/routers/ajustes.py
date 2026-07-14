@@ -1,15 +1,56 @@
+from urllib.parse import unquote
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..db import get_db
+from ..schemas import GRUPOS_VALIDOS
 from ..services import calculo
 
 router = APIRouter(prefix="/api/ajustes", tags=["ajustes"])
 
 CAMPOS_TITULO = {"grupo", "codigo_projeto", "excluir"}
 CAMPOS_NFE = {"valor_imposto", "codigo_projeto", "excluir"}
+
+
+def _validar_valor_novo(db: Session, payload: schemas.AjusteCreate) -> str:
+    """Valida o valor por campo; evita ajustes no-op ou 'projeto fantasma'."""
+    valor = payload.valor_novo.strip()
+    if payload.campo == "codigo_projeto":
+        try:
+            codigo = int(valor)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="codigo_projeto deve ser um número (0 = sem projeto)")
+        if codigo != 0:
+            existe = db.scalar(
+                select(models.Projeto.id).where(
+                    models.Projeto.empresa_id == payload.empresa_id,
+                    models.Projeto.codigo_omie == codigo,
+                )
+            )
+            if not existe:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Projeto de código {codigo} não existe nesta empresa (sincronize ou confira o código)",
+                )
+        return str(codigo)
+    if payload.campo == "grupo":
+        if valor not in GRUPOS_VALIDOS:
+            raise HTTPException(status_code=422, detail=f"Grupo inválido: {valor}")
+        return valor
+    if payload.campo == "excluir":
+        if valor.upper() not in ("S", "N"):
+            raise HTTPException(status_code=422, detail="excluir deve ser 'S' ou 'N'")
+        return valor.upper()
+    if payload.campo == "valor_imposto":
+        try:
+            float(valor.replace(",", "."))
+        except ValueError:
+            raise HTTPException(status_code=422, detail="valor_imposto deve ser numérico")
+        return valor
+    return valor
 
 
 def _valor_atual(db: Session, payload: schemas.AjusteCreate) -> str:
@@ -56,9 +97,9 @@ def criar(payload: schemas.AjusteCreate, db: Session = Depends(get_db), x_usuari
         alvo_id=payload.alvo_id,
         campo=payload.campo,
         valor_anterior=_valor_atual(db, payload),
-        valor_novo=payload.valor_novo,
+        valor_novo=_validar_valor_novo(db, payload),
         motivo=payload.motivo,
-        usuario=x_usuario or "não identificado",
+        usuario=unquote(x_usuario or "") or "não identificado",
     )
     db.add(ajuste)
     db.commit()

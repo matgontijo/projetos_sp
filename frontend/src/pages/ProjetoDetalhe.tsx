@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, usuarioAtual } from '../api/client'
 import { useFiltros } from '../components/Filtros'
-import { BadgeLucro, KPICard } from '../components/Viz'
+import { BadgeLucro, KPICard, siglaEmpresa } from '../components/Viz'
 import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
 
 const GRUPO_LABEL: Record<string, string> = {
@@ -13,6 +13,7 @@ const GRUPO_LABEL: Record<string, string> = {
   outros: 'Outros',
   ignorar: 'Ignorar',
 }
+const GRUPOS_AJUSTE = ['producao', 'frete', 'imposto', 'outros', 'ignorar'] as const
 
 interface ModalAjuste {
   empresa_id: number
@@ -21,6 +22,7 @@ interface ModalAjuste {
   campo: 'grupo' | 'codigo_projeto' | 'excluir' | 'valor_imposto'
   descricao: string
   valorAtual: string
+  restaurar?: boolean // excluir='N' (reverte uma exclusão)
 }
 
 export default function ProjetoDetalhe() {
@@ -32,7 +34,7 @@ export default function ProjetoDetalhe() {
   const [valorNovo, setValorNovo] = useState('')
   const [motivo, setMotivo] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['detalhe', nome, empresaIds, de, ate],
     queryFn: () => api.detalheProjeto(nome, empresaIds, de, ate),
     enabled: !!nome,
@@ -45,7 +47,7 @@ export default function ProjetoDetalhe() {
         alvo_tipo: modal!.alvo_tipo,
         alvo_id: modal!.alvo_id,
         campo: modal!.campo,
-        valor_novo: modal!.campo === 'excluir' ? 'S' : valorNovo,
+        valor_novo: modal!.campo === 'excluir' ? (modal!.restaurar ? 'N' : 'S') : valorNovo,
         motivo,
       }),
     onSuccess: () => {
@@ -79,14 +81,24 @@ export default function ProjetoDetalhe() {
         <h2 className="text-lg font-bold">{f?.projeto || nome}</h2>
         {f && <BadgeLucro resultado={f.resultado} />}
         {f && (
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }} title={f.empresas}>
             {f.cliente && `${f.cliente} · `}
-            {f.empresas}
+            {f.empresas.split(',').map((n) => siglaEmpresa(n.trim())).join(' + ')}
           </span>
         )}
       </div>
 
+      {!nome && (
+        <p style={{ color: 'var(--text-muted)' }}>
+          Nenhum projeto informado na URL. Volte para <Link to="/projetos" className="underline">a lista de projetos</Link>.
+        </p>
+      )}
       {isLoading && <p style={{ color: 'var(--text-muted)' }}>Carregando…</p>}
+      {error && (
+        <p className="text-sm" style={{ color: 'var(--neg)' }}>
+          Erro ao carregar o detalhe: {(error as Error).message}
+        </p>
+      )}
       {!isLoading && data && !f && (
         <p style={{ color: 'var(--text-muted)' }}>Projeto sem lançamentos no período/empresas filtrados.</p>
       )}
@@ -100,7 +112,15 @@ export default function ProjetoDetalhe() {
             <KPICard
               titulo="Impostos"
               valor={fmtBRL(f.imposto)}
-              sub={f.imposto_simples > 0 ? `NF-e ${fmtBRL(f.imposto_nfe)} + Simples ${fmtBRL(f.imposto_simples)}` : `${f.qtd_nfe} NF-e`}
+              sub={
+                [
+                  f.imposto_nfe > 0 && `NF-e ${fmtBRL(f.imposto_nfe)}`,
+                  f.imposto_simples > 0 && `Simples ${fmtBRL(f.imposto_simples)}`,
+                  f.imposto_extra > 0 && `Extra ${fmtBRL(f.imposto_extra)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' + ') || `${f.qtd_nfe} NF-e`
+              }
             />
             <KPICard titulo="Resultado" valor={fmtBRL(f.resultado)} tom={f.resultado >= 0 ? 'pos' : 'neg'} />
             <KPICard titulo="Margem" valor={fmtPct(f.margem)} tom={f.margem >= 0 ? 'pos' : 'neg'} />
@@ -135,7 +155,9 @@ export default function ProjetoDetalhe() {
           <tbody>
             {receber.map((t) => (
               <tr key={t.id} style={t.cancelado || t.excluido ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t.empresa_nome}</td>
+                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
+                  {siglaEmpresa(t.empresa_nome)}
+                </td>
                 <td>{fmtData(t.data_emissao)}</td>
                 <td>{fmtData(t.data_vencimento)}</td>
                 <td>{t.numero_documento_fiscal || t.numero_documento || '—'}</td>
@@ -143,6 +165,7 @@ export default function ProjetoDetalhe() {
                 <td className="num">{fmtBRL(t.valor_documento)}</td>
                 <td className="text-right">
                   <BotoesAjuste
+                    excluido={t.excluido}
                     onMover={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'codigo_projeto',
@@ -153,7 +176,11 @@ export default function ProjetoDetalhe() {
                     onExcluir={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'excluir',
-                        descricao: `Excluir título ${t.numero_documento || t.id} do fechamento`, valorAtual: 'N',
+                        descricao: t.excluido
+                          ? `Restaurar título ${t.numero_documento || t.id} no fechamento`
+                          : `Excluir título ${t.numero_documento || t.id} do fechamento`,
+                        valorAtual: t.excluido ? 'S' : 'N',
+                        restaurar: t.excluido,
                       })
                     }
                   />
@@ -180,23 +207,34 @@ export default function ProjetoDetalhe() {
           <tbody>
             {pagar.map((t) => (
               <tr key={t.id} style={t.cancelado || t.excluido ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t.empresa_nome}</td>
+                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
+                  {siglaEmpresa(t.empresa_nome)}
+                </td>
                 <td>{fmtData(t.data_emissao)}</td>
                 <td className="text-xs">{t.codigo_categoria || '—'}</td>
                 <td>
-                  <span className="text-xs font-semibold">
-                    {t.grupo ? GRUPO_LABEL[t.grupo] || t.grupo : '— não classificado —'}
-                    {t.grupo_ajustado && ' ✎'}
-                  </span>
+                  {t.parcelas.length > 1 ? (
+                    <span className="text-xs" title="Título rateado entre categorias — parcelas conforme o fechamento">
+                      {t.parcelas
+                        .map((p) => `${p.grupo ? GRUPO_LABEL[p.grupo] || p.grupo : 'não classif.'} ${fmtBRL(p.valor)}`)
+                        .join(' · ')}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold">
+                      {t.grupo ? GRUPO_LABEL[t.grupo] || t.grupo : '— não classificado —'}
+                      {t.grupo_ajustado && ' ✎'}
+                    </span>
+                  )}
                 </td>
                 <td className="text-xs">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
                 <td className="num">{fmtBRL(t.valor_documento)}</td>
                 <td className="text-right">
                   <BotoesAjuste
+                    excluido={t.excluido}
                     onReclassificar={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'grupo',
-                        descricao: `Reclassificar custo (categoria ${t.codigo_categoria || '—'})`,
+                        descricao: `Reclassificar custo (categoria ${t.codigo_categoria || '—'})${t.parcelas.length > 1 ? ' — ATENÇÃO: o título é rateado; o novo grupo vale para o valor inteiro' : ''}`,
                         valorAtual: t.grupo || '',
                       })
                     }
@@ -209,7 +247,11 @@ export default function ProjetoDetalhe() {
                     onExcluir={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'excluir',
-                        descricao: `Excluir título ${t.id} do fechamento`, valorAtual: 'N',
+                        descricao: t.excluido
+                          ? `Restaurar título ${t.id} no fechamento`
+                          : `Excluir título ${t.id} do fechamento`,
+                        valorAtual: t.excluido ? 'S' : 'N',
+                        restaurar: t.excluido,
                       })
                     }
                   />
@@ -241,7 +283,9 @@ export default function ProjetoDetalhe() {
           <tbody>
             {(data?.nfes || []).map((n) => (
               <tr key={n.id} style={n.cancelada || n.excluida ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="text-xs" style={{ color: 'var(--text-secondary)' }}>{n.empresa_nome}</td>
+                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={n.empresa_nome}>
+                  {siglaEmpresa(n.empresa_nome)}
+                </td>
                 <td className="font-semibold">
                   {n.n_nf}
                   {n.serie && `/${n.serie}`}
@@ -260,6 +304,7 @@ export default function ProjetoDetalhe() {
                 </td>
                 <td className="text-right">
                   <BotoesAjuste
+                    excluido={n.excluida}
                     rotuloReclassificar="Corrigir imposto"
                     onReclassificar={() =>
                       abrirModal({
@@ -276,7 +321,11 @@ export default function ProjetoDetalhe() {
                     onExcluir={() =>
                       abrirModal({
                         empresa_id: n.empresa_id, alvo_tipo: 'nfe', alvo_id: n.id, campo: 'excluir',
-                        descricao: `Excluir NF ${n.n_nf} do fechamento`, valorAtual: 'N',
+                        descricao: n.excluida
+                          ? `Restaurar NF ${n.n_nf} no fechamento`
+                          : `Excluir NF ${n.n_nf} do fechamento`,
+                        valorAtual: n.excluida ? 'S' : 'N',
+                        restaurar: n.excluida,
                       })
                     }
                   />
@@ -346,9 +395,9 @@ export default function ProjetoDetalhe() {
                 Novo grupo
                 <select className="input mt-1 w-full" value={valorNovo} onChange={(e) => setValorNovo(e.target.value)}>
                   <option value="">— selecione —</option>
-                  {Object.entries(GRUPO_LABEL).map(([v, l]) => (
+                  {GRUPOS_AJUSTE.map((v) => (
                     <option key={v} value={v}>
-                      {l}
+                      {GRUPO_LABEL[v]}
                     </option>
                   ))}
                 </select>
@@ -378,7 +427,11 @@ export default function ProjetoDetalhe() {
               </label>
             )}
             {modal.campo === 'excluir' && (
-              <p className="text-sm">O lançamento continuará no cache, mas ficará fora do fechamento (reversível).</p>
+              <p className="text-sm">
+                {modal.restaurar
+                  ? 'O lançamento voltará a contar no fechamento.'
+                  : 'O lançamento continuará no cache, mas ficará fora do fechamento (reversível pelo botão "Restaurar").'}
+              </p>
             )}
             <label className="mt-3 block text-sm">
               Motivo (auditoria)
@@ -427,24 +480,32 @@ function BotoesAjuste({
   onMover,
   onExcluir,
   rotuloReclassificar = 'Reclassificar',
+  excluido = false,
 }: {
   onReclassificar?: () => void
   onMover: () => void
   onExcluir: () => void
   rotuloReclassificar?: string
+  excluido?: boolean
 }) {
   return (
     <span className="inline-flex gap-1 text-xs whitespace-nowrap">
-      {onReclassificar && (
+      {onReclassificar && !excluido && (
         <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={onReclassificar}>
           {rotuloReclassificar}
         </button>
       )}
-      <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={onMover}>
-        Mover
-      </button>
-      <button className="btn btn-ghost px-2 py-0.5 text-xs" style={{ color: 'var(--neg)' }} onClick={onExcluir}>
-        Excluir
+      {!excluido && (
+        <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={onMover}>
+          Mover
+        </button>
+      )}
+      <button
+        className="btn btn-ghost px-2 py-0.5 text-xs"
+        style={{ color: excluido ? 'var(--status-good-text)' : 'var(--neg)' }}
+        onClick={onExcluir}
+      >
+        {excluido ? 'Restaurar' : 'Excluir'}
       </button>
     </span>
   )

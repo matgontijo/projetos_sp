@@ -1,3 +1,5 @@
+from urllib.parse import unquote
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -40,6 +42,6 @@ def atualizar(
             row = models.CategoriaGrupo(empresa_id=empresa_id, codigo_categoria=item.codigo_categoria)
             db.add(row)
         row.grupo = item.grupo
-        row.atualizado_por = x_usuario or "não identificado"
+        row.atualizado_por = unquote(x_usuario or "") or "não identificado"
     db.commit()
     return listar(empresa_id, db)

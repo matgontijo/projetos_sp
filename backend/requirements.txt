@@ -6,6 +6,7 @@ pydantic-settings>=2.6
 httpx>=0.28
 cryptography>=44.0
 openpyxl>=3.1
+fpdf2>=2.8
 python-dateutil>=2.9
 alembic>=1.14
 # Driver PostgreSQL (opcional em dev; o app cai para SQLite se DATABASE_URL nao for definido)

@@ -33,7 +33,35 @@ export default function Dashboard() {
           Erro ao carregar: {(error as Error).message}
         </p>
       )}
-      {consolidado && (
+      {consolidado && consolidado.qtd_projetos === 0 && (
+        <div className="card px-6 py-6">
+          <h2 className="mb-2 text-base font-bold">Comece por aqui</h2>
+          <ol className="grid gap-2 text-sm md:grid-cols-3" style={{ color: 'var(--text-secondary)' }}>
+            <li className="rounded-lg border p-3" style={{ borderColor: 'var(--gridline)' }}>
+              <b>1. Conectar as empresas</b>
+              <p className="help mt-1">
+                Em <Link to="/empresas" className="underline">Empresas</Link>, cole as chaves da Omie de cada CNPJ e
+                teste a conexão.
+              </p>
+            </li>
+            <li className="rounded-lg border p-3" style={{ borderColor: 'var(--gridline)' }}>
+              <b>2. Buscar os dados</b>
+              <p className="help mt-1">
+                Em <Link to="/sincronizar" className="underline">Buscar dados</Link>, escolha o período — o app puxa
+                notas, contas a receber e a pagar.
+              </p>
+            </li>
+            <li className="rounded-lg border p-3" style={{ borderColor: 'var(--gridline)' }}>
+              <b>3. Classificar os custos</b>
+              <p className="help mt-1">
+                Em <Link to="/empresas" className="underline">Empresas → Classificar custos</Link>, diga o que é
+                produção, frete ou imposto. Pronto: o fechamento sai sozinho.
+              </p>
+            </li>
+          </ol>
+        </div>
+      )}
+      {consolidado && consolidado.qtd_projetos > 0 && (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <KPICard titulo="Receita" valor={fmtBRL(consolidado.receita)} sub={`${consolidado.qtd_projetos} projetos`} />

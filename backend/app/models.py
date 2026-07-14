@@ -37,6 +37,9 @@ class Empresa(Base):
     # 'nota' (Presumido/Real: impostos lidos das NF-e) | 'simples' (aplica aliquota efetiva)
     regime: Mapped[str] = mapped_column(String(10), default="nota")
     simples_anexo: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    # % ADICIONAL sobre a receita para impostos que nao vem na NF-e
+    # (ex.: IRPJ/CSLL do Lucro Presumido ~3,4%). Em pontos percentuais (3.4 = 3,4%).
+    aliquota_extra: Mapped[float] = mapped_column(Numeric(6, 3), default=0)
     ativa: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     atualizado_em: Mapped[datetime] = mapped_column(

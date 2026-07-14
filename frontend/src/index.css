@@ -63,7 +63,36 @@ body {
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border-hairline);
-  border-radius: 0.75rem;
+  border-radius: 0.9rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.titulo-secao {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.help {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.chip-preset {
+  border: 1px solid var(--baseline);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: transparent;
+}
+.chip-preset:hover {
+  background: var(--gridline);
 }
 
 .input {
@@ -117,13 +146,21 @@ table.data th {
   color: var(--text-muted);
   font-weight: 600;
   text-align: left;
-  padding: 0.5rem 0.75rem;
+  padding: 0.45rem 0.6rem;
   border-bottom: 1px solid var(--baseline);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+  z-index: 1;
 }
 table.data td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   border-bottom: 1px solid var(--gridline);
+  vertical-align: middle;
+}
+table.data tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--gridline) 18%, transparent);
 }
 table.data tr:hover td {
   background: color-mix(in srgb, var(--gridline) 40%, transparent);

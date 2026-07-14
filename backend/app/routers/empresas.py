@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -49,6 +49,7 @@ def criar(payload: schemas.EmpresaCreate, db: Session = Depends(get_db)):
         app_secret_enc=encrypt_str(payload.app_secret.strip()),
         regime=payload.regime,
         simples_anexo=payload.simples_anexo,
+        aliquota_extra=payload.aliquota_extra,
     )
     db.add(empresa)
     db.commit()
@@ -56,9 +57,21 @@ def criar(payload: schemas.EmpresaCreate, db: Session = Depends(get_db)):
     return empresa
 
 
+def limpar_cache_empresa(db: Session, empresa_id: int) -> None:
+    """Remove dados sincronizados da empresa (o cache pertence a UMA conta Omie).
+
+    Chamado quando as credenciais mudam: os dados da conta antiga nao podem
+    conviver com os da nova — o upsert nunca apaga, so acrescenta/atualiza.
+    """
+    for model in (models.Titulo, models.NFe, models.Projeto, models.Cliente, models.CategoriaGrupo):
+        db.execute(delete(model).where(model.empresa_id == empresa_id))
+
+
 @router.put("/{empresa_id}", response_model=schemas.EmpresaOut)
 def atualizar(empresa_id: int, payload: schemas.EmpresaUpdate, db: Session = Depends(get_db)):
     empresa = _get_empresa(db, empresa_id)
+    if payload.app_key or payload.app_secret:
+        limpar_cache_empresa(db, empresa_id)
     if payload.regime is not None:
         if payload.regime not in REGIMES:
             raise HTTPException(status_code=422, detail="Regime deve ser 'nota' ou 'simples'")
@@ -76,6 +89,8 @@ def atualizar(empresa_id: int, payload: schemas.EmpresaUpdate, db: Session = Dep
         if anexo not in ANEXOS:
             raise HTTPException(status_code=422, detail="Anexo do Simples deve ser I a V")
         empresa.simples_anexo = anexo
+    if payload.aliquota_extra is not None:
+        empresa.aliquota_extra = payload.aliquota_extra
     if payload.ativa is not None:
         empresa.ativa = payload.ativa
     db.commit()
