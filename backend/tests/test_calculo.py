@@ -258,6 +258,26 @@ def test_consolidado_exclui_sem_projeto(db, empresa):
     assert _linha(resultado, calculo.SEM_PROJETO_NOME)["outros"] == 50_000.0
 
 
+def test_serie_mensal_agrupa_por_mes_e_exclui_sem_projeto(db, empresa):
+    criar_projeto(db, empresa, 100, "BR26_055")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100, emissao=date(2026, 5, 10))
+    criar_titulo(db, empresa, "pagar", 2, 4_000.0, projeto=100, categoria="2.01.01", emissao=date(2026, 5, 12))
+    criar_titulo(db, empresa, "receber", 3, 6_000.0, projeto=100, emissao=date(2026, 6, 5))
+    criar_nfe(db, empresa, 555, projeto=100, v_icms=1_200.0, emissao=date(2026, 5, 15))
+    criar_titulo(db, empresa, "pagar", 4, 99_000.0, projeto=None, categoria="2.01.01", emissao=date(2026, 5, 20))  # fora
+
+    serie = calculo.serie_mensal(db, [empresa.id])
+
+    assert [m["mes"] for m in serie] == ["2026-05", "2026-06"]
+    maio = serie[0]
+    assert maio["receita"] == 10_000.0
+    assert maio["custos"] == 4_000.0  # os 99k sem projeto ficam de fora
+    assert maio["imposto"] == 1_200.0
+    assert maio["resultado"] == 4_800.0
+    assert serie[1]["receita"] == 6_000.0
+
+
 def test_pdf_do_fechamento_gera_bytes(db, empresa):
     from app.services.export import fechamento_pdf
 

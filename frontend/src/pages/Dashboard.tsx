@@ -1,18 +1,49 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
-import { BarraComposicao, KPICard, LegendaSeries, RankingMargem } from '../components/Viz'
+import {
+  BarraComposicao,
+  Delta,
+  GraficoMensal,
+  KPICard,
+  LegendaSeries,
+  RankingMargem,
+  Skeleton,
+} from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
+/** Período imediatamente anterior, com a mesma duração do filtro atual. */
+function periodoAnterior(de?: string, ate?: string): { de: string; ate: string } | null {
+  if (!de || !ate) return null
+  const inicio = new Date(de)
+  const fim = new Date(ate)
+  const dias = Math.round((fim.getTime() - inicio.getTime()) / 864e5) + 1
+  const anteriorFim = new Date(inicio.getTime() - 864e5)
+  const anteriorInicio = new Date(anteriorFim.getTime() - (dias - 1) * 864e5)
+  return { de: anteriorInicio.toISOString().slice(0, 10), ate: anteriorFim.toISOString().slice(0, 10) }
+}
+
 export default function Dashboard() {
-  const { empresaIds, de, ate } = useFiltros()
+  const { empresaIds, de, ate, params } = useFiltros()
+  const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['fechamento', empresaIds, de, ate],
     queryFn: () => api.fechamento(empresaIds, de, ate),
   })
+  const { data: serie } = useQuery({
+    queryKey: ['fechamento-mensal', empresaIds, de, ate],
+    queryFn: () => api.fechamentoMensal(empresaIds, de, ate),
+  })
+  const anterior = periodoAnterior(de, ate)
+  const { data: dataAnterior } = useQuery({
+    queryKey: ['fechamento', empresaIds, anterior?.de, anterior?.ate],
+    queryFn: () => api.fechamento(empresaIds, anterior!.de, anterior!.ate),
+    enabled: !!anterior,
+  })
 
   const consolidado = data?.consolidado
+  const consolidadoAnterior = dataAnterior?.consolidado
   // margem dos 15 MAIORES projetos por receita — ranking por margem pura deixaria
   // projetos minúsculos (ex.: R$ 1.620 sem custo = 100%) na frente dos relevantes
   const ranking = [...(data?.projetos || [])]
@@ -30,7 +61,18 @@ export default function Dashboard() {
   return (
     <div>
       <FiltrosBar />
-      {isLoading && <p style={{ color: 'var(--text-muted)' }}>Carregando fechamento…</p>}
+      {isLoading && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="card px-4 py-3">
+              <Skeleton altura={12} largura={90} />
+              <div className="mt-2">
+                <Skeleton altura={26} largura={130} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {error && (
         <p className="text-sm" style={{ color: 'var(--neg)' }}>
           Erro ao carregar: {(error as Error).message}
@@ -67,21 +109,54 @@ export default function Dashboard() {
       {consolidado && consolidado.qtd_projetos > 0 && (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <KPICard titulo="Receita" valor={fmtBRL(consolidado.receita)} sub={`${consolidado.qtd_projetos} projetos`} />
+            <KPICard
+              titulo="Receita"
+              valor={fmtBRL(consolidado.receita)}
+              sub={
+                consolidadoAnterior ? (
+                  <Delta atual={consolidado.receita} anterior={consolidadoAnterior.receita} />
+                ) : (
+                  `${consolidado.qtd_projetos} projetos`
+                )
+              }
+            />
             <KPICard
               titulo="Custos (prod. + frete + outros)"
               valor={fmtBRL(consolidado.producao + consolidado.frete + consolidado.outros)}
+              sub={
+                consolidadoAnterior && (
+                  <Delta
+                    atual={consolidado.producao + consolidado.frete + consolidado.outros}
+                    anterior={consolidadoAnterior.producao + consolidadoAnterior.frete + consolidadoAnterior.outros}
+                    invertido
+                  />
+                )
+              }
             />
-            <KPICard titulo="Impostos" valor={fmtBRL(consolidado.imposto)} />
+            <KPICard
+              titulo="Impostos"
+              valor={fmtBRL(consolidado.imposto)}
+              sub={
+                consolidadoAnterior && (
+                  <Delta atual={consolidado.imposto} anterior={consolidadoAnterior.imposto} invertido />
+                )
+              }
+            />
             <KPICard
               titulo="Resultado"
               valor={fmtBRL(consolidado.resultado)}
               tom={consolidado.resultado >= 0 ? 'pos' : 'neg'}
+              sub={
+                consolidadoAnterior && (
+                  <Delta atual={consolidado.resultado} anterior={consolidadoAnterior.resultado} />
+                )
+              }
             />
             <KPICard
               titulo="Margem média"
               valor={fmtPct(consolidado.margem_media)}
               tom={consolidado.margem_media >= 0 ? 'pos' : 'neg'}
+              sub={`${consolidado.qtd_projetos} projetos`}
             />
           </div>
 
@@ -96,45 +171,61 @@ export default function Dashboard() {
               ⚠ {fmtBRL(consolidado.nao_classificado)} em contas a pagar com categoria <b>não classificada</b> (somadas
               em "Outros"). Classifique em{' '}
               <Link to="/empresas" className="underline font-semibold">
-                Empresas → Categorias
+                Empresas → Classificar custos
               </Link>
               .
             </div>
           )}
 
-          <div className="card mt-4 px-5 py-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-bold">Composição da receita (consolidado)</h2>
-              <LegendaSeries />
-            </div>
-            <BarraComposicao
-              receita={consolidado.receita}
-              producao={consolidado.producao}
-              frete={consolidado.frete}
-              imposto={consolidado.imposto}
-              outros={consolidado.outros}
-              resultado={consolidado.resultado}
-            />
-            <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-              Cada segmento é a fração da receita consumida pelo grupo; o segmento "Resultado" é o que sobra.
-              {consolidado.cp_impostos > 0 &&
-                ` Tributos pagos via contas a pagar (${fmtBRL(consolidado.cp_impostos)}) são exibidos no detalhe e não somam no custo (o imposto vem da NF-e).`}
-            </p>
-          </div>
-
-          <div className="card mt-4 px-5 py-4">
-            <h2 className="mb-1 text-sm font-bold">Margem dos 15 maiores projetos</h2>
-            <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-              Os 15 projetos de maior receita no período, ordenados pela margem (azul = lucro, vermelho = prejuízo).
-              Passe o mouse para ver os valores.
-            </p>
-            {ranking.length === 0 ? (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                Nenhum projeto com receita no período. Sincronize os dados em "Sincronizar".
+          {serie && serie.length > 1 && (
+            <div className="card mt-4 px-5 py-4">
+              <h2 className="mb-1 text-sm font-bold">Evolução mensal</h2>
+              <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                Receita e resultado dos projetos, mês a mês. Passe o mouse para ver os valores.
               </p>
-            ) : (
-              <RankingMargem itens={ranking} />
-            )}
+              <GraficoMensal serie={serie} />
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="card px-5 py-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-bold">Composição da receita</h2>
+              </div>
+              <BarraComposicao
+                receita={consolidado.receita}
+                producao={consolidado.producao}
+                frete={consolidado.frete}
+                imposto={consolidado.imposto}
+                outros={consolidado.outros}
+                resultado={consolidado.resultado}
+              />
+              <div className="mt-2">
+                <LegendaSeries />
+              </div>
+              <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                Cada segmento é a fração da receita consumida pelo grupo; "Resultado" é o que sobra.
+                {consolidado.cp_impostos > 0 &&
+                  ` Tributos pagos via contas a pagar (${fmtBRL(consolidado.cp_impostos)}) aparecem no detalhe e não somam no custo.`}
+              </p>
+            </div>
+
+            <div className="card px-5 py-4">
+              <h2 className="mb-1 text-sm font-bold">Margem dos 15 maiores projetos</h2>
+              <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                Ordenados pela margem — azul = lucro, vermelho = prejuízo. Clique para abrir o projeto.
+              </p>
+              {ranking.length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Nenhum projeto com receita no período.
+                </p>
+              ) : (
+                <RankingMargem
+                  itens={ranking}
+                  aoClicar={(nome) => navigate(`/projeto?nome=${encodeURIComponent(nome)}&${params.toString()}`)}
+                />
+              )}
+            </div>
           </div>
         </>
       )}

@@ -359,6 +359,78 @@ def fechar_projetos(
     return {"projetos": [l.as_dict() for l in resultado], "consolidado": consolidado}
 
 
+def serie_mensal(
+    db: Session,
+    empresa_ids: list[int],
+    de: date | None = None,
+    ate: date | None = None,
+) -> list[dict]:
+    """Receita, custos, impostos e resultado por mes (mesmas regras do consolidado:
+    lancamentos sem projeto ficam de fora)."""
+    ctx = _Contexto(db, empresa_ids, de, ate)
+    chave_sem = chave_projeto(SEM_PROJETO_NOME)
+    meses: dict[str, dict] = {}
+
+    def mes_de(d: date | None) -> str | None:
+        return d.strftime("%Y-%m") if d else None
+
+    def linha(mes: str) -> dict:
+        if mes not in meses:
+            meses[mes] = {"mes": mes, "receita": 0.0, "custos": 0.0, "imposto": 0.0}
+        return meses[mes]
+
+    aliquotas: dict[tuple[int, str], float] = {}
+    for titulo in ctx.titulos:
+        if _cancelado(titulo.status_titulo) or ctx.ajustes.excluido("titulo", titulo.id):
+            continue
+        if chave_projeto(ctx.projeto_do_titulo(titulo)) == chave_sem:
+            continue
+        mes = mes_de(titulo.data_emissao)
+        if not mes:
+            continue
+        ln = linha(mes)
+        if titulo.tipo == "receber":
+            valor = _f(titulo.valor_documento)
+            ln["receita"] += valor
+            empresa = ctx.empresas.get(titulo.empresa_id)
+            if empresa and empresa.regime == "simples":
+                chave_aliq = (titulo.empresa_id, mes)
+                if chave_aliq not in aliquotas:
+                    aliquotas[chave_aliq] = simples.aliquota_da_competencia(db, empresa, mes)
+                ln["imposto"] += valor * aliquotas[chave_aliq]
+            if empresa and _f(empresa.aliquota_extra) > 0:
+                ln["imposto"] += valor * _f(empresa.aliquota_extra) / 100.0
+        else:
+            grupo_override = ctx.ajustes.get("titulo", titulo.id, "grupo")
+            for grupo, valor in _parcelas_do_titulo(titulo, ctx.grupos, grupo_override):
+                if grupo in ("ignorar", "imposto"):
+                    continue  # imposto de CP nao soma (vem da NF-e); ignorar fica fora
+                ln["custos"] += valor
+
+    for nfe in ctx.nfes:
+        if nfe.cancelada or str(nfe.tp_nf) != "1" or ctx.ajustes.excluido("nfe", nfe.id):
+            continue
+        if chave_projeto(ctx.projeto_da_nfe(nfe)) == chave_sem:
+            continue
+        mes = mes_de(nfe.d_emi)
+        if not mes:
+            continue
+        override = ctx.ajustes.get("nfe", nfe.id, "valor_imposto")
+        try:
+            imposto = float(override.replace(",", ".")) if override else imposto_da_nfe(nfe)
+        except ValueError:
+            imposto = imposto_da_nfe(nfe)
+        linha(mes)["imposto"] += imposto
+
+    resultado = []
+    for mes in sorted(meses):
+        ln = meses[mes]
+        ln = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in ln.items()}
+        ln["resultado"] = round(ln["receita"] - ln["custos"] - ln["imposto"], 2)
+        resultado.append(ln)
+    return resultado
+
+
 def detalhe_projeto(
     db: Session,
     empresa_ids: list[int],

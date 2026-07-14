@@ -71,6 +71,14 @@ export interface Fechamento {
   consolidado: Consolidado
 }
 
+export interface MesFechamento {
+  mes: string // 'YYYY-MM'
+  receita: number
+  custos: number
+  imposto: number
+  resultado: number
+}
+
 export interface TituloDetalhe {
   id: number
   empresa_id: number
@@ -203,6 +211,8 @@ export const api = {
   // Fechamento
   fechamento: (empresaIds?: string, de?: string, ate?: string) =>
     request<Fechamento>(`/api/fechamento${qs({ empresa_ids: empresaIds, de, ate })}`),
+  fechamentoMensal: (empresaIds?: string, de?: string, ate?: string) =>
+    request<MesFechamento[]>(`/api/fechamento/mensal${qs({ empresa_ids: empresaIds, de, ate })}`),
   detalheProjeto: (nome: string, empresaIds?: string, de?: string, ate?: string) =>
     request<DetalheProjeto>(`/api/projetos/detalhe${qs({ nome, empresa_ids: empresaIds, de, ate })}`),
 

@@ -90,9 +90,55 @@ body {
   color: var(--text-secondary);
   cursor: pointer;
   background: transparent;
+  transition: background 0.12s;
 }
 .chip-preset:hover {
   background: var(--gridline);
+}
+
+/* esqueleto de carregamento */
+.skeleton {
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, var(--gridline) 25%, color-mix(in srgb, var(--gridline) 40%, transparent) 50%, var(--gridline) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* abas do detalhe */
+.tab {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.tab:hover {
+  color: var(--text-primary);
+}
+.tab-ativa {
+  color: var(--text-primary);
+  border-bottom-color: var(--serie-producao);
+}
+
+/* cabecalho ordenavel */
+th.ordenavel {
+  cursor: pointer;
+  user-select: none;
+}
+th.ordenavel:hover {
+  color: var(--text-primary);
+}
+
+tr.linha-clicavel {
+  cursor: pointer;
 }
 
 .input {
