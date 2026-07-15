@@ -22,7 +22,12 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
         : await api.login(email.trim(), senha)
       aoEntrar(resposta.token, resposta.usuario)
     } catch (ex) {
-      setErro((ex as Error).message)
+      const mensagem = (ex as Error).message
+      setErro(
+        mensagem.includes('Not Found') || mensagem.includes('404')
+          ? 'O servidor está terminando de atualizar — aguarde um minuto e tente de novo.'
+          : mensagem,
+      )
     } finally {
       setEnviando(false)
     }
