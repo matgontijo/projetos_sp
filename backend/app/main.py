@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .auth import usuario_logado
 from .config import settings
 from .db import Base, engine
-from .routers import ajustes, analises, categorias, config as config_router, empresas, export, extras, projetos, sync
+from .routers import ajustes, analises, autenticacao, categorias, config as config_router, empresas, export, extras, projetos, sync
 from .routers.empresas import build_omie_client
 from .services import agendador
 
@@ -29,15 +30,21 @@ def _startup() -> None:
     agendador.iniciar(build_omie_client)
 
 
-app.include_router(empresas.router)
-app.include_router(sync.router)
-app.include_router(projetos.router)
-app.include_router(categorias.router)
-app.include_router(ajustes.router)
-app.include_router(export.router)
-app.include_router(config_router.router)
-app.include_router(analises.router)
-app.include_router(extras.router)
+# abertas: login/setup (a gestao de usuarios ja exige admin internamente)
+app.include_router(autenticacao.router)
+app.include_router(autenticacao.router_usuarios)
+
+# todas as demais rotas exigem sessao valida (papel 'leitura' nao escreve)
+_PROTEGIDO = [Depends(usuario_logado)]
+app.include_router(empresas.router, dependencies=_PROTEGIDO)
+app.include_router(sync.router, dependencies=_PROTEGIDO)
+app.include_router(projetos.router, dependencies=_PROTEGIDO)
+app.include_router(categorias.router, dependencies=_PROTEGIDO)
+app.include_router(ajustes.router, dependencies=_PROTEGIDO)
+app.include_router(export.router, dependencies=_PROTEGIDO)
+app.include_router(config_router.router, dependencies=_PROTEGIDO)
+app.include_router(analises.router, dependencies=_PROTEGIDO)
+app.include_router(extras.router, dependencies=_PROTEGIDO)
 
 
 @app.get("/api/health")

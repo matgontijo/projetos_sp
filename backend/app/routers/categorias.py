@@ -1,10 +1,9 @@
-from urllib.parse import unquote
-
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..auth import usuario_logado
 from ..db import get_db
 from ..schemas import GRUPOS_VALIDOS
 
@@ -25,7 +24,7 @@ def atualizar(
     empresa_id: int,
     payload: list[schemas.CategoriaGrupoUpdate],
     db: Session = Depends(get_db),
-    x_usuario: str = Header(default=""),
+    usuario: models.Usuario = Depends(usuario_logado),
 ):
     if not db.get(models.Empresa, empresa_id):
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
@@ -42,6 +41,6 @@ def atualizar(
             row = models.CategoriaGrupo(empresa_id=empresa_id, codigo_categoria=item.codigo_categoria)
             db.add(row)
         row.grupo = item.grupo
-        row.atualizado_por = unquote(x_usuario or "") or "não identificado"
+        row.atualizado_por = usuario.nome
     db.commit()
     return listar(empresa_id, db)
