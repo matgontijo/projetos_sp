@@ -15,6 +15,7 @@ METODOS_PERMITIDOS = {
     "ListarNF",
     "ListarClientesResumido",
     "ListarCategorias",
+    "ListarVendedores",
 }
 
 API_PY = Path(__file__).resolve().parent.parent / "app" / "omie" / "api.py"

@@ -88,6 +88,7 @@ class Titulo(Base):
     data_vencimento: Mapped[date | None] = mapped_column(Date, nullable=True)
     status_titulo: Mapped[str] = mapped_column(String(30), default="")
     codigo_cliente_fornecedor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    codigo_vendedor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     numero_documento: Mapped[str] = mapped_column(String(60), default="")
     numero_documento_fiscal: Mapped[str] = mapped_column(String(60), default="")
     raw: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
@@ -197,6 +198,63 @@ class SimplesPeriodo(Base):
     empresa_id: Mapped[int] = mapped_column(ForeignKey("empresa.id", ondelete="CASCADE"))
     competencia: Mapped[str] = mapped_column(String(7))  # 'YYYY-MM'
     rbt12: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+
+
+class Vendedor(Base):
+    __tablename__ = "vendedor"
+    __table_args__ = (UniqueConstraint("empresa_id", "codigo_omie", name="uq_vendedor_empresa_codigo"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresa.id", ondelete="CASCADE"))
+    codigo_omie: Mapped[int] = mapped_column(BigInteger)
+    nome: Mapped[str] = mapped_column(String(120), default="")
+
+
+class Configuracao(Base):
+    """Preferencias do app (chave/valor): margem alvo, busca automatica etc."""
+
+    __tablename__ = "configuracao"
+
+    chave: Mapped[str] = mapped_column(String(40), primary_key=True)
+    valor: Mapped[str] = mapped_column(Text, default="")
+
+
+class Orcamento(Base):
+    """Orcado x Realizado por projeto (chave = numero normalizado, cross-empresa)."""
+
+    __tablename__ = "orcamento"
+
+    chave_projeto: Mapped[str] = mapped_column(String(80), primary_key=True)
+    nome_exibicao: Mapped[str] = mapped_column(String(120), default="")
+    receita_prevista: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+    custo_previsto: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+    atualizado_por: Mapped[str] = mapped_column(String(80), default="")
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class FechamentoAprovado(Base):
+    """Fotografia imutavel de um fechamento aprovado pela gestao."""
+
+    __tablename__ = "fechamento_aprovado"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chave_projeto: Mapped[str] = mapped_column(String(80), index=True)
+    nome: Mapped[str] = mapped_column(String(120))
+    periodo_de: Mapped[date | None] = mapped_column(Date, nullable=True)
+    periodo_ate: Mapped[date | None] = mapped_column(Date, nullable=True)
+    dados: Mapped[dict] = mapped_column(JSONVariant)
+    usuario: Mapped[str] = mapped_column(String(80), default="")
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Comentario(Base):
+    __tablename__ = "comentario"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chave_projeto: Mapped[str] = mapped_column(String(80), index=True)
+    texto: Mapped[str] = mapped_column(Text)
+    usuario: Mapped[str] = mapped_column(String(80), default="")
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class SyncLog(Base):
