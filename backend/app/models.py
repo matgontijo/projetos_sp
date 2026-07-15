@@ -200,6 +200,32 @@ class SimplesPeriodo(Base):
     rbt12: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
 
 
+class Usuario(Base):
+    """Usuario do app. papel: 'admin' | 'financeiro' | 'leitura'."""
+
+    __tablename__ = "usuario"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(80))
+    email: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    senha_hash: Mapped[str] = mapped_column(Text)
+    papel: Mapped[str] = mapped_column(String(12), default="financeiro")
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Sessao(Base):
+    """Sessao de login (token opaco; guardamos so o hash — revogavel)."""
+
+    __tablename__ = "sessao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Vendedor(Base):
     __tablename__ = "vendedor"
     __table_args__ = (UniqueConstraint("empresa_id", "codigo_omie", name="uq_vendedor_empresa_codigo"),)

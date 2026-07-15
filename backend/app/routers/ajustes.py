@@ -1,10 +1,9 @@
-from urllib.parse import unquote
-
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..auth import usuario_logado
 from ..db import get_db
 from ..schemas import GRUPOS_VALIDOS
 from ..services import calculo
@@ -82,7 +81,11 @@ def _valor_atual(db: Session, payload: schemas.AjusteCreate) -> str:
 
 
 @router.post("", response_model=schemas.AjusteOut, status_code=201)
-def criar(payload: schemas.AjusteCreate, db: Session = Depends(get_db), x_usuario: str = Header(default="")):
+def criar(
+    payload: schemas.AjusteCreate,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(usuario_logado),
+):
     if payload.alvo_tipo not in ("titulo", "nfe"):
         raise HTTPException(status_code=422, detail="alvo_tipo deve ser 'titulo' ou 'nfe'")
     campos = CAMPOS_TITULO if payload.alvo_tipo == "titulo" else CAMPOS_NFE
@@ -99,7 +102,7 @@ def criar(payload: schemas.AjusteCreate, db: Session = Depends(get_db), x_usuari
         valor_anterior=_valor_atual(db, payload),
         valor_novo=_validar_valor_novo(db, payload),
         motivo=payload.motivo,
-        usuario=unquote(x_usuario or "") or "não identificado",
+        usuario=usuario.nome,
     )
     db.add(ajuste)
     db.commit()

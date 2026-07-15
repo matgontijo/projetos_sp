@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, usuarioAtual, type LinhaFechamento, type Orcamento } from '../api/client'
+import { api, type LinhaFechamento, type Orcamento } from '../api/client'
 import { useFiltros } from '../components/Filtros'
 import { BadgeLucro, KPICard, siglaEmpresa } from '../components/Viz'
 import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
@@ -131,8 +131,8 @@ export default function ProjetoDetalhe() {
             )}
             <button
               className="btn btn-ghost"
-              disabled={aprovarFechamento.isPending || !usuarioAtual()}
-              title={!usuarioAtual() ? 'Informe seu nome no campo lateral para assinar a aprovação' : 'Congela os números atuais como fechamento aprovado'}
+              disabled={aprovarFechamento.isPending}
+              title="Congela os números atuais como fechamento aprovado, assinado com o seu usuário"
               onClick={() => aprovarFechamento.mutate()}
             >
               {aprovarFechamento.isPending ? 'Aprovando…' : 'Aprovar fechamento'}
@@ -462,11 +462,7 @@ export default function ProjetoDetalhe() {
             <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
               {modal.descricao}
             </p>
-            {!usuarioAtual() && (
-              <p className="mb-3 text-sm" style={{ color: 'var(--neg)' }}>
-                Informe seu nome no campo "Usuário" (topo da página) — o ajuste é auditável.
-              </p>
-            )}
+            <p className="help mb-3">O ajuste fica registrado no histórico com o seu usuário.</p>
             {modal.campo === 'grupo' && (
               <label className="text-sm">
                 Novo grupo
@@ -530,7 +526,7 @@ export default function ProjetoDetalhe() {
               </button>
               <button
                 className="btn btn-primary"
-                disabled={criarAjuste.isPending || (modal.campo !== 'excluir' && !valorNovo) || !motivo || !usuarioAtual()}
+                disabled={criarAjuste.isPending || (modal.campo !== 'excluir' && !valorNovo) || !motivo}
                 onClick={() => criarAjuste.mutate()}
               >
                 {criarAjuste.isPending ? 'Salvando…' : 'Salvar ajuste'}
@@ -650,15 +646,10 @@ function Comentarios({ nome }: { nome: string }) {
             placeholder="ex.: cliente aprovou reposição sem custo — margem cai de propósito"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && texto.trim() && usuarioAtual() && enviar.mutate()}
+            onKeyDown={(e) => e.key === 'Enter' && texto.trim() && enviar.mutate()}
           />
         </label>
-        <button
-          className="btn btn-primary"
-          disabled={!texto.trim() || enviar.isPending || !usuarioAtual()}
-          title={!usuarioAtual() ? 'Informe seu nome no campo lateral' : undefined}
-          onClick={() => enviar.mutate()}
-        >
+        <button className="btn btn-primary" disabled={!texto.trim() || enviar.isPending} onClick={() => enviar.mutate()}>
           Comentar
         </button>
       </div>

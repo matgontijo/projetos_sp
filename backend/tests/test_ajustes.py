@@ -3,10 +3,13 @@
 import pytest
 from fastapi import HTTPException
 
+from app import models
 from app.routers.ajustes import criar
 from app.schemas import AjusteCreate
 
 from .conftest import criar_projeto, criar_titulo
+
+TESTER = models.Usuario(nome="Tester", email="t@t.com", senha_hash="x", papel="financeiro")
 
 
 def _payload(empresa, titulo, campo, valor):
@@ -20,14 +23,15 @@ def test_mover_para_projeto_existente_passa(db, empresa):
     criar_projeto(db, empresa, 200, "B")
     titulo = criar_titulo(db, empresa, "receber", 1, 100.0, projeto=100)
 
-    ajuste = criar(_payload(empresa, titulo, "codigo_projeto", "200"), db, x_usuario="tester")
+    ajuste = criar(_payload(empresa, titulo, "codigo_projeto", "200"), db, usuario=TESTER)
     assert ajuste.valor_novo == "200"
+    assert ajuste.usuario == "Tester"
 
 
 def test_mover_para_sem_projeto_passa(db, empresa):
     criar_projeto(db, empresa, 100, "A")
     titulo = criar_titulo(db, empresa, "receber", 1, 100.0, projeto=100)
-    ajuste = criar(_payload(empresa, titulo, "codigo_projeto", "0"), db, x_usuario="tester")
+    ajuste = criar(_payload(empresa, titulo, "codigo_projeto", "0"), db, usuario=TESTER)
     assert ajuste.valor_novo == "0"
 
 
@@ -37,7 +41,7 @@ def test_mover_para_projeto_inexistente_da_422(db, empresa):
     titulo = criar_titulo(db, empresa, "receber", 1, 100.0, projeto=100)
 
     with pytest.raises(HTTPException) as exc:
-        criar(_payload(empresa, titulo, "codigo_projeto", "4041"), db, x_usuario="tester")
+        criar(_payload(empresa, titulo, "codigo_projeto", "4041"), db, usuario=TESTER)
     assert exc.value.status_code == 422
     assert "4041" in exc.value.detail
 
@@ -46,14 +50,5 @@ def test_grupo_invalido_da_422(db, empresa):
     criar_projeto(db, empresa, 100, "A")
     titulo = criar_titulo(db, empresa, "pagar", 1, 100.0, projeto=100)
     with pytest.raises(HTTPException) as exc:
-        criar(_payload(empresa, titulo, "grupo", "inexistente"), db, x_usuario="tester")
+        criar(_payload(empresa, titulo, "grupo", "inexistente"), db, usuario=TESTER)
     assert exc.value.status_code == 422
-
-
-def test_usuario_percent_encoded_e_decodificado(db, empresa):
-    criar_projeto(db, empresa, 100, "A")
-    titulo = criar_titulo(db, empresa, "receber", 1, 100.0, projeto=100)
-    ajuste = criar(
-        _payload(empresa, titulo, "excluir", "S"), db, x_usuario="Jo%C3%A3o%20Financeiro"
-    )
-    assert ajuste.usuario == "João Financeiro"

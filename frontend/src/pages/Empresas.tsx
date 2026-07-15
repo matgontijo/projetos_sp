@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { api, type TesteConexao } from '../api/client'
+import { api, usuarioLogado, type TesteConexao, type UsuarioLogado } from '../api/client'
 import { PageHeader } from '../components/Layout'
 import { fmtBRL } from '../lib/format'
 
@@ -92,6 +92,7 @@ export default function Empresas() {
       />
 
       <Preferencias />
+      {usuarioLogado()?.papel === 'admin' && <Equipe />}
 
       <div className="grid gap-3 lg:grid-cols-2">
         {(empresas || []).map((e) => {
@@ -393,6 +394,137 @@ function Preferencias() {
         <p className="help mt-1">
           No plano gratuito do Render a busca só roda se o servidor estiver acordado; no plano pago roda sempre.
         </p>
+      </div>
+    </div>
+  )
+}
+
+const PAPEIS_OPCOES = [
+  { valor: 'admin', label: 'Administradora — tudo, inclusive usuários' },
+  { valor: 'financeiro', label: 'Financeiro — opera tudo, menos usuários' },
+  { valor: 'leitura', label: 'Leitura — só consulta e simulador' },
+]
+
+function Equipe() {
+  const queryClient = useQueryClient()
+  const eu = usuarioLogado()
+  const { data: usuarios } = useQuery({ queryKey: ['usuarios'], queryFn: api.listarUsuarios })
+  const [novo, setNovo] = useState<{ nome: string; email: string; senha: string; papel: string } | null>(null)
+  const [erro, setErro] = useState('')
+
+  const invalidar = () => queryClient.invalidateQueries({ queryKey: ['usuarios'] })
+
+  const criar = useMutation({
+    mutationFn: () => api.criarUsuario(novo!),
+    onSuccess: () => {
+      setNovo(null)
+      setErro('')
+      invalidar()
+    },
+    onError: (e) => setErro((e as Error).message),
+  })
+  const atualizar = useMutation({
+    mutationFn: ({ id, dados }: { id: number; dados: Partial<{ papel: string; ativo: boolean; senha: string }> }) =>
+      api.atualizarUsuario(id, dados),
+    onSuccess: () => {
+      setErro('')
+      invalidar()
+    },
+    onError: (e) => setErro((e as Error).message),
+  })
+
+  function redefinirSenha(u: UsuarioLogado) {
+    const senha = prompt(`Nova senha para ${u.nome} (mínimo 8 caracteres):`)
+    if (senha && senha.length >= 8) atualizar.mutate({ id: u.id, dados: { senha } })
+    else if (senha) setErro('A senha precisa de pelo menos 8 caracteres')
+  }
+
+  return (
+    <div className="card mb-4 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <span className="titulo-secao">Equipe</span>
+          <p className="help mt-0.5">Quem entra no app e o que pode fazer. Só administradoras veem esta área.</p>
+        </div>
+        <button className="btn btn-primary text-xs" onClick={() => setNovo({ nome: '', email: '', senha: '', papel: 'financeiro' })}>
+          + Adicionar pessoa
+        </button>
+      </div>
+      {erro && (
+        <p className="mt-2 text-sm" style={{ color: 'var(--neg)' }}>
+          {erro}
+        </p>
+      )}
+      {novo && (
+        <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg p-3" style={{ background: 'var(--surface-2)' }}>
+          <label className="text-xs">
+            Nome
+            <input className="input mt-1 block w-36" value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} />
+          </label>
+          <label className="text-xs">
+            E-mail
+            <input type="email" className="input mt-1 block w-52" value={novo.email} onChange={(e) => setNovo({ ...novo, email: e.target.value })} />
+          </label>
+          <label className="text-xs">
+            Senha (mín. 8)
+            <input type="password" className="input mt-1 block w-36" value={novo.senha} onChange={(e) => setNovo({ ...novo, senha: e.target.value })} />
+          </label>
+          <label className="text-xs">
+            Acesso
+            <select className="input mt-1 block" value={novo.papel} onChange={(e) => setNovo({ ...novo, papel: e.target.value })}>
+              {PAPEIS_OPCOES.map((p) => (
+                <option key={p.valor} value={p.valor}>{p.label}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="btn btn-primary text-xs"
+            disabled={!novo.nome.trim() || !novo.email.trim() || novo.senha.length < 8 || criar.isPending}
+            onClick={() => criar.mutate()}
+          >
+            Criar
+          </button>
+          <button className="btn btn-ghost text-xs" onClick={() => setNovo(null)}>
+            Cancelar
+          </button>
+        </div>
+      )}
+      <div className="mt-3 grid gap-1.5">
+        {(usuarios || []).map((u) => (
+          <div key={u.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <b className="w-40 truncate" title={u.email} style={{ opacity: u.ativo ? 1 : 0.5 }}>
+              {u.nome}
+              {u.id === eu?.id && ' (você)'}
+            </b>
+            <select
+              className="input py-1 text-xs"
+              value={u.papel}
+              disabled={u.id === eu?.id}
+              onChange={(e) => atualizar.mutate({ id: u.id, dados: { papel: e.target.value } })}
+            >
+              {PAPEIS_OPCOES.map((p) => (
+                <option key={p.valor} value={p.valor}>{p.label.split(' — ')[0]}</option>
+              ))}
+            </select>
+            <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={() => redefinirSenha(u)}>
+              Redefinir senha
+            </button>
+            {u.id !== eu?.id && (
+              <button
+                className="btn btn-ghost px-2 py-0.5 text-xs"
+                style={{ color: u.ativo ? 'var(--neg)' : 'var(--status-good-text)' }}
+                onClick={() => atualizar.mutate({ id: u.id, dados: { ativo: !u.ativo } })}
+              >
+                {u.ativo ? 'Desativar' : 'Reativar'}
+              </button>
+            )}
+            {!u.ativo && (
+              <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
+                DESATIVADA
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

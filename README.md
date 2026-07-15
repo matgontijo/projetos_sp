@@ -27,6 +27,8 @@ O frontend **nunca** fala com a Omie — só com o backend. `app_key`/`app_secre
 
 **Integração 100% leitura**: o app só usa métodos `Listar*` da Omie — nunca grava, altera ou cancela nada lá (há um teste automatizado que garante isso: `tests/test_somente_leitura.py`).
 
+**Login e papéis**: todo acesso exige conta (senha com scrypt, sessões revogáveis no banco). No primeiro acesso o app pede a criação da conta da administradora; depois ela cadastra a equipe em Empresas → Equipe. Papéis: `admin` (tudo + usuários), `financeiro` (opera tudo) e `leitura` (só consulta e simulador — o servidor bloqueia qualquer escrita). Toda ação auditável (ajustes, classificações, aprovações, comentários) é assinada com o nome da conta logada.
+
 ## Onde obter app_key / app_secret
 
 1. Acesse o **Portal do Desenvolvedor da Omie**: <https://developer.omie.com.br/>

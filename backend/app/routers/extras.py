@@ -1,23 +1,19 @@
 """Orcado x Realizado, aprovacao de fechamento e comentarios — por projeto (chave BR)."""
 
 from datetime import date
-from urllib.parse import unquote
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
+from ..auth import usuario_logado
 from ..db import get_db
 from ..services.calculo import chave_projeto, fechar_projetos
 from .projetos import _empresa_ids
 
 router = APIRouter(prefix="/api", tags=["extras"])
-
-
-def _usuario(x_usuario: str) -> str:
-    return unquote(x_usuario or "") or "não identificado"
 
 
 # ---------- Orcado x Realizado ----------
@@ -44,7 +40,11 @@ def obter_orcamento(nome: str = Query(min_length=1), db: Session = Depends(get_d
 
 
 @router.put("/orcamentos")
-def salvar_orcamento(payload: OrcamentoIn, db: Session = Depends(get_db), x_usuario: str = Header(default="")):
+def salvar_orcamento(
+    payload: OrcamentoIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(usuario_logado),
+):
     chave = chave_projeto(payload.nome)
     row = db.get(models.Orcamento, chave)
     if row is None:
@@ -53,7 +53,7 @@ def salvar_orcamento(payload: OrcamentoIn, db: Session = Depends(get_db), x_usua
     row.nome_exibicao = payload.nome
     row.receita_prevista = payload.receita_prevista
     row.custo_previsto = payload.custo_previsto
-    row.atualizado_por = _usuario(x_usuario)
+    row.atualizado_por = usuario.nome
     db.commit()
     return obter_orcamento(payload.nome, db)
 
@@ -69,7 +69,11 @@ class AprovacaoIn(BaseModel):
 
 
 @router.post("/aprovacoes", status_code=201)
-def aprovar(payload: AprovacaoIn, db: Session = Depends(get_db), x_usuario: str = Header(default="")):
+def aprovar(
+    payload: AprovacaoIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(usuario_logado),
+):
     ids = _empresa_ids(db, payload.empresa_ids)
     fechamento = fechar_projetos(db, ids, payload.de, payload.ate)
     chave = chave_projeto(payload.nome)
@@ -82,7 +86,7 @@ def aprovar(payload: AprovacaoIn, db: Session = Depends(get_db), x_usuario: str 
         periodo_de=payload.de,
         periodo_ate=payload.ate,
         dados=linha,
-        usuario=_usuario(x_usuario),
+        usuario=usuario.nome,
     )
     db.add(row)
     db.commit()
@@ -133,8 +137,12 @@ def listar_comentarios(nome: str = Query(min_length=1), db: Session = Depends(ge
 
 
 @router.post("/comentarios", status_code=201)
-def comentar(payload: ComentarioIn, db: Session = Depends(get_db), x_usuario: str = Header(default="")):
-    row = models.Comentario(chave_projeto=chave_projeto(payload.nome), texto=payload.texto.strip(), usuario=_usuario(x_usuario))
+def comentar(
+    payload: ComentarioIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(usuario_logado),
+):
+    row = models.Comentario(chave_projeto=chave_projeto(payload.nome), texto=payload.texto.strip(), usuario=usuario.nome)
     db.add(row)
     db.commit()
     return listar_comentarios(payload.nome, db)

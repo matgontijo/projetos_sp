@@ -241,20 +241,55 @@ export interface Comentario {
   criado_em: string
 }
 
+export interface UsuarioLogado {
+  id: number
+  nome: string
+  email: string
+  papel: 'admin' | 'financeiro' | 'leitura'
+  ativo: boolean
+}
+
+export function tokenAtual(): string {
+  return localStorage.getItem('token') || ''
+}
+
+export function usuarioLogado(): UsuarioLogado | null {
+  try {
+    return JSON.parse(localStorage.getItem('usuario_logado') || 'null')
+  } catch {
+    return null
+  }
+}
+
+export function guardarSessao(token: string, usuario: UsuarioLogado): void {
+  localStorage.setItem('token', token)
+  localStorage.setItem('usuario_logado', JSON.stringify(usuario))
+}
+
+export function limparSessao(): void {
+  localStorage.removeItem('token')
+  localStorage.removeItem('usuario_logado')
+}
+
 export function usuarioAtual(): string {
-  return localStorage.getItem('usuario') || ''
+  return usuarioLogado()?.nome || ''
+}
+
+function cabecalhos(extra?: HeadersInit): HeadersInit {
+  const token = tokenAtual()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      // percent-encoding: headers so aceitam Latin-1; o backend decodifica (unquote)
-      'X-Usuario': encodeURIComponent(usuarioAtual()),
-      ...init?.headers,
-    },
-  })
+  const resp = await fetch(path, { ...init, headers: cabecalhos(init?.headers) })
+  if (resp.status === 401 && !path.startsWith('/api/auth/')) {
+    limparSessao()
+    window.dispatchEvent(new Event('sessao-expirada'))
+  }
   if (!resp.ok) {
     let detail = `HTTP ${resp.status}`
     try {
@@ -277,7 +312,7 @@ function qs(params: Record<string, string | undefined>): string {
 
 /** Baixa um arquivo via fetch (aguenta cold start do servidor, ao contrário do download nativo). */
 export async function baixarArquivo(url: string, nomeFallback: string): Promise<void> {
-  const resp = await fetch(url)
+  const resp = await fetch(url, { headers: cabecalhos() })
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
   const disposition = resp.headers.get('Content-Disposition') || ''
   const match = disposition.match(/filename="?([^";]+)"?/)
@@ -294,6 +329,23 @@ export async function baixarArquivo(url: string, nomeFallback: string): Promise<
 }
 
 export const api = {
+  // Autenticação
+  precisaSetup: () => request<{ precisa_setup: boolean }>('/api/auth/precisa-setup'),
+  setup: (dados: { nome: string; email: string; senha: string }) =>
+    request<{ token: string; usuario: UsuarioLogado }>('/api/auth/setup', { method: 'POST', body: JSON.stringify(dados) }),
+  login: (email: string, senha: string) =>
+    request<{ token: string; usuario: UsuarioLogado }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, senha }),
+    }),
+  logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+  eu: () => request<UsuarioLogado>('/api/auth/eu'),
+  listarUsuarios: () => request<UsuarioLogado[]>('/api/usuarios'),
+  criarUsuario: (dados: { nome: string; email: string; senha: string; papel: string }) =>
+    request<UsuarioLogado>('/api/usuarios', { method: 'POST', body: JSON.stringify(dados) }),
+  atualizarUsuario: (id: number, dados: Partial<{ nome: string; papel: string; ativo: boolean; senha: string }>) =>
+    request<UsuarioLogado>(`/api/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+
   // Empresas
   listarEmpresas: () => request<Empresa[]>('/api/empresas'),
   criarEmpresa: (dados: object) => request<Empresa>('/api/empresas', { method: 'POST', body: JSON.stringify(dados) }),

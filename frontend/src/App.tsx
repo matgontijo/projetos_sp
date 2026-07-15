@@ -1,9 +1,19 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
+import {
+  api,
+  guardarSessao,
+  limparSessao,
+  tokenAtual,
+  usuarioLogado,
+  type UsuarioLogado,
+} from './api/client'
 import { ICONES } from './components/Layout'
 import Analises from './pages/Analises'
 import Dashboard from './pages/Dashboard'
 import Empresas from './pages/Empresas'
+import Login from './pages/Login'
 import ProjetoDetalhe from './pages/ProjetoDetalhe'
 import Projetos from './pages/Projetos'
 import Simulador from './pages/Simulador'
@@ -18,11 +28,17 @@ const LINKS = [
   { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
 ]
 
+const PAPEL_LABEL: Record<string, string> = { admin: 'Administradora', financeiro: 'Financeiro', leitura: 'Leitura' }
+
 export default function App() {
-  const [usuario, setUsuario] = useState(() => localStorage.getItem('usuario') || '')
+  const queryClient = useQueryClient()
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(() => (tokenAtual() ? usuarioLogado() : null))
+
   useEffect(() => {
-    localStorage.setItem('usuario', usuario)
-  }, [usuario])
+    const aoExpirar = () => setUsuario(null)
+    window.addEventListener('sessao-expirada', aoExpirar)
+    return () => window.removeEventListener('sessao-expirada', aoExpirar)
+  }, [])
 
   // preserva os filtros (empresas/período) ao navegar pelo menu
   const [params] = useSearchParams()
@@ -32,6 +48,29 @@ export default function App() {
     if (valor) filtros.set(chave, valor)
   }
   const sufixoFiltros = filtros.toString() ? `?${filtros.toString()}` : ''
+
+  if (!usuario) {
+    return (
+      <Login
+        aoEntrar={(token, u) => {
+          guardarSessao(token, u)
+          queryClient.clear()
+          setUsuario(u)
+        }}
+      />
+    )
+  }
+
+  async function sair() {
+    try {
+      await api.logout()
+    } catch {
+      /* sessão já pode ter expirado */
+    }
+    limparSessao()
+    queryClient.clear()
+    setUsuario(null)
+  }
 
   const marca = (
     <div className="flex items-center gap-2.5">
@@ -64,6 +103,29 @@ export default function App() {
     </NavLink>
   ))
 
+  const caixaUsuario = (
+    <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: 'var(--surface-2)' }}>
+      <span
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black"
+        style={{ background: 'color-mix(in srgb, var(--accent) 18%, transparent)', color: 'var(--accent)' }}
+        aria-hidden
+      >
+        {usuario.nome.trim().charAt(0).toUpperCase()}
+      </span>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="truncate text-sm font-bold" title={usuario.email}>
+          {usuario.nome}
+        </div>
+        <div className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+          {PAPEL_LABEL[usuario.papel] || usuario.papel}
+        </div>
+      </div>
+      <button className="btn btn-ghost px-2 py-1 text-xs" onClick={sair} title="Encerrar a sessão">
+        Sair
+      </button>
+    </div>
+  )
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar (desktop) */}
@@ -73,18 +135,7 @@ export default function App() {
       >
         <div className="mb-5 px-1">{marca}</div>
         <nav className="grid gap-1">{itens}</nav>
-        <div className="mt-auto grid gap-1.5 px-1">
-          <label htmlFor="usuario" className="titulo-secao" title="Seu nome fica registrado quando você faz um ajuste manual">
-            Quem está usando
-          </label>
-          <input
-            id="usuario"
-            className="input"
-            placeholder="seu nome"
-            value={usuario}
-            onChange={(e) => setUsuario(e.target.value)}
-          />
-        </div>
+        <div className="mt-auto">{caixaUsuario}</div>
       </aside>
 
       {/* Barra superior (telas pequenas) */}
@@ -95,6 +146,9 @@ export default function App() {
         >
           {marca}
           <nav className="flex gap-1">{itens}</nav>
+          <button className="btn btn-ghost ml-auto text-xs" onClick={sair}>
+            Sair
+          </button>
         </header>
 
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-6 md:px-8">
