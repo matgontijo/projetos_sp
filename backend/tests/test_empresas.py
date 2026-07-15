@@ -1,4 +1,28 @@
-"""Testes do router de empresas: troca de credenciais limpa o cache da conta antiga."""
+"""Testes do router de empresas e do auto-reparo de schema."""
+
+from sqlalchemy import create_engine, inspect, text
+
+
+def test_bootstrap_adiciona_coluna_que_falta():
+    """Producao nao roda Alembic: colunas novas precisam ser adicionadas no startup."""
+    from app.bootstrap import garantir_colunas
+
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE titulo (id INTEGER PRIMARY KEY)"))
+        conn.execute(text("CREATE TABLE empresa (id INTEGER PRIMARY KEY, nome TEXT)"))
+        conn.execute(text("INSERT INTO empresa (id, nome) VALUES (1, 'X')"))
+
+    garantir_colunas(engine)
+
+    colunas_titulo = {c["name"] for c in inspect(engine).get_columns("titulo")}
+    colunas_empresa = {c["name"] for c in inspect(engine).get_columns("empresa")}
+    assert "codigo_vendedor" in colunas_titulo
+    assert "aliquota_extra" in colunas_empresa
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT aliquota_extra FROM empresa")).scalar() == 0
+    # idempotente
+    garantir_colunas(engine)
 
 from app import models
 from app.routers.empresas import atualizar

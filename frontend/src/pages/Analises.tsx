@@ -38,11 +38,21 @@ export default function Analises() {
   )
 }
 
+function ErroCarga({ erro }: { erro: unknown }) {
+  return (
+    <p className="mb-3 text-sm" style={{ color: 'var(--neg)' }}>
+      Erro ao carregar: {(erro as Error).message}. Se o app acabou de ser atualizado, aguarde o servidor terminar o
+      deploy e recarregue a página.
+    </p>
+  )
+}
+
 function Clientes({ empresaIds, de, ate, params }: { empresaIds?: string; de?: string; ate?: string; params: string }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analise-clientes', empresaIds, de, ate],
     queryFn: () => api.rankingClientes(empresaIds, de, ate),
   })
+  if (error) return <ErroCarga erro={error} />
   return (
     <div className="card overflow-x-auto">
       <table className="data">
@@ -109,10 +119,11 @@ function Clientes({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
 }
 
 function Vendedores({ empresaIds, de, ate }: { empresaIds?: string; de?: string; ate?: string }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analise-vendedores', empresaIds, de, ate],
     queryFn: () => api.rankingVendedores(empresaIds, de, ate),
   })
+  if (error) return <ErroCarga erro={error} />
   return (
     <div>
       <div className="card overflow-x-auto">
@@ -165,10 +176,11 @@ function Vendedores({ empresaIds, de, ate }: { empresaIds?: string; de?: string;
 }
 
 function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: string; ate?: string; params: string }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analise-caixa', empresaIds, de, ate],
     queryFn: () => api.caixa(empresaIds, de, ate),
   })
+  if (error) return <ErroCarga erro={error} />
   const t = data?.totais
   return (
     <div>
