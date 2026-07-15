@@ -19,8 +19,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 def _startup() -> None:
-    # Cria as tabelas que faltarem (idempotente); Alembic cobre migracoes futuras
+    # Cria as tabelas que faltarem (idempotente) e repara colunas aditivas —
+    # em producao nao ha Alembic, entao o app cuida do proprio schema
     Base.metadata.create_all(bind=engine)
+    from .bootstrap import garantir_colunas
+
+    garantir_colunas(engine)
     # Busca automatica diaria (so age se ligada nas preferencias)
     agendador.iniciar(build_omie_client)
 
