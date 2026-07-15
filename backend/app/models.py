@@ -91,7 +91,8 @@ class Titulo(Base):
     codigo_vendedor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     numero_documento: Mapped[str] = mapped_column(String(60), default="")
     numero_documento_fiscal: Mapped[str] = mapped_column(String(60), default="")
-    raw: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    # deferred: o JSON bruto da Omie e ENORME e o calculo nao usa — so carrega se acessado
+    raw: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True, deferred=True)
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     empresa: Mapped[Empresa] = relationship(back_populates="titulos")
@@ -133,8 +134,9 @@ class NFe(Base):
     # Reforma tributaria — somados quando a Omie passar a retornar
     v_ibs: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     v_cbs: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
-    titulos: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
-    raw: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+    # deferred: usados so na sincronizacao — o calculo le apenas os totais acima
+    titulos: Mapped[list | None] = mapped_column(JSONVariant, nullable=True, deferred=True)
+    raw: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True, deferred=True)
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     empresa: Mapped[Empresa] = relationship(back_populates="nfes")

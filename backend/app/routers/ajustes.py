@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import cache, models, schemas
 from ..auth import usuario_logado
 from ..db import get_db
 from ..schemas import GRUPOS_VALIDOS
@@ -107,6 +107,7 @@ def criar(
     db.add(ajuste)
     db.commit()
     db.refresh(ajuste)
+    cache.invalidar()
     return ajuste
 
 

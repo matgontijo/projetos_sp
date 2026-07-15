@@ -3,12 +3,21 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from .. import cache
 from ..db import get_db
 from ..services import analises
 from .config import obter_config
-from .projetos import _empresa_ids
+from .projetos import _empresa_ids, fechamento_cacheado
 
 router = APIRouter(prefix="/api/analises", tags=["analises"])
+
+
+def _caixa_cacheado(db: Session, ids: list[int], de: date | None, ate: date | None) -> dict:
+    chave = ("caixa", tuple(sorted(ids)), de, ate)
+    resultado = cache.obter(chave)
+    if resultado is None:
+        resultado = cache.guardar(chave, analises.ciclo_de_caixa(db, ids, de, ate))
+    return resultado
 
 
 @router.get("/clientes")
@@ -19,7 +28,9 @@ def clientes(
     db: Session = Depends(get_db),
 ):
     ids = _empresa_ids(db, empresa_ids)
-    return analises.ranking_clientes(db, ids, de, ate) if ids else []
+    if not ids:
+        return []
+    return analises.ranking_clientes(db, ids, de, ate, fechamento=fechamento_cacheado(db, ids, de, ate))
 
 
 @router.get("/vendedores")
@@ -30,7 +41,9 @@ def vendedores(
     db: Session = Depends(get_db),
 ):
     ids = _empresa_ids(db, empresa_ids)
-    return analises.ranking_vendedores(db, ids, de, ate) if ids else {"vendedores": [], "receita_sem_vendedor": 0}
+    if not ids:
+        return {"vendedores": [], "receita_sem_vendedor": 0}
+    return analises.ranking_vendedores(db, ids, de, ate, fechamento=fechamento_cacheado(db, ids, de, ate))
 
 
 @router.get("/caixa")
@@ -43,7 +56,7 @@ def caixa(
     ids = _empresa_ids(db, empresa_ids)
     if not ids:
         return {"projetos": [], "totais": {"receber_aberto": 0, "receber_atrasado": 0, "pagar_aberto": 0, "pagar_atrasado": 0}}
-    return analises.ciclo_de_caixa(db, ids, de, ate)
+    return _caixa_cacheado(db, ids, de, ate)
 
 
 @router.get("/alertas")
@@ -57,7 +70,11 @@ def alertas(
     if not ids:
         return []
     margem_alvo = float(obter_config(db).get("margem_alvo", 20)) / 100.0
-    return analises.gerar_alertas(db, ids, de, ate, margem_alvo)
+    return analises.gerar_alertas(
+        db, ids, de, ate, margem_alvo,
+        fechamento=fechamento_cacheado(db, ids, de, ate),
+        caixa=_caixa_cacheado(db, ids, de, ate),
+    )
 
 
 @router.get("/simulador")

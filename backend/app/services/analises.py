@@ -28,8 +28,11 @@ def _quitado(status: str) -> bool:
 # ---------- Curva ABC de clientes ----------
 
 
-def ranking_clientes(db: Session, empresa_ids: list[int], de: date | None, ate: date | None) -> list[dict]:
-    fechamento = fechar_projetos(db, empresa_ids, de, ate)
+def ranking_clientes(
+    db: Session, empresa_ids: list[int], de: date | None, ate: date | None, fechamento: dict | None = None
+) -> list[dict]:
+    if fechamento is None:
+        fechamento = fechar_projetos(db, empresa_ids, de, ate)
     por_cliente: dict[str, dict] = {}
     for p in fechamento["projetos"]:
         nome = p["cliente"] or "(cliente não identificado)"
@@ -57,8 +60,11 @@ def ranking_clientes(db: Session, empresa_ids: list[int], de: date | None, ate: 
 # ---------- Margem por vendedor ----------
 
 
-def ranking_vendedores(db: Session, empresa_ids: list[int], de: date | None, ate: date | None) -> list[dict]:
-    fechamento = fechar_projetos(db, empresa_ids, de, ate)
+def ranking_vendedores(
+    db: Session, empresa_ids: list[int], de: date | None, ate: date | None, fechamento: dict | None = None
+) -> list[dict]:
+    if fechamento is None:
+        fechamento = fechar_projetos(db, empresa_ids, de, ate)
     margem_por_chave = {chave_projeto(p["projeto"]): p["margem"] for p in fechamento["projetos"]}
 
     nomes = {
@@ -149,11 +155,18 @@ def ciclo_de_caixa(db: Session, empresa_ids: list[int], de: date | None, ate: da
 
 
 def gerar_alertas(
-    db: Session, empresa_ids: list[int], de: date | None, ate: date | None, margem_alvo: float
+    db: Session,
+    empresa_ids: list[int],
+    de: date | None,
+    ate: date | None,
+    margem_alvo: float,
+    fechamento: dict | None = None,
+    caixa: dict | None = None,
 ) -> list[dict]:
     """Lista priorizada do que precisa de atencao. margem_alvo em fracao (0.2 = 20%)."""
     alertas: list[dict] = []
-    fechamento = fechar_projetos(db, empresa_ids, de, ate)
+    if fechamento is None:
+        fechamento = fechar_projetos(db, empresa_ids, de, ate)
     projetos = fechamento["projetos"]
 
     prejuizo = [p for p in projetos if p["receita"] > 0 and p["resultado"] < 0]
@@ -210,7 +223,8 @@ def gerar_alertas(
             }
         )
 
-    caixa = ciclo_de_caixa(db, empresa_ids, de, ate)
+    if caixa is None:
+        caixa = ciclo_de_caixa(db, empresa_ids, de, ate)
     if caixa["totais"]["receber_atrasado"] > 0:
         alertas.append(
             {

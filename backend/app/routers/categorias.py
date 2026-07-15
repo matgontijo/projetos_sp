@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import cache, models, schemas
 from ..auth import usuario_logado
 from ..db import get_db
 from ..schemas import GRUPOS_VALIDOS
@@ -43,4 +43,5 @@ def atualizar(
         row.grupo = item.grupo
         row.atualizado_por = usuario.nome
     db.commit()
+    cache.invalidar()
     return listar(empresa_id, db)
