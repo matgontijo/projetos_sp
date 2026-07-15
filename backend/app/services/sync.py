@@ -8,7 +8,7 @@ from datetime import date, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import cache, models
 from ..db import SessionLocal
 from ..models import utcnow
 from ..omie import api as omie_api
@@ -330,5 +330,7 @@ def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) ->
                     log.mensagem = str(exc)[:2000]
                 log.concluido_em = utcnow()
                 db.commit()
+                cache.invalidar()  # dados novos: fechamentos em cache ficam obsoletos
     finally:
+        cache.invalidar()
         db.close()

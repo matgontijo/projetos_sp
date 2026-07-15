@@ -1,5 +1,6 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .auth import usuario_logado
 from .config import settings
@@ -10,6 +11,7 @@ from .services import agendador
 
 app = FastAPI(title="Fechamento de Projetos — Omie", version="1.0.0")
 
+app.add_middleware(GZipMiddleware, minimum_size=1500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],

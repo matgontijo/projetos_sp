@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import cache, models
 from ..auth import usuario_logado
 from ..db import get_db
 from ..services.calculo import chave_projeto, fechar_projetos
@@ -55,6 +55,7 @@ def salvar_orcamento(
     row.custo_previsto = payload.custo_previsto
     row.atualizado_por = usuario.nome
     db.commit()
+    cache.invalidar()  # alertas de orcamento estourado dependem disto
     return obter_orcamento(payload.nome, db)
 
 

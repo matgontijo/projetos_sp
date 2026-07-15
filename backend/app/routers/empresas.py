@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from .. import models, schemas
+from .. import cache, models, schemas
 from ..config import settings
 from ..crypto import decrypt_str, encrypt_str
 from ..db import get_db
@@ -95,6 +95,7 @@ def atualizar(empresa_id: int, payload: schemas.EmpresaUpdate, db: Session = Dep
         empresa.ativa = payload.ativa
     db.commit()
     db.refresh(empresa)
+    cache.invalidar()
     return empresa
 
 
@@ -103,6 +104,7 @@ def excluir(empresa_id: int, db: Session = Depends(get_db)):
     empresa = _get_empresa(db, empresa_id)
     db.delete(empresa)
     db.commit()
+    cache.invalidar()
 
 
 @router.post("/{empresa_id}/testar-conexao", response_model=schemas.TesteConexaoOut)
@@ -146,4 +148,5 @@ def salvar_simples(empresa_id: int, payload: list[schemas.SimplesPeriodoIn], db:
             db.add(row)
         row.rbt12 = item.rbt12
     db.commit()
+    cache.invalidar()  # aliquota do Simples muda o imposto calculado
     return listar_simples(empresa_id, db)

@@ -456,10 +456,12 @@ def detalhe_projeto(
     nome_projeto: str,
     de: date | None = None,
     ate: date | None = None,
+    fechamento: dict | None = None,
 ) -> dict:
     """Detalhe aberto de um projeto (consolidado entre as empresas selecionadas)."""
     chave = chave_projeto(nome_projeto)
-    fechamento = fechar_projetos(db, empresa_ids, de, ate)
+    if fechamento is None:
+        fechamento = fechar_projetos(db, empresa_ids, de, ate)
     linha = next((p for p in fechamento["projetos"] if chave_projeto(p["projeto"]) == chave), None)
 
     ctx = _Contexto(db, empresa_ids, de, ate)
