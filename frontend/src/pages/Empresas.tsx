@@ -8,6 +8,7 @@ const GRUPOS = [
   { valor: '', label: '— ainda não classificada —' },
   { valor: 'producao', label: 'Produção (custo do produto)' },
   { valor: 'frete', label: 'Frete / logística' },
+  { valor: 'comissao', label: 'Comissão (soma no custo)' },
   { valor: 'imposto', label: 'Imposto (não soma no custo)' },
   { valor: 'outros', label: 'Outros custos do projeto' },
   { valor: 'ignorar', label: 'Ignorar (fora do fechamento)' },

@@ -65,8 +65,9 @@ def simulador(
     custo: float = Query(gt=0),
     margem_alvo: float = Query(default=20, ge=0, lt=95, description="em %"),
     preco: float | None = Query(default=None, gt=0),
+    comissao: float = Query(default=0, ge=0, le=50, description="% da venda paga de comissão"),
     db: Session = Depends(get_db),
 ):
-    if margem_alvo >= 95:
-        raise HTTPException(status_code=422, detail="Margem alvo alta demais")
-    return analises.simular_preco(db, custo, margem_alvo / 100.0, preco)
+    if margem_alvo + comissao >= 95:
+        raise HTTPException(status_code=422, detail="Margem + comissão altas demais")
+    return analises.simular_preco(db, custo, margem_alvo / 100.0, preco, comissao / 100.0)

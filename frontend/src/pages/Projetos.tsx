@@ -7,7 +7,7 @@ import { PageHeader } from '../components/Layout'
 import { BadgeMeta, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
-type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado' | 'margem'
+type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'comissao' | 'imposto' | 'outros' | 'resultado' | 'margem'
 
 /** Botão de exportação que baixa via fetch: aguenta o servidor gratuito acordando
  * (~1 min) e mostra erro de verdade — o download nativo do navegador desistia. */
@@ -125,6 +125,7 @@ export default function Projetos() {
               <Th campo="producao">Produção</Th>
               <Th campo="frete">Frete</Th>
               <Th campo="imposto">Impostos</Th>
+              <Th campo="comissao">Comissão</Th>
               <Th campo="outros">Outros</Th>
               <Th campo="resultado">Resultado</Th>
               <Th campo="margem">Margem</Th>
@@ -136,14 +137,14 @@ export default function Projetos() {
             {isLoading &&
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <tr key={i}>
-                  <td colSpan={12}>
+                  <td colSpan={13}>
                     <Skeleton altura={18} />
                   </td>
                 </tr>
               ))}
             {!isLoading && !error && projetos.length === 0 && (
               <tr>
-                <td colSpan={12} style={{ color: 'var(--text-muted)' }}>
+                <td colSpan={13} style={{ color: 'var(--text-muted)' }}>
                   Nenhum projeto no período. Sincronize os dados na aba "Sincronizar".
                 </td>
               </tr>
@@ -171,6 +172,7 @@ export default function Projetos() {
                 <td className="num">{fmtBRL(p.producao)}</td>
                 <td className="num">{fmtBRL(p.frete)}</td>
                 <td className="num">{fmtBRL(p.imposto)}</td>
+                <td className="num">{fmtBRL(p.comissao)}</td>
                 <td className="num">{fmtBRL(p.outros)}</td>
                 <td className="num font-semibold" style={{ color: p.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
                   {fmtBRL(p.resultado)}
@@ -183,6 +185,7 @@ export default function Projetos() {
                     producao={p.producao}
                     frete={p.frete}
                     imposto={p.imposto}
+                    comissao={p.comissao}
                     outros={p.outros}
                     resultado={p.resultado}
                   />
@@ -196,7 +199,7 @@ export default function Projetos() {
           {(() => {
             const linhas = projetos
             if (!linhas.length) return null
-            const soma = (campo: 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado') =>
+            const soma = (campo: 'receita' | 'producao' | 'frete' | 'comissao' | 'imposto' | 'outros' | 'resultado') =>
               linhas.reduce((s, p) => s + p[campo], 0)
             const receita = soma('receita')
             const resultado = soma('resultado')
@@ -211,6 +214,7 @@ export default function Projetos() {
                   <td className="num">{fmtBRL(soma('producao'))}</td>
                   <td className="num">{fmtBRL(soma('frete'))}</td>
                   <td className="num">{fmtBRL(soma('imposto'))}</td>
+                  <td className="num">{fmtBRL(soma('comissao'))}</td>
                   <td className="num">{fmtBRL(soma('outros'))}</td>
                   <td className="num" style={{ color: resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
                     {fmtBRL(resultado)}

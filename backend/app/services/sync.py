@@ -16,9 +16,11 @@ from ..omie.client import OmieClient
 
 logger = logging.getLogger(__name__)
 
-# Categorias com cara de tributo sao pre-sugeridas como grupo 'imposto'
+# Categorias com cara de tributo sao pre-sugeridas como grupo 'imposto'.
+# Atencao as fronteiras de palavra: 'iss' solto casaria "ComISSoes" e 'das'
+# casaria "VenDAS" — por isso \b dos dois lados nos tokens curtos.
 _RE_IMPOSTO = re.compile(
-    r"icms|ipi|pis|cofins|iss|csll|irpj|irrf|inss|das\b|simples|imposto|tribut|fgts|difal|ibs\b|cbs\b",
+    r"icms|\bipi\b|\bpis\b|cofins|\biss\b|csll|irpj|irrf|inss|simples|imposto|tribut|fgts|difal|\bibs\b|\bcbs\b",
     re.IGNORECASE,
 )
 # Plano de contas da operacao: grupo 6.1 = producao, 6.2 = logistica/frete.
@@ -26,6 +28,7 @@ _RE_IMPOSTO = re.compile(
 # e o usuario pode sobrescrever na tela de classificacao.
 _RE_PRODUCAO = re.compile(r"^6\.1|manutencao de molde|materia[- ]prima|compras? de mercadoria", re.IGNORECASE)
 _RE_FRETE = re.compile(r"^6\.2|frete|carreto|correios|motoboy|loggi|lalamove|transporte|logistic", re.IGNORECASE)
+_RE_COMISSAO = re.compile(r"comiss", re.IGNORECASE)
 
 
 def _normaliza(texto: str) -> str:
@@ -42,6 +45,8 @@ def sugestao_grupo(descricao: str) -> str | None:
         return "producao"
     if _RE_FRETE.search(d):
         return "frete"
+    if _RE_COMISSAO.search(d):
+        return "comissao"
     return None
 
 
@@ -140,6 +145,13 @@ def sync_categorias(db: Session, empresa: models.Empresa, client: OmieClient) ->
             )
             db.add(row)
             existentes[codigo] = row
+        elif not row.atualizado_por or row.atualizado_por.startswith("sync"):
+            # ninguem mexeu: reavalia a sugestao (regras melhoram com o tempo);
+            # classificacao feita por pessoa nunca e sobrescrita
+            novo = sugestao_grupo(descricao)
+            if novo != row.grupo:
+                row.grupo = novo
+                row.atualizado_por = "sync (sugestão automática)" if novo else ""
         row.descricao = descricao
     db.commit()
     return len(registros)

@@ -84,9 +84,9 @@ def test_nomes_com_espacos_divergentes_consolidam(db, empresa):
 
 
 def test_ponto_e_underscore_sao_o_mesmo_projeto(db, empresa):
-    """'BR25_485_33.B01.A' vs 'BR25_485_33_B01.A': receita numa grafia, custo na outra."""
+    """'BR25_485_33.B01.A' vs 'BR25_485 - 33 B01 A': receita numa grafia, custo na outra."""
     criar_projeto(db, empresa, 100, "BR25_485_33.B01.A")
-    criar_projeto(db, empresa, 200, "BR25_485_33_B01.A")
+    criar_projeto(db, empresa, 200, "BR25_485 - 33 B01 A")
     mapear_categoria(db, empresa, "2.01.01", "producao")
     criar_titulo(db, empresa, "receber", 1, 682_000.0, projeto=100)
     criar_titulo(db, empresa, "pagar", 2, 610_000.0, projeto=200, categoria="2.01.01")
@@ -126,6 +126,24 @@ def test_custos_por_grupo_do_mapeamento(db, empresa):
     assert linha["custo_total"] == 4700.0
     assert linha["resultado"] == 5300.0
     assert linha["margem"] == pytest.approx(0.53)
+
+
+def test_comissao_entra_no_custo_do_projeto(db, empresa):
+    """Regra da cliente: comissao e custo do projeto e reduz a margem."""
+    criar_projeto(db, empresa, 100, "BR26_055")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    mapear_categoria(db, empresa, "3.01.01", "comissao")
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
+    criar_titulo(db, empresa, "pagar", 10, 4_000.0, projeto=100, categoria="2.01.01")
+    criar_titulo(db, empresa, "pagar", 11, 500.0, projeto=100, categoria="3.01.01")
+
+    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_055")
+
+    assert linha["comissao"] == 500.0
+    assert linha["custo_total"] == 4_500.0
+    assert linha["resultado"] == 5_500.0
+    assert linha["margem"] == pytest.approx(0.55)
+    assert calculo.fechar_projetos(db, [empresa.id])["consolidado"]["comissao"] == 500.0
 
 
 def test_rateio_de_categorias_divide_o_titulo(db, empresa):
@@ -267,8 +285,13 @@ def test_sugestao_automatica_de_grupo():
     assert sugestao_grupo("Serviços de Terceiros - Fretes") == "frete"
     assert sugestao_grupo("1.4.7 Correios") == "frete"
     assert sugestao_grupo("ICMS a recolher") == "imposto"
+    assert sugestao_grupo("Comissões") == "comissao"
+    assert sugestao_grupo("3.1.1 Comissão de vendas") == "comissao"
     assert sugestao_grupo("1.1.5 Aluguel") is None
     assert sugestao_grupo("Consultorias") is None
+    # regressao: 'iss'/'das' soltos casavam ComISSoes e VenDAS
+    assert sugestao_grupo("Devoluções de Vendas de Mercadoria") is None
+    assert sugestao_grupo("ISS retido") == "imposto"
 
 
 def test_serie_mensal_agrupa_por_mes_e_exclui_sem_projeto(db, empresa):

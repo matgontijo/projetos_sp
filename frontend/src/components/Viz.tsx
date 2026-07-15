@@ -100,10 +100,12 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
   )
 }
 
+// Ordem fixa e validada p/ daltonismo nos dois temas (comissão = magenta, após impostos)
 export const SERIES = [
   { key: 'producao', label: 'Produção', cor: 'var(--serie-producao)' },
   { key: 'frete', label: 'Frete', cor: 'var(--serie-frete)' },
   { key: 'imposto', label: 'Impostos', cor: 'var(--serie-imposto)' },
+  { key: 'comissao', label: 'Comissão', cor: 'var(--serie-comissao)' },
   { key: 'outros', label: 'Outros', cor: 'var(--serie-outros)' },
   { key: 'resultado', label: 'Resultado', cor: 'var(--serie-resultado)' },
 ] as const
@@ -150,6 +152,7 @@ export function BarraComposicao({
   producao,
   frete,
   imposto,
+  comissao = 0,
   outros,
   resultado,
   compacta = false,
@@ -158,6 +161,7 @@ export function BarraComposicao({
   producao: number
   frete: number
   imposto: number
+  comissao?: number
   outros: number
   resultado: number
   compacta?: boolean
@@ -175,6 +179,7 @@ export function BarraComposicao({
     { label: 'Produção', valor: producao, cor: 'var(--serie-producao)' },
     { label: 'Frete', valor: frete, cor: 'var(--serie-frete)' },
     { label: 'Impostos', valor: imposto, cor: 'var(--serie-imposto)' },
+    { label: 'Comissão', valor: comissao, cor: 'var(--serie-comissao)' },
     { label: 'Outros', valor: outros, cor: 'var(--serie-outros)' },
     { label: 'Resultado', valor: Math.max(resultado, 0), cor: 'var(--serie-resultado)' },
   ].filter((p) => p.valor > 0)

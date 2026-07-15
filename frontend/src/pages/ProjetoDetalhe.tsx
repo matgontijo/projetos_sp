@@ -9,11 +9,12 @@ import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
 const GRUPO_LABEL: Record<string, string> = {
   producao: 'Produção',
   frete: 'Frete',
+  comissao: 'Comissão',
   imposto: 'Imposto',
   outros: 'Outros',
   ignorar: 'Ignorar',
 }
-const GRUPOS_AJUSTE = ['producao', 'frete', 'imposto', 'outros', 'ignorar'] as const
+const GRUPOS_AJUSTE = ['producao', 'frete', 'comissao', 'imposto', 'outros', 'ignorar'] as const
 
 interface ModalAjuste {
   empresa_id: number
@@ -157,10 +158,11 @@ export default function ProjetoDetalhe() {
 
       {f && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
             <KPICard titulo="Receita" valor={fmtBRL(f.receita)} sub={`${f.qtd_receber} títulos`} />
             <KPICard titulo="Produção" valor={fmtBRL(f.producao)} />
             <KPICard titulo="Frete" valor={fmtBRL(f.frete)} />
+            <KPICard titulo="Comissão" valor={fmtBRL(f.comissao)} />
             <KPICard
               titulo="Impostos"
               valor={fmtBRL(f.imposto)}
@@ -180,7 +182,8 @@ export default function ProjetoDetalhe() {
 
           <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
             <b>Cálculo:</b> {fmtBRL(f.receita)} (receita) − {fmtBRL(f.producao)} (produção) − {fmtBRL(f.frete)} (frete) −{' '}
-            {fmtBRL(f.imposto)} (impostos) − {fmtBRL(f.outros)} (outros) = <b>{fmtBRL(f.resultado)}</b>
+            {fmtBRL(f.comissao)} (comissão) − {fmtBRL(f.imposto)} (impostos) − {fmtBRL(f.outros)} (outros) ={' '}
+            <b>{fmtBRL(f.resultado)}</b>
             {f.cp_impostos > 0 && (
               <span style={{ color: 'var(--text-muted)' }}>
                 {' '}

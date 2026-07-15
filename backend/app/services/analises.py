@@ -252,29 +252,36 @@ def _aliquota_da_empresa(db: Session, empresa: models.Empresa) -> dict:
 
 
 def simular_preco(
-    db: Session, custo: float, margem_alvo: float, preco: float | None = None
+    db: Session, custo: float, margem_alvo: float, preco: float | None = None, comissao: float = 0.0
 ) -> dict:
-    """Para cada empresa ativa: preco minimo p/ atingir a margem, e comparacao."""
+    """Para cada empresa ativa: preco minimo p/ atingir a margem, e comparacao.
+
+    `comissao` e a fracao da VENDA paga ao vendedor (regra da cliente: comissao
+    entra no custo do projeto) — reduz a margem como o imposto.
+    """
     empresas = db.scalars(select(models.Empresa).where(models.Empresa.ativa)).all()
     cenarios = []
     for empresa in empresas:
         info = _aliquota_da_empresa(db, empresa)
         aliquota = min(info["aliquota"], 0.9)
-        divisor = 1.0 - aliquota - margem_alvo
+        divisor = 1.0 - aliquota - comissao - margem_alvo
         preco_minimo = custo / divisor if divisor > 0 else None
         cenario = {
             "empresa_id": empresa.id,
             "empresa": empresa.nome,
             "regime": empresa.regime,
             "aliquota": round(aliquota, 6),
+            "comissao": round(comissao, 6),
             "origem_aliquota": info["origem"],
             "preco_minimo": round(preco_minimo, 2) if preco_minimo else None,
         }
         if preco and preco > 0:
             imposto_estimado = preco * aliquota
-            resultado = preco - custo - imposto_estimado
+            comissao_estimada = preco * comissao
+            resultado = preco - custo - imposto_estimado - comissao_estimada
             cenario["com_preco_informado"] = {
                 "imposto": round(imposto_estimado, 2),
+                "comissao": round(comissao_estimada, 2),
                 "resultado": round(resultado, 2),
                 "margem": round(resultado / preco, 6),
             }
