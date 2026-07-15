@@ -145,6 +145,26 @@ def sync_categorias(db: Session, empresa: models.Empresa, client: OmieClient) ->
     return len(registros)
 
 
+def sync_vendedores(db: Session, empresa: models.Empresa, client: OmieClient) -> int:
+    registros = omie_api.listar_vendedores(client)
+    existentes = {
+        v.codigo_omie: v
+        for v in db.scalars(select(models.Vendedor).where(models.Vendedor.empresa_id == empresa.id))
+    }
+    for reg in registros:
+        codigo = _int_ou_none(reg.get("codigo"))
+        if not codigo:
+            continue
+        row = existentes.get(codigo)
+        if row is None:
+            row = models.Vendedor(empresa_id=empresa.id, codigo_omie=codigo)
+            db.add(row)
+            existentes[codigo] = row
+        row.nome = str(reg.get("nome") or reg.get("nomeVendedor") or "")
+    db.commit()
+    return len(registros)
+
+
 def _upsert_titulos(db: Session, empresa: models.Empresa, tipo: str, registros: list[dict]) -> int:
     existentes = {
         t.codigo_lancamento_omie: t
@@ -171,6 +191,7 @@ def _upsert_titulos(db: Session, empresa: models.Empresa, tipo: str, registros: 
         row.data_vencimento = _data(reg.get("data_vencimento"))
         row.status_titulo = str(reg.get("status_titulo") or "")
         row.codigo_cliente_fornecedor = _int_ou_none(reg.get("codigo_cliente_fornecedor"))
+        row.codigo_vendedor = _int_ou_none(reg.get("codigo_vendedor"))
         row.numero_documento = str(reg.get("numero_documento") or "")
         row.numero_documento_fiscal = str(reg.get("numero_documento_fiscal") or "")
         row.raw = reg
@@ -254,7 +275,7 @@ def sync_nfe(db: Session, empresa: models.Empresa, client: OmieClient, de: date,
 
 # --- Orquestracao ------------------------------------------------------------
 
-RECURSOS = ("projetos", "categorias", "clientes", "contas_receber", "contas_pagar", "nfe")
+RECURSOS = ("projetos", "categorias", "clientes", "vendedores", "contas_receber", "contas_pagar", "nfe")
 
 
 def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) -> None:
@@ -279,6 +300,8 @@ def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) ->
                         qtd = sync_categorias(db, empresa, client)
                     elif recurso == "clientes":
                         qtd = sync_clientes(db, empresa, client)
+                    elif recurso == "vendedores":
+                        qtd = sync_vendedores(db, empresa, client)
                     elif recurso == "contas_receber":
                         qtd = sync_contas_receber(db, empresa, client, de, ate)
                     elif recurso == "contas_pagar":

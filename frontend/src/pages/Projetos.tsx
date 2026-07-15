@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api, baixarArquivo, type LinhaFechamento } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { BadgeLucro, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
+import { BadgeMeta, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado' | 'margem'
@@ -43,6 +43,8 @@ export default function Projetos() {
     queryKey: ['fechamento', empresaIds, de, ate],
     queryFn: () => api.fechamento(empresaIds, de, ate),
   })
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.lerConfig })
+  const margemAlvo = (config?.margem_alvo ?? 20) / 100
 
   const navigate = useNavigate()
   const [busca, setBusca] = useState('')
@@ -186,7 +188,7 @@ export default function Projetos() {
                   />
                 </td>
                 <td>
-                  <BadgeLucro resultado={p.resultado} />
+                  <BadgeMeta margem={p.margem} receita={p.receita} alvo={margemAlvo} />
                 </td>
               </tr>
             ))}

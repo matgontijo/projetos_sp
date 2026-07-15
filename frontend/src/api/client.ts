@@ -151,6 +151,93 @@ export interface CategoriaGrupo {
   grupo: string | null
 }
 
+export interface Config {
+  margem_alvo: number
+  sync_auto: boolean
+  sync_hora: number
+}
+
+export interface Alerta {
+  gravidade: 'critica' | 'atencao'
+  titulo: string
+  detalhe: string
+  projeto: string | null
+}
+
+export interface ClienteRanking {
+  cliente: string
+  receita: number
+  resultado: number
+  margem: number
+  qtd_projetos: number
+  projetos_prejuizo: number
+  classe: 'A' | 'B' | 'C'
+}
+
+export interface VendedorRanking {
+  vendedor: string
+  receita: number
+  resultado_atribuido: number
+  margem_media: number
+  qtd_projetos: number
+}
+
+export interface CaixaProjeto {
+  projeto: string
+  receber_aberto: number
+  receber_atrasado: number
+  pagar_aberto: number
+  pagar_atrasado: number
+  maior_atraso_dias: number
+}
+
+export interface Caixa {
+  projetos: CaixaProjeto[]
+  totais: { receber_aberto: number; receber_atrasado: number; pagar_aberto: number; pagar_atrasado: number }
+}
+
+export interface CenarioSimulacao {
+  empresa_id: number
+  empresa: string
+  regime: string
+  aliquota: number
+  origem_aliquota: string
+  preco_minimo: number | null
+  com_preco_informado?: { imposto: number; resultado: number; margem: number }
+}
+
+export interface Simulacao {
+  custo: number
+  margem_alvo: number
+  cenarios: CenarioSimulacao[]
+  empresa_recomendada: string | null
+}
+
+export interface Orcamento {
+  nome: string
+  receita_prevista: number | null
+  custo_previsto: number | null
+  atualizado_por: string
+  atualizado_em: string | null
+}
+
+export interface Aprovacao {
+  id: number
+  nome: string
+  periodo_de: string | null
+  periodo_ate: string | null
+  dados: LinhaFechamento
+  usuario: string
+  criado_em: string
+}
+
+export interface Comentario {
+  id: number
+  texto: string
+  usuario: string
+  criado_em: string
+}
+
 export function usuarioAtual(): string {
   return localStorage.getItem('usuario') || ''
 }
@@ -249,6 +336,37 @@ export const api = {
     valor_novo: string
     motivo: string
   }) => request<Ajuste>('/api/ajustes', { method: 'POST', body: JSON.stringify(dados) }),
+
+  // Configurações
+  lerConfig: () => request<Config>('/api/config'),
+  salvarConfig: (dados: Partial<Config>) => request<Config>('/api/config', { method: 'PUT', body: JSON.stringify(dados) }),
+
+  // Análises
+  alertas: (empresaIds?: string, de?: string, ate?: string) =>
+    request<Alerta[]>(`/api/analises/alertas${qs({ empresa_ids: empresaIds, de, ate })}`),
+  rankingClientes: (empresaIds?: string, de?: string, ate?: string) =>
+    request<ClienteRanking[]>(`/api/analises/clientes${qs({ empresa_ids: empresaIds, de, ate })}`),
+  rankingVendedores: (empresaIds?: string, de?: string, ate?: string) =>
+    request<{ vendedores: VendedorRanking[]; receita_sem_vendedor: number }>(
+      `/api/analises/vendedores${qs({ empresa_ids: empresaIds, de, ate })}`,
+    ),
+  caixa: (empresaIds?: string, de?: string, ate?: string) =>
+    request<Caixa>(`/api/analises/caixa${qs({ empresa_ids: empresaIds, de, ate })}`),
+  simular: (custo: number, margemAlvo: number, preco?: number) =>
+    request<Simulacao>(
+      `/api/analises/simulador${qs({ custo: String(custo), margem_alvo: String(margemAlvo), preco: preco ? String(preco) : undefined })}`,
+    ),
+
+  // Orçado × Realizado, aprovações e comentários
+  obterOrcamento: (nome: string) => request<Orcamento>(`/api/orcamentos${qs({ nome })}`),
+  salvarOrcamento: (dados: { nome: string; receita_prevista: number | null; custo_previsto: number | null }) =>
+    request<Orcamento>('/api/orcamentos', { method: 'PUT', body: JSON.stringify(dados) }),
+  aprovar: (dados: { nome: string; empresa_ids?: string; de?: string; ate?: string }) =>
+    request<Aprovacao>('/api/aprovacoes', { method: 'POST', body: JSON.stringify(dados) }),
+  listarAprovacoes: (nome: string) => request<Aprovacao[]>(`/api/aprovacoes${qs({ nome })}`),
+  listarComentarios: (nome: string) => request<Comentario[]>(`/api/comentarios${qs({ nome })}`),
+  comentar: (nome: string, texto: string) =>
+    request<Comentario[]>('/api/comentarios', { method: 'POST', body: JSON.stringify({ nome, texto }) }),
 
   // Export (URLs para <a download>)
   urlExportCsv: (empresaIds?: string, de?: string, ate?: string) =>

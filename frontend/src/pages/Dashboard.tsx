@@ -36,6 +36,10 @@ export default function Dashboard() {
     queryKey: ['fechamento-mensal', empresaIds, de, ate],
     queryFn: () => api.fechamentoMensal(empresaIds, de, ate),
   })
+  const { data: alertas } = useQuery({
+    queryKey: ['alertas', empresaIds, de, ate],
+    queryFn: () => api.alertas(empresaIds, de, ate),
+  })
   const anterior = periodoAnterior(de, ate)
   const { data: dataAnterior } = useQuery({
     queryKey: ['fechamento', empresaIds, anterior?.de, anterior?.ate],
@@ -166,20 +170,38 @@ export default function Dashboard() {
             />
           </div>
 
-          {consolidado.nao_classificado > 0 && (
-            <div
-              className="mt-3 rounded-lg px-4 py-2 text-sm"
-              style={{
-                background: 'color-mix(in srgb, var(--status-warning) 15%, transparent)',
-                border: '1px solid color-mix(in srgb, var(--status-warning) 40%, transparent)',
-              }}
-            >
-              ⚠ {fmtBRL(consolidado.nao_classificado)} em contas a pagar com categoria <b>não classificada</b> (somadas
-              em "Outros"). Classifique em{' '}
-              <Link to="/empresas" className="underline font-semibold">
-                Empresas → Classificar custos
-              </Link>
-              .
+          {alertas && alertas.length > 0 && (
+            <div className="card mt-4 px-5 py-4">
+              <h2 className="mb-2 text-sm font-bold">
+                Precisa de atenção{' '}
+                <span className="ml-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold" style={{ background: 'color-mix(in srgb, var(--neg) 15%, transparent)', color: 'var(--neg)' }}>
+                  {alertas.length}
+                </span>
+              </h2>
+              <div className="grid gap-1.5">
+                {alertas.map((a, i) => (
+                  <div key={i} className="flex items-start gap-2.5 text-sm">
+                    <span
+                      className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: a.gravidade === 'critica' ? 'var(--status-critical)' : 'var(--status-warning)' }}
+                      title={a.gravidade === 'critica' ? 'Crítico' : 'Atenção'}
+                    />
+                    <div>
+                      {a.projeto ? (
+                        <Link
+                          to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params.toString()}`}
+                          className="font-bold hover:underline"
+                        >
+                          {a.titulo}
+                        </Link>
+                      ) : (
+                        <b>{a.titulo}</b>
+                      )}{' '}
+                      <span style={{ color: 'var(--text-secondary)' }}>{a.detalhe}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

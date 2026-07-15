@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, usuarioAtual } from '../api/client'
+import { api, usuarioAtual, type LinhaFechamento, type Orcamento } from '../api/client'
 import { useFiltros } from '../components/Filtros'
 import { BadgeLucro, KPICard, siglaEmpresa } from '../components/Viz'
 import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
@@ -39,6 +39,21 @@ export default function ProjetoDetalhe() {
     queryFn: () => api.detalheProjeto(nome, empresaIds, de, ate),
     enabled: !!nome,
   })
+  const { data: orcamento } = useQuery({
+    queryKey: ['orcamento', nome],
+    queryFn: () => api.obterOrcamento(nome),
+    enabled: !!nome,
+  })
+  const { data: aprovacoes } = useQuery({
+    queryKey: ['aprovacoes', nome],
+    queryFn: () => api.listarAprovacoes(nome),
+    enabled: !!nome,
+  })
+
+  const aprovarFechamento = useMutation({
+    mutationFn: () => api.aprovar({ nome, empresa_ids: empresaIds, de, ate }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['aprovacoes', nome] }),
+  })
 
   const criarAjuste = useMutation({
     mutationFn: () =>
@@ -71,13 +86,17 @@ export default function ProjetoDetalhe() {
   const f = data?.fechamento
   const receber = (data?.titulos || []).filter((t) => t.tipo === 'receber')
   const pagar = (data?.titulos || []).filter((t) => t.tipo === 'pagar')
-  const [aba, setAba] = useState<'receber' | 'pagar' | 'nfe' | 'ajustes'>('receber')
+  const [aba, setAba] = useState<'receber' | 'pagar' | 'nfe' | 'ajustes' | 'comentarios'>('receber')
   const abas = [
     { id: 'receber' as const, rotulo: `Recebimentos (${receber.length})` },
     { id: 'pagar' as const, rotulo: `Pagamentos (${pagar.length})` },
     { id: 'nfe' as const, rotulo: `Notas fiscais (${data?.nfes.length || 0})` },
     { id: 'ajustes' as const, rotulo: `Ajustes (${data?.ajustes.length || 0})` },
+    { id: 'comentarios' as const, rotulo: 'Comentários' },
   ]
+  const ultimaAprovacao = aprovacoes?.[0]
+  const divergencia =
+    ultimaAprovacao && f ? Math.abs((ultimaAprovacao.dados.resultado ?? 0) - f.resultado) > 0.01 : false
 
   return (
     <div>
@@ -91,6 +110,32 @@ export default function ProjetoDetalhe() {
           <span className="text-sm" style={{ color: 'var(--text-muted)' }} title={f.empresas}>
             {f.cliente && `${f.cliente} · `}
             {f.empresas.split(',').map((n) => siglaEmpresa(n.trim())).join(' + ')}
+          </span>
+        )}
+        {f && (
+          <span className="ml-auto flex items-center gap-2">
+            {ultimaAprovacao && (
+              <span
+                className="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                title={`Resultado aprovado: ${fmtBRL(ultimaAprovacao.dados.resultado)}${divergencia ? ' — os números atuais divergem da aprovação!' : ''}`}
+                style={{
+                  background: divergencia
+                    ? 'color-mix(in srgb, var(--status-warning) 20%, transparent)'
+                    : 'color-mix(in srgb, var(--status-good) 15%, transparent)',
+                  color: divergencia ? 'var(--text-primary)' : 'var(--status-good-text)',
+                }}
+              >
+                {divergencia ? '⚠ Mudou após aprovação' : `✓ Aprovado por ${ultimaAprovacao.usuario}`}
+              </span>
+            )}
+            <button
+              className="btn btn-ghost"
+              disabled={aprovarFechamento.isPending || !usuarioAtual()}
+              title={!usuarioAtual() ? 'Informe seu nome no campo lateral para assinar a aprovação' : 'Congela os números atuais como fechamento aprovado'}
+              onClick={() => aprovarFechamento.mutate()}
+            >
+              {aprovarFechamento.isPending ? 'Aprovando…' : 'Aprovar fechamento'}
+            </button>
           </span>
         )}
       </div>
@@ -145,6 +190,8 @@ export default function ProjetoDetalhe() {
           </p>
         </>
       )}
+
+      {f && orcamento && <OrcadoRealizado nome={nome} orcamento={orcamento} fechamento={f} />}
 
       {data && (
         <div className="mt-4 flex gap-1 border-b" style={{ borderColor: 'var(--baseline)' }}>
@@ -399,6 +446,8 @@ export default function ProjetoDetalhe() {
       </Secao>
       )}
 
+      {aba === 'comentarios' && data && <Comentarios nome={nome} />}
+
       {modal && (
         <div
           className="fixed inset-0 z-20 flex items-center justify-center p-4"
@@ -487,6 +536,144 @@ export default function ProjetoDetalhe() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function OrcadoRealizado({ nome, orcamento, fechamento }: { nome: string; orcamento: Orcamento; fechamento: LinhaFechamento }) {
+  const queryClient = useQueryClient()
+  const [receita, setReceita] = useState(orcamento.receita_prevista?.toString() ?? '')
+  const [custo, setCusto] = useState(orcamento.custo_previsto?.toString() ?? '')
+  const [editando, setEditando] = useState(orcamento.receita_prevista === null && orcamento.custo_previsto === null)
+
+  const salvar = useMutation({
+    mutationFn: () =>
+      api.salvarOrcamento({
+        nome,
+        receita_prevista: receita === '' ? null : Number(receita),
+        custo_previsto: custo === '' ? null : Number(custo),
+      }),
+    onSuccess: () => {
+      setEditando(false)
+      queryClient.invalidateQueries({ queryKey: ['orcamento', nome] })
+      queryClient.invalidateQueries({ queryKey: ['alertas'] })
+    },
+  })
+
+  const desvio = (previsto: number | null, realizado: number) =>
+    previsto === null || previsto === 0 ? null : realizado - previsto
+
+  const dCusto = desvio(orcamento.custo_previsto, fechamento.custo_total)
+  const dReceita = desvio(orcamento.receita_prevista, fechamento.receita)
+
+  return (
+    <div className="card mt-4 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold">Orçado × Realizado</h3>
+        {!editando && (
+          <button className="btn btn-ghost text-xs" onClick={() => setEditando(true)}>
+            Editar orçamento
+          </button>
+        )}
+      </div>
+      {editando ? (
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            Receita prevista (R$)
+            <input type="number" min="0" className="input mt-1 block w-40" value={receita} onChange={(e) => setReceita(e.target.value)} />
+          </label>
+          <label className="text-sm">
+            Custo previsto (R$)
+            <input type="number" min="0" className="input mt-1 block w-40" value={custo} onChange={(e) => setCusto(e.target.value)} />
+          </label>
+          <button className="btn btn-primary" disabled={salvar.isPending} onClick={() => salvar.mutate()}>
+            {salvar.isPending ? 'Salvando…' : 'Salvar'}
+          </button>
+          <p className="help w-full">O previsto vem da proposta/pedido; o app compara sozinho com o realizado e avisa quando estourar.</p>
+        </div>
+      ) : (
+        <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <span className="titulo-secao">Receita</span>
+            <p className="mt-0.5">
+              Prevista {orcamento.receita_prevista !== null ? fmtBRL(orcamento.receita_prevista) : '—'} · realizada{' '}
+              <b>{fmtBRL(fechamento.receita)}</b>
+              {dReceita !== null && (
+                <b style={{ color: dReceita >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+                  {' '}({dReceita >= 0 ? '+' : ''}{fmtBRL(dReceita)})
+                </b>
+              )}
+            </p>
+          </div>
+          <div>
+            <span className="titulo-secao">Custo total</span>
+            <p className="mt-0.5">
+              Previsto {orcamento.custo_previsto !== null ? fmtBRL(orcamento.custo_previsto) : '—'} · realizado{' '}
+              <b>{fmtBRL(fechamento.custo_total)}</b>
+              {dCusto !== null && (
+                <b style={{ color: dCusto <= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+                  {' '}({dCusto >= 0 ? '+' : ''}{fmtBRL(dCusto)}{dCusto > 0 ? ' ESTOURO' : ''})
+                </b>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Comentarios({ nome }: { nome: string }) {
+  const queryClient = useQueryClient()
+  const [texto, setTexto] = useState('')
+  const { data: comentarios } = useQuery({
+    queryKey: ['comentarios', nome],
+    queryFn: () => api.listarComentarios(nome),
+  })
+  const enviar = useMutation({
+    mutationFn: () => api.comentar(nome, texto),
+    onSuccess: () => {
+      setTexto('')
+      queryClient.invalidateQueries({ queryKey: ['comentarios', nome] })
+    },
+  })
+  return (
+    <div className="card mt-4 px-5 py-4">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex-1 text-sm" style={{ minWidth: 260 }}>
+          Novo comentário
+          <input
+            className="input mt-1 w-full"
+            placeholder="ex.: cliente aprovou reposição sem custo — margem cai de propósito"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && texto.trim() && usuarioAtual() && enviar.mutate()}
+          />
+        </label>
+        <button
+          className="btn btn-primary"
+          disabled={!texto.trim() || enviar.isPending || !usuarioAtual()}
+          title={!usuarioAtual() ? 'Informe seu nome no campo lateral' : undefined}
+          onClick={() => enviar.mutate()}
+        >
+          Comentar
+        </button>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {(comentarios || []).map((c) => (
+          <div key={c.id} className="rounded-lg px-3 py-2" style={{ background: 'var(--surface-2)' }}>
+            <p className="text-sm">{c.texto}</p>
+            <p className="mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {c.usuario} · {fmtDataHora(c.criado_em)}
+            </p>
+          </div>
+        ))}
+        {comentarios && comentarios.length === 0 && (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Nenhum comentário ainda — a história do projeto começa aqui.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

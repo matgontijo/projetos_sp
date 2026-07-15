@@ -90,6 +90,8 @@ export default function Empresas() {
         }
       />
 
+      <Preferencias />
+
       <div className="grid gap-3 lg:grid-cols-2">
         {(empresas || []).map((e) => {
           const teste = testes[e.id]
@@ -318,6 +320,79 @@ export default function Empresas() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function Preferencias() {
+  const queryClient = useQueryClient()
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.lerConfig })
+  const [margem, setMargem] = useState<string | null>(null)
+
+  const salvar = useMutation({
+    mutationFn: (dados: Partial<{ margem_alvo: number; sync_auto: boolean; sync_hora: number }>) =>
+      api.salvarConfig(dados),
+    onSuccess: () => {
+      setMargem(null)
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+      queryClient.invalidateQueries({ queryKey: ['alertas'] })
+    },
+  })
+
+  if (!config) return null
+  return (
+    <div className="card mb-4 flex flex-wrap items-end gap-5 px-5 py-4">
+      <div>
+        <span className="titulo-secao">Meta de margem</span>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            max="95"
+            step="0.5"
+            className="input w-24"
+            value={margem ?? String(config.margem_alvo)}
+            onChange={(e) => setMargem(e.target.value)}
+          />
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>%</span>
+          {margem !== null && Number(margem) !== config.margem_alvo && (
+            <button className="btn btn-primary text-xs" disabled={salvar.isPending} onClick={() => salvar.mutate({ margem_alvo: Number(margem) })}>
+              Salvar
+            </button>
+          )}
+        </div>
+        <p className="help mt-1">Define o semáforo dos projetos e os alertas.</p>
+      </div>
+      <div>
+        <span className="titulo-secao">Busca automática</span>
+        <div className="mt-1 flex items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={config.sync_auto}
+              onChange={(e) => salvar.mutate({ sync_auto: e.target.checked })}
+            />
+            Buscar dados da Omie todo dia
+          </label>
+          {config.sync_auto && (
+            <>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>a partir das</span>
+              <select
+                className="input w-20 py-1"
+                value={config.sync_hora}
+                onChange={(e) => salvar.mutate({ sync_hora: Number(e.target.value) })}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{String(h).padStart(2, '0')}h</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+        <p className="help mt-1">
+          No plano gratuito do Render a busca só roda se o servidor estiver acordado; no plano pago roda sempre.
+        </p>
+      </div>
     </div>
   )
 }

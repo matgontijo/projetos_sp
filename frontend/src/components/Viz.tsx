@@ -301,6 +301,32 @@ export function ChipsEmpresas({ empresas }: { empresas: string }) {
   )
 }
 
+/** Semáforo de margem: verde = na meta, amarelo = lucro abaixo da meta, vermelho = prejuízo. */
+export function BadgeMeta({ margem, receita, alvo }: { margem: number; receita: number; alvo: number }) {
+  if (receita <= 0) {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} title="Projeto ainda sem faturamento no período">
+        Sem receita
+      </span>
+    )
+  }
+  const estado = margem < 0 ? 'prejuizo' : margem >= alvo ? 'meta' : 'abaixo'
+  const cores = {
+    meta: { bg: 'color-mix(in srgb, var(--status-good) 15%, transparent)', cor: 'var(--status-good-text)', rotulo: '● Na meta' },
+    abaixo: { bg: 'color-mix(in srgb, var(--status-warning) 18%, transparent)', cor: 'var(--text-primary)', rotulo: '● Abaixo da meta' },
+    prejuizo: { bg: 'color-mix(in srgb, var(--status-critical) 15%, transparent)', cor: 'var(--neg)', rotulo: '● Prejuízo' },
+  }[estado]
+  return (
+    <span
+      className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold"
+      style={{ background: cores.bg, color: cores.cor }}
+      title={`Meta: ${(alvo * 100).toFixed(0)}% de margem (ajuste em Empresas → Preferências)`}
+    >
+      {cores.rotulo}
+    </span>
+  )
+}
+
 export function BadgeLucro({ resultado }: { resultado: number }) {
   const lucro = resultado >= 0
   return (

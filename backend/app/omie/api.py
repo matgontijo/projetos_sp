@@ -55,6 +55,10 @@ def listar_categorias(client: OmieClient) -> list[dict]:
     return list(client.paginate("geral/categorias", "ListarCategorias", {}, list_keys=("categoria_cadastro",)))
 
 
+def listar_vendedores(client: OmieClient) -> list[dict]:
+    return list(client.paginate("geral/vendedores", "ListarVendedores", {}, list_keys=("cadastro", "vendedor_cadastro")))
+
+
 def testar_conexao(client: OmieClient) -> dict:
     """Chamada minima para validar credenciais; retorna contagem de projetos."""
     try:

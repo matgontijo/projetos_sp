@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
 import { ICONES } from './components/Layout'
+import Analises from './pages/Analises'
 import Dashboard from './pages/Dashboard'
 import Empresas from './pages/Empresas'
 import ProjetoDetalhe from './pages/ProjetoDetalhe'
 import Projetos from './pages/Projetos'
+import Simulador from './pages/Simulador'
 import Sincronizar from './pages/Sincronizar'
 
 const LINKS = [
   { to: '/dashboard', label: 'Visão geral', icone: ICONES.visao },
   { to: '/projetos', label: 'Projetos', icone: ICONES.projetos, tambem: '/projeto' },
+  { to: '/analises', label: 'Análises', icone: ICONES.analises },
+  { to: '/simulador', label: 'Simulador', icone: ICONES.simulador },
   { to: '/sincronizar', label: 'Buscar dados', icone: ICONES.buscar },
   { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
 ]
@@ -99,6 +103,8 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projetos" element={<Projetos />} />
             <Route path="/projeto" element={<ProjetoDetalhe />} />
+            <Route path="/analises" element={<Analises />} />
+            <Route path="/simulador" element={<Simulador />} />
             <Route path="/sincronizar" element={<Sincronizar />} />
             <Route path="/empresas" element={<Empresas />} />
           </Routes>
