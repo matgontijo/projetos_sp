@@ -152,7 +152,7 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
     pdf.ln()
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, _pdf_txt("Valores em R$. Margem = resultado / receita. Linha 'Sem projeto' fora do total."))
+    pdf.cell(0, 5, _pdf_txt("Valores em R$. Margem = resultado / receita. Somente projetos de venda (numeração BR)."))
 
     return bytes(pdf.output())
 

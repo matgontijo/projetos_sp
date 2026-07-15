@@ -31,6 +31,12 @@ from . import simples
 
 SEM_PROJETO_NOME = "Sem projeto"
 
+# Regra de negocio (definida pelas donas): so entra no fechamento PROJETO DE
+# VENDA, e projeto de venda e o que comeca com "BR" (ex.: BR26_055). Centros
+# de custo cadastrados como projeto na Omie (Administrativo, Estoque, Diversos)
+# e lancamentos sem projeto ficam fora — nao aparecem nem somam na receita.
+PREFIXO_PROJETO_VENDA = "BR"
+
 
 def _f(value) -> float:
     return float(value or 0)
@@ -42,6 +48,10 @@ def chave_projeto(nome: str) -> str:
     # significativos na numeracao (que e zero-padded), entao a chave os ignora
     # para unir as duplicatas de digitacao.
     return re.sub(r"[\s._]+", "", (nome or "")).upper()
+
+
+def e_projeto_de_venda(nome: str) -> bool:
+    return chave_projeto(nome).startswith(PREFIXO_PROJETO_VENDA)
 
 
 @dataclass
@@ -259,6 +269,8 @@ def fechar_projetos(
         if ctx.ajustes.excluido("titulo", titulo.id):
             continue
         nome = ctx.projeto_do_titulo(titulo)
+        if not e_projeto_de_venda(nome):
+            continue
         ln = linha(nome)
         valor = _f(titulo.valor_documento)
         ln.receita += valor
@@ -280,7 +292,10 @@ def fechar_projetos(
             continue
         if ctx.ajustes.excluido("titulo", titulo.id):
             continue
-        ln = linha(ctx.projeto_do_titulo(titulo))
+        nome = ctx.projeto_do_titulo(titulo)
+        if not e_projeto_de_venda(nome):
+            continue
+        ln = linha(nome)
         ln.qtd_pagar += 1
         ln.empresas.add(ctx.nome_empresa(titulo.empresa_id))
         grupo_override = ctx.ajustes.get("titulo", titulo.id, "grupo")
@@ -306,7 +321,10 @@ def fechar_projetos(
             continue
         if ctx.ajustes.excluido("nfe", nfe.id):
             continue
-        ln = linha(ctx.projeto_da_nfe(nfe))
+        nome = ctx.projeto_da_nfe(nfe)
+        if not e_projeto_de_venda(nome):
+            continue
+        ln = linha(nome)
         ln.empresas.add(ctx.nome_empresa(nfe.empresa_id))
         override = ctx.ajustes.get("nfe", nfe.id, "valor_imposto")
         if override is not None:
@@ -335,23 +353,19 @@ def fechar_projetos(
             if cliente:
                 ln.cliente = cliente.nome_fantasia or cliente.razao_social
 
+    # so ha linhas de projetos de venda (filtro BR aplicado na entrada)
     resultado = sorted(linhas.values(), key=lambda l: l.receita, reverse=True)
-    # KPIs consolidados so consideram projetos de verdade — o bucket "Sem projeto"
-    # (folha, emprestimos, despesas gerais sem vinculo) apareceria como custo e
-    # distorceria o resultado/margem dos fechamentos
-    chave_sem_projeto = chave_projeto(SEM_PROJETO_NOME)
-    reais = [l for l in resultado if chave_projeto(l.projeto) != chave_sem_projeto]
     consolidado = {
-        "receita": round(sum(l.receita for l in reais), 2),
-        "producao": round(sum(l.producao for l in reais), 2),
-        "frete": round(sum(l.frete for l in reais), 2),
-        "outros": round(sum(l.outros for l in reais), 2),
-        "imposto": round(sum(l.imposto for l in reais), 2),
-        "cp_impostos": round(sum(l.cp_impostos for l in reais), 2),
-        "nao_classificado": round(sum(l.nao_classificado for l in reais), 2),
-        "custo_total": round(sum(l.custo_total for l in reais), 2),
-        "resultado": round(sum(l.resultado for l in reais), 2),
-        "qtd_projetos": len(reais),
+        "receita": round(sum(l.receita for l in resultado), 2),
+        "producao": round(sum(l.producao for l in resultado), 2),
+        "frete": round(sum(l.frete for l in resultado), 2),
+        "outros": round(sum(l.outros for l in resultado), 2),
+        "imposto": round(sum(l.imposto for l in resultado), 2),
+        "cp_impostos": round(sum(l.cp_impostos for l in resultado), 2),
+        "nao_classificado": round(sum(l.nao_classificado for l in resultado), 2),
+        "custo_total": round(sum(l.custo_total for l in resultado), 2),
+        "resultado": round(sum(l.resultado for l in resultado), 2),
+        "qtd_projetos": len(resultado),
     }
     receita_total = consolidado["receita"]
     consolidado["margem_media"] = round(consolidado["resultado"] / receita_total, 6) if receita_total > 0 else 0.0
@@ -366,9 +380,8 @@ def serie_mensal(
     ate: date | None = None,
 ) -> list[dict]:
     """Receita, custos, impostos e resultado por mes (mesmas regras do consolidado:
-    lancamentos sem projeto ficam de fora)."""
+    so projetos de venda — numeracao BR)."""
     ctx = _Contexto(db, empresa_ids, de, ate)
-    chave_sem = chave_projeto(SEM_PROJETO_NOME)
     meses: dict[str, dict] = {}
 
     def mes_de(d: date | None) -> str | None:
@@ -383,7 +396,7 @@ def serie_mensal(
     for titulo in ctx.titulos:
         if _cancelado(titulo.status_titulo) or ctx.ajustes.excluido("titulo", titulo.id):
             continue
-        if chave_projeto(ctx.projeto_do_titulo(titulo)) == chave_sem:
+        if not e_projeto_de_venda(ctx.projeto_do_titulo(titulo)):
             continue
         mes = mes_de(titulo.data_emissao)
         if not mes:
@@ -410,7 +423,7 @@ def serie_mensal(
     for nfe in ctx.nfes:
         if nfe.cancelada or str(nfe.tp_nf) != "1" or ctx.ajustes.excluido("nfe", nfe.id):
             continue
-        if chave_projeto(ctx.projeto_da_nfe(nfe)) == chave_sem:
+        if not e_projeto_de_venda(ctx.projeto_da_nfe(nfe)):
             continue
         mes = mes_de(nfe.d_emi)
         if not mes:
