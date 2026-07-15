@@ -185,6 +185,24 @@ function qs(params: Record<string, string | undefined>): string {
   return '?' + pairs.map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&')
 }
 
+/** Baixa um arquivo via fetch (aguenta cold start do servidor, ao contrário do download nativo). */
+export async function baixarArquivo(url: string, nomeFallback: string): Promise<void> {
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  const disposition = resp.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";]+)"?/)
+  const nome = match ? match[1] : nomeFallback
+  const blob = await resp.blob()
+  const href = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = nome
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(href), 10_000)
+}
+
 export const api = {
   // Empresas
   listarEmpresas: () => request<Empresa[]>('/api/empresas'),

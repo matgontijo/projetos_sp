@@ -1,13 +1,41 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, type LinhaFechamento } from '../api/client'
+import { api, baixarArquivo, type LinhaFechamento } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import { BadgeLucro, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado' | 'margem'
+
+/** Botão de exportação que baixa via fetch: aguenta o servidor gratuito acordando
+ * (~1 min) e mostra erro de verdade — o download nativo do navegador desistia. */
+function BotaoExport({ rotulo, url, nome, primario = false }: { rotulo: string; url: string; nome: string; primario?: boolean }) {
+  const [estado, setEstado] = useState<'pronto' | 'gerando' | 'erro'>('pronto')
+
+  async function baixar() {
+    setEstado('gerando')
+    try {
+      await baixarArquivo(url, nome)
+      setEstado('pronto')
+    } catch {
+      setEstado('erro')
+    }
+  }
+
+  return (
+    <button
+      className={primario ? 'btn btn-primary' : 'btn btn-ghost'}
+      disabled={estado === 'gerando'}
+      onClick={baixar}
+      title={estado === 'gerando' ? 'Gerando o relatório — no servidor gratuito pode levar até 1 minuto' : undefined}
+      style={estado === 'erro' ? { color: 'var(--neg)', borderColor: 'var(--neg)' } : undefined}
+    >
+      {estado === 'gerando' ? 'Gerando…' : estado === 'erro' ? `${rotulo} — falhou, tentar de novo` : rotulo}
+    </button>
+  )
+}
 
 export default function Projetos() {
   const { empresaIds, de, ate, params } = useFiltros()
@@ -56,15 +84,9 @@ export default function Projetos() {
         subtitulo="Só projetos de venda (numeração BR) — clique na linha para abrir o detalhe"
         acoes={
           <>
-            <a className="btn btn-primary" href={api.urlExportPdf(empresaIds, de, ate)} download>
-              Exportar PDF
-            </a>
-            <a className="btn btn-ghost" href={api.urlExportCsv(empresaIds, de, ate)} download>
-              CSV
-            </a>
-            <a className="btn btn-ghost" href={api.urlExportXlsx(empresaIds, de, ate)} download>
-              Excel
-            </a>
+            <BotaoExport rotulo="Exportar PDF" url={api.urlExportPdf(empresaIds, de, ate)} nome="fechamento.pdf" primario />
+            <BotaoExport rotulo="CSV" url={api.urlExportCsv(empresaIds, de, ate)} nome="fechamento.csv" />
+            <BotaoExport rotulo="Excel" url={api.urlExportXlsx(empresaIds, de, ate)} nome="fechamento.xlsx" />
           </>
         }
       />
