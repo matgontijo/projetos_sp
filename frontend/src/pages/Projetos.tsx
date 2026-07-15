@@ -53,7 +53,7 @@ export default function Projetos() {
     <div>
       <PageHeader
         titulo="Projetos"
-        subtitulo="Um fechamento por projeto — clique na linha para abrir o detalhe"
+        subtitulo="Só projetos de venda (numeração BR) — clique na linha para abrir o detalhe"
         acoes={
           <>
             <a className="btn btn-primary" href={api.urlExportPdf(empresaIds, de, ate)} download>
@@ -170,7 +170,7 @@ export default function Projetos() {
             ))}
           </tbody>
           {(() => {
-            const linhas = projetos.filter((p) => p.projeto !== 'Sem projeto')
+            const linhas = projetos
             if (!linhas.length) return null
             const soma = (campo: 'receita' | 'producao' | 'frete' | 'imposto' | 'outros' | 'resultado') =>
               linhas.reduce((s, p) => s + p[campo], 0)
@@ -179,7 +179,7 @@ export default function Projetos() {
             return (
               <tfoot>
                 <tr style={{ fontWeight: 700, borderTop: '2px solid var(--baseline)' }}>
-                  <td title="Soma das linhas exibidas (a linha 'Sem projeto' fica de fora)">Total</td>
+                  <td title="Soma das linhas exibidas">Total</td>
                   <td colSpan={2} className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {linhas.length} projetos
                   </td>

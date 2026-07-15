@@ -186,12 +186,26 @@ def test_nfe_liga_ao_projeto_pelo_fallback_dos_titulos(db, empresa):
     assert _projeto_da_nf({"pedido": {}, "titulos": []}) is None
 
 
-def test_sem_projeto_agrupa_em_bucket_proprio(db, empresa):
-    criar_titulo(db, empresa, "receber", 1, 700.0, projeto=None)
+def test_apenas_projetos_de_venda_br_entram_no_fechamento(db, empresa):
+    """Regra das donas: so se fecha projeto de venda (numeracao BR). Centros de
+    custo cadastrados como projeto e lancamentos sem projeto ficam FORA."""
+    criar_projeto(db, empresa, 100, "BR26_055")
+    criar_projeto(db, empresa, 200, "Administrativo")
+    criar_projeto(db, empresa, 300, "ESTOQUE")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
+    criar_titulo(db, empresa, "receber", 2, 999.0, projeto=200)  # nao e venda
+    criar_titulo(db, empresa, "pagar", 3, 50_000.0, projeto=300, categoria="2.01.01")  # estoque
+    criar_titulo(db, empresa, "receber", 4, 700.0, projeto=None)  # em branco
+    criar_nfe(db, empresa, 555, projeto=200, v_icms=77.0)  # NF de centro de custo
+
     resultado = calculo.fechar_projetos(db, [empresa.id])
-    linha = _linha(resultado, calculo.SEM_PROJETO_NOME)
-    assert linha["projeto"] == "Sem projeto"
-    assert linha["receita"] == 700.0
+
+    assert [p["projeto"] for p in resultado["projetos"]] == ["BR26_055"]
+    assert resultado["consolidado"]["receita"] == 10_000.0  # 999 e 700 nao somam
+    assert resultado["consolidado"]["custo_total"] == 0.0  # estoque nao vira custo
+    assert resultado["consolidado"]["imposto"] == 0.0
+    assert resultado["consolidado"]["qtd_projetos"] == 1
 
 
 def test_margem_zero_quando_receita_zero(db, empresa):
@@ -215,8 +229,8 @@ def test_filtro_de_periodo_por_emissao(db, empresa):
 
 
 def test_consolidado_e_margem_media(db, empresa):
-    criar_projeto(db, empresa, 100, "A")
-    criar_projeto(db, empresa, 200, "B")
+    criar_projeto(db, empresa, 100, "BR26_001")
+    criar_projeto(db, empresa, 200, "BR26_002")
     mapear_categoria(db, empresa, "2.01.01", "producao")
     criar_titulo(db, empresa, "receber", 1, 1000.0, projeto=100)
     criar_titulo(db, empresa, "pagar", 2, 600.0, projeto=100, categoria="2.01.01")
@@ -241,21 +255,6 @@ def test_aliquota_extra_sobre_receita(db, empresa):
     linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_055")
     assert linha["imposto_extra"] == pytest.approx(340.0)
     assert linha["imposto"] == pytest.approx(1_340.0)  # NF-e + extra
-
-
-def test_consolidado_exclui_sem_projeto(db, empresa):
-    """KPIs consolidados nao podem ser distorcidos por despesas sem projeto."""
-    criar_projeto(db, empresa, 100, "BR26_055")
-    mapear_categoria(db, empresa, "2.01.01", "producao")
-    criar_titulo(db, empresa, "receber", 1, 1_000.0, projeto=100)
-    criar_titulo(db, empresa, "pagar", 2, 50_000.0, projeto=None, categoria="9.99.99")  # folha etc.
-
-    resultado = calculo.fechar_projetos(db, [empresa.id])
-    assert resultado["consolidado"]["receita"] == 1_000.0
-    assert resultado["consolidado"]["resultado"] == 1_000.0
-    assert resultado["consolidado"]["qtd_projetos"] == 1
-    # a linha "Sem projeto" continua visivel na lista
-    assert _linha(resultado, calculo.SEM_PROJETO_NOME)["outros"] == 50_000.0
 
 
 def test_sugestao_automatica_de_grupo():
@@ -338,20 +337,20 @@ def test_ajuste_reclassifica_grupo_do_titulo(db, empresa):
 
 
 def test_ajuste_move_titulo_de_projeto(db, empresa):
-    criar_projeto(db, empresa, 100, "A")
-    criar_projeto(db, empresa, 200, "B")
+    criar_projeto(db, empresa, 100, "BR26_001")
+    criar_projeto(db, empresa, 200, "BR26_002")
     titulo = criar_titulo(db, empresa, "receber", 1, 800.0, projeto=100)
     db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="titulo", alvo_id=titulo.id, campo="codigo_projeto",
                          valor_anterior="100", valor_novo="200", usuario="tester"))
     db.commit()
 
     resultado = calculo.fechar_projetos(db, [empresa.id])
-    assert _linha(resultado, "B")["receita"] == 800.0
-    assert all(p["projeto"] != "A" or p["receita"] == 0 for p in resultado["projetos"])
+    assert _linha(resultado, "BR26_002")["receita"] == 800.0
+    assert all(p["projeto"] != "BR26_001" or p["receita"] == 0 for p in resultado["projetos"])
 
 
-def test_ajuste_move_titulo_para_sem_projeto(db, empresa):
-    """Regressao: valor_novo='0' (sem projeto) era ignorado pelo `or` falsy."""
+def test_ajuste_move_titulo_para_sem_projeto_tira_do_fechamento(db, empresa):
+    """valor_novo='0' (sem projeto): o titulo sai do fechamento (so venda BR entra)."""
     criar_projeto(db, empresa, 100, "BR26_055")
     titulo = criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
     db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="titulo", alvo_id=titulo.id, campo="codigo_projeto",
@@ -359,11 +358,11 @@ def test_ajuste_move_titulo_para_sem_projeto(db, empresa):
     db.commit()
 
     resultado = calculo.fechar_projetos(db, [empresa.id])
-    assert _linha(resultado, calculo.SEM_PROJETO_NOME)["receita"] == 10_000.0
-    assert all(p["receita"] == 0 for p in resultado["projetos"] if p["projeto"] == "BR26_055")
+    assert resultado["consolidado"]["receita"] == 0.0
+    assert all(p["receita"] == 0 for p in resultado["projetos"])
 
 
-def test_ajuste_move_nfe_para_sem_projeto(db, empresa):
+def test_ajuste_move_nfe_para_sem_projeto_tira_do_fechamento(db, empresa):
     criar_projeto(db, empresa, 100, "BR26_055")
     nfe = criar_nfe(db, empresa, 555, projeto=100, v_icms=500.0)
     db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="nfe", alvo_id=nfe.id, campo="codigo_projeto",
@@ -371,7 +370,7 @@ def test_ajuste_move_nfe_para_sem_projeto(db, empresa):
     db.commit()
 
     resultado = calculo.fechar_projetos(db, [empresa.id])
-    assert _linha(resultado, calculo.SEM_PROJETO_NOME)["imposto"] == 500.0
+    assert resultado["consolidado"]["imposto"] == 0.0
 
 
 def test_detalhe_concilia_titulo_com_rateio(db, empresa):
@@ -401,30 +400,30 @@ def test_detalhe_concilia_titulo_com_rateio(db, empresa):
 
 
 def test_ajuste_corrige_imposto_da_nfe(db, empresa):
-    criar_projeto(db, empresa, 100, "A")
+    criar_projeto(db, empresa, 100, "BR26_001")
     nfe = criar_nfe(db, empresa, 555, projeto=100, v_icms=1000.0)
     db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="nfe", alvo_id=nfe.id, campo="valor_imposto",
                          valor_anterior="1000.00", valor_novo="850,50", usuario="tester"))
     db.commit()
 
-    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "A")
+    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_001")
     assert linha["imposto"] == pytest.approx(850.5)
 
 
 def test_ajuste_exclui_titulo_do_fechamento(db, empresa):
-    criar_projeto(db, empresa, 100, "A")
+    criar_projeto(db, empresa, 100, "BR26_001")
     criar_titulo(db, empresa, "receber", 1, 1000.0, projeto=100)
     titulo2 = criar_titulo(db, empresa, "receber", 2, 400.0, projeto=100)
     db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="titulo", alvo_id=titulo2.id, campo="excluir",
                          valor_anterior="N", valor_novo="S", usuario="tester"))
     db.commit()
 
-    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "A")
+    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_001")
     assert linha["receita"] == 1000.0
 
 
 def test_ultimo_ajuste_vence(db, empresa):
-    criar_projeto(db, empresa, 100, "A")
+    criar_projeto(db, empresa, 100, "BR26_001")
     mapear_categoria(db, empresa, "2.02.01", "frete")
     titulo = criar_titulo(db, empresa, "pagar", 10, 500.0, projeto=100, categoria="2.02.01")
     db.add(models.Ajuste(empresa_id=empresa.id, alvo_tipo="titulo", alvo_id=titulo.id, campo="grupo",
@@ -433,6 +432,6 @@ def test_ultimo_ajuste_vence(db, empresa):
                          valor_anterior="producao", valor_novo="outros", usuario="tester"))
     db.commit()
 
-    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "A")
+    linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_001")
     assert linha["producao"] == 0.0
     assert linha["outros"] == 500.0
