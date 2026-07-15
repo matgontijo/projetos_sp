@@ -7,11 +7,13 @@ import { fmtBRL, fmtPct } from '../lib/format'
 export default function Simulador() {
   const [custo, setCusto] = useState('')
   const [margem, setMargem] = useState('20')
+  const [comissao, setComissao] = useState('')
   const [preco, setPreco] = useState('')
   const [resultado, setResultado] = useState<Simulacao | null>(null)
 
   const simular = useMutation({
-    mutationFn: () => api.simular(Number(custo), Number(margem || 0), preco ? Number(preco) : undefined),
+    mutationFn: () =>
+      api.simular(Number(custo), Number(margem || 0), preco ? Number(preco) : undefined, comissao ? Number(comissao) : undefined),
     onSuccess: setResultado,
   })
 
@@ -46,6 +48,19 @@ export default function Simulador() {
               className="input mt-1 block w-32"
               value={margem}
               onChange={(e) => setMargem(e.target.value)}
+            />
+          </label>
+          <label className="text-sm">
+            Comissão do vendedor (%)
+            <input
+              type="number"
+              min="0"
+              max="50"
+              step="0.5"
+              className="input mt-1 block w-32"
+              placeholder="0"
+              value={comissao}
+              onChange={(e) => setComissao(e.target.value)}
             />
           </label>
           <label className="text-sm">
@@ -105,13 +120,15 @@ export default function Simulador() {
                   {c.preco_minimo ? fmtBRL(c.preco_minimo) : '—'}
                 </div>
                 <p className="help mt-1">
-                  Imposto estimado: {fmtPct(c.aliquota)} da venda ({c.origem_aliquota}).
+                  Imposto estimado: {fmtPct(c.aliquota)} da venda ({c.origem_aliquota})
+                  {c.comissao > 0 && <> · comissão de {fmtPct(c.comissao)} já descontada</>}.
                 </p>
                 {c.com_preco_informado && (
                   <div className="mt-3 rounded-lg px-3 py-2" style={{ background: 'var(--surface-2)' }}>
                     <div className="titulo-secao">Com o preço informado</div>
                     <p className="mt-1 text-sm">
-                      Imposto {fmtBRL(c.com_preco_informado.imposto)} · resultado{' '}
+                      Imposto {fmtBRL(c.com_preco_informado.imposto)}
+                      {c.com_preco_informado.comissao > 0 && <> · comissão {fmtBRL(c.com_preco_informado.comissao)}</>} · resultado{' '}
                       <b style={{ color: c.com_preco_informado.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
                         {fmtBRL(c.com_preco_informado.resultado)}
                       </b>{' '}

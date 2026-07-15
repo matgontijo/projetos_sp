@@ -15,6 +15,7 @@ COLUNAS = [
     ("receita", "Receita (R$)"),
     ("producao", "Produção (R$)"),
     ("frete", "Frete (R$)"),
+    ("comissao", "Comissão (R$)"),
     ("imposto", "Impostos (R$)"),
     ("outros", "Outros (R$)"),
     ("custo_total", "Custo total (R$)"),
@@ -76,15 +77,16 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
     pdf.ln(3)
 
     colunas = [
-        ("projeto", "Projeto", 42, "L"),
-        ("empresas", "Empresas", 30, "L"),
-        ("cliente", "Cliente", 40, "L"),
-        ("receita", "Receita", 26, "R"),
-        ("producao", "Produção", 24, "R"),
-        ("frete", "Frete", 18, "R"),
-        ("imposto", "Impostos", 24, "R"),
-        ("outros", "Outros", 18, "R"),
-        ("resultado", "Resultado", 26, "R"),
+        ("projeto", "Projeto", 38, "L"),
+        ("empresas", "Empresas", 26, "L"),
+        ("cliente", "Cliente", 34, "L"),
+        ("receita", "Receita", 25, "R"),
+        ("producao", "Produção", 23, "R"),
+        ("frete", "Frete", 17, "R"),
+        ("comissao", "Comissão", 20, "R"),
+        ("imposto", "Impostos", 23, "R"),
+        ("outros", "Outros", 17, "R"),
+        ("resultado", "Resultado", 25, "R"),
         ("margem", "Margem", 14, "R"),
     ]
 
@@ -135,6 +137,7 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
         "receita": consolidado.get("receita", 0),
         "producao": consolidado.get("producao", 0),
         "frete": consolidado.get("frete", 0),
+        "comissao": consolidado.get("comissao", 0),
         "imposto": consolidado.get("imposto", 0),
         "outros": consolidado.get("outros", 0),
         "resultado": consolidado.get("resultado", 0),
@@ -181,11 +184,11 @@ def fechamento_xlsx(projetos: list[dict], consolidado: dict) -> bytes:
         cell.font = Font(bold=True)
 
     for row in ws.iter_rows(min_row=2):
-        for cell in row[3:10]:
+        for cell in row[3:11]:
             cell.number_format = formato_moeda
-        row[10].number_format = "0.00%"
+        row[11].number_format = "0.00%"
 
-    for idx, largura in enumerate([24, 18, 28, 16, 16, 14, 16, 14, 16, 16, 12], start=1):
+    for idx, largura in enumerate([24, 18, 28, 16, 16, 14, 15, 16, 14, 16, 16, 12], start=1):
         ws.column_dimensions[ws.cell(row=1, column=idx).column_letter].width = largura
 
     out = io.BytesIO()

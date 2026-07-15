@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-GRUPOS_VALIDOS = {"producao", "frete", "imposto", "outros", "ignorar"}
+GRUPOS_VALIDOS = {"producao", "frete", "comissao", "imposto", "outros", "ignorar"}
 
 
 # --- Empresas ---

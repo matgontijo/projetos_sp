@@ -7,7 +7,8 @@ Regras (do levantamento de requisitos):
   interno e diferente em cada conta Omie.
 - receita  = soma dos titulos de Contas a Receber do projeto (cancelados fora)
 - custos   = titulos de Contas a Pagar por grupo do mapeamento de categorias
-             (producao / frete / outros; rateio `categorias[]` respeitado)
+             (producao / frete / comissao / outros; rateio `categorias[]` respeitado)
+- comissao ENTRA no custo do projeto (regra da cliente, igual a planilha delas)
 - imposto  = tributos destacados nas NF-e do projeto (ICMS, ST, FCP, FCPST, IPI,
              PIS, COFINS, IBS/CBS) + Simples efetivo sobre a parcela da receita
              faturada por empresa marcada como Simples
@@ -44,10 +45,10 @@ def _f(value) -> float:
 
 def chave_projeto(nome: str) -> str:
     # A numeracao de projetos e digitada com variacoes ("BR25_460 _B10",
-    # "BR25_485_33.B01.A" vs "BR25_485_33_B01.A"). Espacos, '.' e '_' nao sao
-    # significativos na numeracao (que e zero-padded), entao a chave os ignora
-    # para unir as duplicatas de digitacao.
-    return re.sub(r"[\s._]+", "", (nome or "")).upper()
+    # "BR25_485_33.B01.A" vs "BR25_485 - 33 B01 A"). Espacos, '.', '_' e '-'
+    # nao sao significativos na numeracao (que e zero-padded), entao a chave
+    # os ignora para unir as duplicatas de digitacao.
+    return re.sub(r"[\s._-]+", "", (nome or "")).upper()
 
 
 def e_projeto_de_venda(nome: str) -> bool:
@@ -61,6 +62,7 @@ class LinhaFechamento:
     receita: float = 0.0
     producao: float = 0.0
     frete: float = 0.0
+    comissao: float = 0.0
     outros: float = 0.0
     imposto_nfe: float = 0.0
     imposto_simples: float = 0.0
@@ -79,7 +81,7 @@ class LinhaFechamento:
 
     @property
     def custo_total(self) -> float:
-        return self.producao + self.frete + self.imposto + self.outros
+        return self.producao + self.frete + self.comissao + self.imposto + self.outros
 
     @property
     def resultado(self) -> float:
@@ -97,6 +99,7 @@ class LinhaFechamento:
             "receita": round(self.receita, 2),
             "producao": round(self.producao, 2),
             "frete": round(self.frete, 2),
+            "comissao": round(self.comissao, 2),
             "outros": round(self.outros, 2),
             "imposto": round(self.imposto, 2),
             "imposto_nfe": round(self.imposto_nfe, 2),
@@ -306,6 +309,8 @@ def fechar_projetos(
                 ln.producao += valor
             elif grupo == "frete":
                 ln.frete += valor
+            elif grupo == "comissao":
+                ln.comissao += valor
             elif grupo == "imposto":
                 # tributo pago (gerado pela Omie): visivel, mas fora do custo — o
                 # imposto do projeto vem da NF-e; somar aqui duplicaria
@@ -359,6 +364,7 @@ def fechar_projetos(
         "receita": round(sum(l.receita for l in resultado), 2),
         "producao": round(sum(l.producao for l in resultado), 2),
         "frete": round(sum(l.frete for l in resultado), 2),
+        "comissao": round(sum(l.comissao for l in resultado), 2),
         "outros": round(sum(l.outros for l in resultado), 2),
         "imposto": round(sum(l.imposto for l in resultado), 2),
         "cp_impostos": round(sum(l.cp_impostos for l in resultado), 2),

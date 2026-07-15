@@ -113,3 +113,18 @@ def test_simulador_margem_com_preco_informado(db, empresa):
     # imposto 200, resultado 800, margem 40%
     assert cenario["imposto"] == pytest.approx(200.0)
     assert cenario["margem"] == pytest.approx(0.4)
+
+
+def test_simulador_com_comissao(db, empresa):
+    """Comissao reduz a margem como o imposto: preco = custo / (1 - aliq - com - margem)."""
+    empresa.aliquota_extra = 10.0
+    db.commit()
+    resultado = analises.simular_preco(db, custo=1_000.0, margem_alvo=0.2, preco=2_000.0, comissao=0.05)
+    cenario = resultado["cenarios"][0]
+    # preco minimo = 1000 / (1 - 0.10 - 0.05 - 0.20) = 1538.46
+    assert cenario["preco_minimo"] == pytest.approx(1538.46, abs=0.01)
+    com_preco = cenario["com_preco_informado"]
+    # comissao 100, imposto 200, resultado 700, margem 35%
+    assert com_preco["comissao"] == pytest.approx(100.0)
+    assert com_preco["resultado"] == pytest.approx(700.0)
+    assert com_preco["margem"] == pytest.approx(0.35)

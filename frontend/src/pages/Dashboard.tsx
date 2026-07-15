@@ -131,13 +131,18 @@ export default function Dashboard() {
             />
             <KPICard
               titulo="Custos"
-              dica="Produção + frete + outros custos (impostos ficam no card ao lado)"
-              valor={fmtBRL(consolidado.producao + consolidado.frete + consolidado.outros)}
+              dica="Produção + frete + comissão + outros custos (impostos ficam no card ao lado)"
+              valor={fmtBRL(consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros)}
               sub={
                 consolidadoAnterior && (
                   <Delta
-                    atual={consolidado.producao + consolidado.frete + consolidado.outros}
-                    anterior={consolidadoAnterior.producao + consolidadoAnterior.frete + consolidadoAnterior.outros}
+                    atual={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
+                    anterior={
+                      consolidadoAnterior.producao +
+                      consolidadoAnterior.frete +
+                      consolidadoAnterior.comissao +
+                      consolidadoAnterior.outros
+                    }
                     invertido
                   />
                 )
@@ -225,6 +230,7 @@ export default function Dashboard() {
                 producao={consolidado.producao}
                 frete={consolidado.frete}
                 imposto={consolidado.imposto}
+                comissao={consolidado.comissao}
                 outros={consolidado.outros}
                 resultado={consolidado.resultado}
               />
