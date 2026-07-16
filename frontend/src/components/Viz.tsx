@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { MesFechamento } from '../api/client'
-import { fmtBRL, fmtPct } from '../lib/format'
+import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
 
 const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -25,12 +25,12 @@ export function Delta({ atual, anterior, invertido = false }: { atual: number; a
   )
 }
 
-/** Evolução mensal: barras de receita e resultado lado a lado, com linha de zero. */
+/** Evolução mensal: barras de receita e resultado, linha de zero e escala de referência. */
 export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
   if (!serie.length) return null
   const maxPos = Math.max(...serie.map((m) => Math.max(m.receita, m.resultado, 0)), 1)
   const maxNeg = Math.max(...serie.map((m) => Math.max(0, -m.resultado)), 0)
-  const ALTURA = 150
+  const ALTURA = 190
   const areaPos = maxNeg > 0 ? ALTURA * (maxPos / (maxPos + maxNeg)) : ALTURA
   const areaNeg = ALTURA - areaPos
 
@@ -40,7 +40,19 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
   }
 
   return (
-    <div>
+    <div className="relative">
+      {/* linhas de referência com a escala em R$ */}
+      {[1, 0.5].map((fracao) => (
+        <div
+          key={fracao}
+          className="pointer-events-none absolute left-0 right-0 flex items-end justify-end"
+          style={{ top: areaPos * (1 - fracao), borderTop: '1px dashed var(--gridline)' }}
+        >
+          <span className="pr-1 text-[10px] leading-none" style={{ color: 'var(--text-muted)', transform: 'translateY(-3px)' }}>
+            {fmtBRLCurto(maxPos * fracao)}
+          </span>
+        </div>
+      ))}
       <div className="flex items-end gap-1" style={{ height: ALTURA + 4 }}>
         {serie.map((m) => {
           const hReceita = (m.receita / maxPos) * areaPos
@@ -116,24 +128,26 @@ export function KPICard({
   sub,
   tom,
   dica,
+  hero = false,
 }: {
   titulo: string
   valor: string
   sub?: ReactNode
   tom?: 'pos' | 'neg'
   dica?: string
+  hero?: boolean
 }) {
+  const acento = tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good)' : 'var(--accent)'
   return (
-    <div className="card px-4 py-3.5" title={dica}>
+    <div
+      className={`card kpi px-4 py-3.5 ${hero ? 'kpi-hero' : ''}`}
+      title={dica}
+      style={hero ? ({ '--kpi-acento': acento } as React.CSSProperties) : undefined}
+    >
       <div className="titulo-secao whitespace-nowrap">{titulo}</div>
       <div
-        className="mt-1.5 leading-none font-extrabold tracking-tight whitespace-nowrap"
-        style={{
-          // nunca quebra linha: encolhe conforme a largura disponível
-          fontSize: 'clamp(13px, 1.55vw, 24px)',
-          fontVariantNumeric: 'tabular-nums',
-          color: tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good-text)' : 'var(--text-primary)',
-        }}
+        className="kpi-valor mt-1.5"
+        style={{ color: tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good-text)' : 'var(--text-primary)' }}
       >
         {valor}
       </div>

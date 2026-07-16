@@ -9,6 +9,15 @@ export function fmtBRL(valor: number): string {
   return brl.format(valor ?? 0)
 }
 
+/** Forma curta para escalas de gráfico: R$ 5,4 mi · R$ 320 mil · R$ 900. */
+export function fmtBRLCurto(valor: number): string {
+  const abs = Math.abs(valor)
+  const sinal = valor < 0 ? '-' : ''
+  if (abs >= 1_000_000) return `${sinal}R$ ${(abs / 1_000_000).toFixed(1).replace('.', ',')} mi`
+  if (abs >= 1_000) return `${sinal}R$ ${Math.round(abs / 1_000)} mil`
+  return `${sinal}R$ ${Math.round(abs)}`
+}
+
 export function fmtPct(fracao: number): string {
   return pct.format(fracao ?? 0)
 }

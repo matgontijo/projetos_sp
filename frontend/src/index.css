@@ -77,6 +77,17 @@ body {
   letter-spacing: -0.006em;
 }
 
+/* brilho ambiente sutil no topo — profundidade sem virar carnaval */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 380px;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(640px 300px at 32% -90px, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%);
+}
+
 h1, h2, h3 {
   letter-spacing: -0.02em;
 }
@@ -92,6 +103,42 @@ h1, h2, h3 {
   border: 1px solid var(--border-hairline);
   border-radius: 14px;
   box-shadow: var(--sombra-card);
+}
+
+/* ---------- KPIs ---------- */
+
+/* o card vira um "container": a fonte do valor escala com a LARGURA DO CARD
+   (cqw), então o número nunca é cortado — em nenhuma grade, em nenhuma tela */
+.kpi {
+  container-type: inline-size;
+  min-width: 0;
+}
+.kpi-valor {
+  /* coeficiente dimensionado p/ o pior caso (R$ 14.368.109,98 = 16 caracteres) */
+  font-size: clamp(12px, 8.5cqw, 26px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kpi-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kpi-acento, var(--accent)) 8%, var(--surface-1)), var(--surface-1) 60%);
+}
+.kpi-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 40%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--kpi-acento, var(--accent)), transparent);
+}
+.kpi-hero .kpi-valor {
+  font-size: clamp(14px, 9.3cqw, 32px);
 }
 
 .titulo-secao {
@@ -257,9 +304,20 @@ tr.linha-clicavel:hover td {
   color: var(--text-primary);
 }
 .sidebar-item-ativo {
+  position: relative;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--text-primary);
   font-weight: 800;
+}
+.sidebar-item-ativo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--serie-resultado));
 }
 .sidebar-item-ativo svg {
   color: var(--accent);
