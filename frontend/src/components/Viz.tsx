@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import type { MesFechamento } from '../api/client'
+import { useState, type ReactNode } from 'react'
+import type { Consolidado, MesFechamento } from '../api/client'
 import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
 
 const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -26,87 +26,220 @@ export function Delta({ atual, anterior, invertido = false }: { atual: number; a
   )
 }
 
-/** Evolução mensal: barras de receita e resultado, linha de zero e escala de referência. */
+/** Evolução mensal: barras de receita + LINHA de resultado, tooltip vivo e escala. */
 export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
+  const [hover, setHover] = useState<number | null>(null)
   if (!serie.length) return null
   const maxPos = Math.max(...serie.map((m) => Math.max(m.receita, m.resultado, 0)), 1)
   const maxNeg = Math.max(...serie.map((m) => Math.max(0, -m.resultado)), 0)
-  const ALTURA = 190
+  const ALTURA = 210
   const areaPos = maxNeg > 0 ? ALTURA * (maxPos / (maxPos + maxNeg)) : ALTURA
   const areaNeg = ALTURA - areaPos
+  const n = serie.length
 
   const rotulo = (mes: string) => {
     const [ano, m] = mes.split('-')
     return `${MES_CURTO[Number(m) - 1]}/${ano.slice(2)}`
   }
+  // y em pixels da linha de resultado (positivo acima do zero, negativo abaixo)
+  const yResultado = (v: number) =>
+    v >= 0 ? areaPos * (1 - v / maxPos) : areaPos + (maxNeg > 0 ? (-v / maxNeg) * areaNeg : 0)
+  const xCentro = (i: number) => ((i + 0.5) / n) * 100
+
+  const m = hover !== null ? serie[hover] : null
 
   return (
-    <div className="relative">
-      {/* linhas de referência com a escala em R$ */}
+    <div className="relative" onMouseLeave={() => setHover(null)}>
+      {/* escala de referência */}
       {[1, 0.5].map((fracao) => (
         <div
           key={fracao}
           className="pointer-events-none absolute left-0 right-0 flex items-end justify-end"
-          style={{ top: areaPos * (1 - fracao), borderTop: '1px dashed var(--gridline)' }}
+          style={{ top: areaPos * (1 - fracao), borderTop: '1px dashed var(--gridline)', zIndex: 0 }}
         >
           <span className="pr-1 text-[10px] leading-none" style={{ color: 'var(--text-muted)', transform: 'translateY(-3px)' }}>
             {fmtBRLCurto(maxPos * fracao)}
           </span>
         </div>
       ))}
-      <div className="flex items-end gap-1" style={{ height: ALTURA + 4 }}>
-        {serie.map((m) => {
-          const hReceita = (m.receita / maxPos) * areaPos
-          const hResultado = (Math.abs(m.resultado) / (m.resultado >= 0 ? maxPos : maxNeg || 1)) * (m.resultado >= 0 ? areaPos : areaNeg)
-          return (
-            <div
-              key={m.mes}
-              className="group flex flex-1 flex-col items-center"
-              title={`${rotulo(m.mes)} — receita ${fmtBRL(m.receita)} · custos ${fmtBRL(m.custos)} · impostos ${fmtBRL(m.imposto)} · resultado ${fmtBRL(m.resultado)}`}
-            >
-              <div className="relative flex w-full items-end justify-center gap-0.5" style={{ height: areaPos }}>
-                <div
-                  className="w-2/5 rounded-t-sm transition-opacity group-hover:opacity-80"
-                  style={{ height: Math.max(hReceita, m.receita > 0 ? 2 : 0), background: 'var(--serie-producao)' }}
-                />
-                <div
-                  className="w-2/5 rounded-t-sm transition-opacity group-hover:opacity-80"
-                  style={{
-                    height: m.resultado >= 0 ? Math.max(hResultado, m.resultado > 0 ? 2 : 0) : 0,
-                    background: 'var(--status-good)',
-                  }}
-                />
-              </div>
-              {areaNeg > 0 && (
-                <div
-                  className="flex w-full items-start justify-center gap-0.5"
-                  style={{ height: areaNeg, borderTop: '1px solid var(--baseline)' }}
-                >
-                  <div className="w-2/5" />
-                  <div
-                    className="w-2/5 rounded-b-sm transition-opacity group-hover:opacity-80"
-                    style={{ height: m.resultado < 0 ? Math.max(hResultado, 2) : 0, background: 'var(--neg)' }}
-                  />
-                </div>
-              )}
+
+      <div className="relative" style={{ height: ALTURA }}>
+        {/* wash da coluna sob o mouse */}
+        {hover !== null && (
+          <div
+            className="pointer-events-none absolute inset-y-0 rounded-lg"
+            style={{ left: `${(hover / n) * 100}%`, width: `${100 / n}%`, background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
+          />
+        )}
+
+        {/* barras de receita */}
+        <div className="absolute inset-0 flex items-end gap-1">
+          {serie.map((mes, i) => (
+            <div key={mes.mes} className="flex h-full flex-1 items-end justify-center" style={{ height: areaPos }}>
+              <div
+                className="rounded-t-[5px] transition-all"
+                style={{
+                  width: '58%',
+                  height: Math.max((mes.receita / maxPos) * areaPos, mes.receita > 0 ? 2 : 0),
+                  background: `linear-gradient(180deg, var(--serie-producao), color-mix(in srgb, var(--serie-producao) 55%, var(--surface-1)))`,
+                  opacity: hover === null || hover === i ? 1 : 0.45,
+                }}
+              />
             </div>
-          )
-        })}
+          ))}
+        </div>
+
+        {/* linha do zero (quando há meses negativos) */}
+        {areaNeg > 0 && (
+          <div className="pointer-events-none absolute left-0 right-0" style={{ top: areaPos, borderTop: '1px solid var(--baseline)' }} />
+        )}
+
+        {/* linha de resultado */}
+        <svg
+          className="pointer-events-none absolute inset-x-0 top-0"
+          style={{ height: ALTURA, width: '100%' }}
+          viewBox={`0 0 100 ${ALTURA}`}
+          preserveAspectRatio="none"
+        >
+          <polyline
+            points={serie.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')}
+            fill="none"
+            stroke="var(--serie-resultado)"
+            strokeWidth="2.5"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {/* pontos da linha (HTML p/ não distorcer): vermelho = mês negativo */}
+        {serie.map((mes, i) => (
+          <div
+            key={mes.mes}
+            className="pointer-events-none absolute rounded-full transition-transform"
+            style={{
+              left: `calc(${xCentro(i)}% - ${hover === i ? 5 : 4}px)`,
+              top: yResultado(mes.resultado) - (hover === i ? 5 : 4),
+              width: hover === i ? 10 : 8,
+              height: hover === i ? 10 : 8,
+              background: mes.resultado < 0 ? 'var(--neg)' : 'var(--serie-resultado)',
+              border: '2px solid var(--surface-1)',
+            }}
+          />
+        ))}
+
+        {/* zonas de hover por mês */}
+        <div className="absolute inset-0 flex">
+          {serie.map((mes, i) => (
+            <div key={mes.mes} className="h-full flex-1" onMouseEnter={() => setHover(i)} />
+          ))}
+        </div>
+
+        {/* tooltip */}
+        {m && hover !== null && (
+          <div
+            className="card pointer-events-none absolute z-10 px-3.5 py-2.5 text-xs"
+            style={{
+              left: `clamp(0%, calc(${xCentro(hover)}% - 90px), calc(100% - 185px))`,
+              top: Math.max(yResultado(Math.max(m.resultado, 0)) - 120, 0),
+              width: 185,
+            }}
+          >
+            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              {rotulo(m.mes)}
+            </div>
+            {(
+              [
+                ['Receita', fmtBRL(m.receita), 'var(--serie-producao)'],
+                ['Custos', fmtBRL(m.custos), 'var(--text-secondary)'],
+                ['Impostos', fmtBRL(m.imposto), 'var(--serie-imposto)'],
+                ['Resultado', fmtBRL(m.resultado), m.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)'],
+              ] as const
+            ).map(([r, v, cor]) => (
+              <div key={r} className="flex justify-between gap-3">
+                <span style={{ color: 'var(--text-muted)' }}>{r}</span>
+                <b className="num" style={{ color: cor }}>{v}</b>
+              </div>
+            ))}
+            <div className="mt-1 flex justify-between gap-3 border-t pt-1" style={{ borderColor: 'var(--gridline)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Margem</span>
+              <b style={{ color: m.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+                {m.receita > 0 ? fmtPct(m.resultado / m.receita) : '—'}
+              </b>
+            </div>
+          </div>
+        )}
       </div>
+
       <div className="mt-1 flex gap-1 border-t pt-1" style={{ borderColor: 'var(--baseline)' }}>
-        {serie.map((m) => (
-          <div key={m.mes} className="flex-1 text-center text-[10px]" style={{ color: 'var(--text-muted)' }}>
-            {rotulo(m.mes)}
+        {serie.map((mes, i) => (
+          <div
+            key={mes.mes}
+            className="flex-1 text-center text-[10px] font-semibold"
+            style={{ color: hover === i ? 'var(--text-primary)' : 'var(--text-muted)' }}
+          >
+            {rotulo(mes.mes)}
           </div>
         ))}
       </div>
-      <div className="mt-2 flex gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
+      <div className="mt-2 flex flex-wrap gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--serie-producao)' }} /> Receita
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--serie-producao)' }} /> Receita (barras)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--status-good)' }} /> Resultado
-          (vermelho quando negativo)
+          <span className="inline-block h-0.5 w-4 rounded" style={{ background: 'var(--serie-resultado)' }} /> Resultado (linha
+          — ponto vermelho = mês no prejuízo)
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** Para onde foi cada real: linha por grupo com barra proporcional, valor e % da receita. */
+export function ComposicaoLinhas({ consolidado }: { consolidado: Consolidado }) {
+  const receita = consolidado.receita || 1
+  const linhas = [
+    { rotulo: 'Produção', valor: consolidado.producao, cor: 'var(--serie-producao)' },
+    { rotulo: 'Frete', valor: consolidado.frete, cor: 'var(--serie-frete)' },
+    { rotulo: 'Impostos', valor: consolidado.imposto, cor: 'var(--serie-imposto)' },
+    { rotulo: 'Comissão', valor: consolidado.comissao, cor: 'var(--serie-comissao)' },
+    { rotulo: 'Outros', valor: consolidado.outros, cor: 'var(--serie-outros)' },
+  ].filter((l) => l.valor > 0)
+  const resultado = consolidado.resultado
+
+  return (
+    <div className="mt-3 grid gap-1.5">
+      {linhas.map((l) => (
+        <div key={l.rotulo} className="grid items-center gap-2" style={{ gridTemplateColumns: '84px 1fr 110px 52px' }}>
+          <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: l.cor }} />
+            {l.rotulo}
+          </span>
+          <div className="h-2 rounded-full" style={{ background: 'var(--surface-2)' }}>
+            <div className="h-2 rounded-full" style={{ width: `${Math.min((l.valor / receita) * 100, 100)}%`, background: l.cor }} />
+          </div>
+          <span className="num text-xs font-bold">{fmtBRL(l.valor)}</span>
+          <span className="num text-xs" style={{ color: 'var(--text-muted)' }}>{fmtPct(l.valor / receita)}</span>
+        </div>
+      ))}
+      <div
+        className="mt-1 grid items-center gap-2 border-t pt-2"
+        style={{ gridTemplateColumns: '84px 1fr 110px 52px', borderColor: 'var(--gridline)' }}
+      >
+        <span className="text-xs font-extrabold">= Resultado</span>
+        <div className="h-2 rounded-full" style={{ background: 'var(--surface-2)' }}>
+          <div
+            className="h-2 rounded-full"
+            style={{
+              width: `${Math.min((Math.abs(resultado) / receita) * 100, 100)}%`,
+              background: resultado >= 0 ? 'var(--serie-resultado)' : 'var(--neg)',
+            }}
+          />
+        </div>
+        <span className="num text-xs font-extrabold" style={{ color: resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+          {fmtBRL(resultado)}
+        </span>
+        <span className="num text-xs font-bold" style={{ color: resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+          {fmtPct(resultado / receita)}
         </span>
       </div>
     </div>
@@ -236,11 +369,21 @@ export function LegendaSeries({ incluirResultado = true }: { incluirResultado?: 
 export function RankingMargem({
   itens,
   aoClicar,
+  alvo,
 }: {
-  itens: { chave: string; rotulo: string; margem: number; detalhe: string }[]
+  itens: { chave: string; rotulo: string; margem: number; detalhe: string; receitaCurta?: string }[]
   aoClicar?: (chave: string) => void
+  alvo?: number // meta de margem (fração) — vira linha tracejada e semáforo
 }) {
-  const maxAbs = Math.max(...itens.map((i) => Math.abs(i.margem)), 0.0001)
+  const maxAbs = Math.max(...itens.map((i) => Math.abs(i.margem)), alvo ?? 0, 0.0001)
+  const posicaoAlvo = alvo !== undefined ? 50 + (alvo / maxAbs) * 50 : null
+
+  const corDe = (margem: number) => {
+    if (margem < 0) return 'var(--status-critical)'
+    if (alvo !== undefined) return margem >= alvo ? 'var(--status-good)' : 'var(--status-warning)'
+    return 'var(--pos)'
+  }
+
   return (
     <div className="grid gap-1.5" role="list">
       {itens.map((i) => {
@@ -257,34 +400,36 @@ export function RankingMargem({
             onMouseEnter={(e) => aoClicar && (e.currentTarget.style.background = 'color-mix(in srgb, var(--gridline) 50%, transparent)')}
             onMouseLeave={(e) => aoClicar && (e.currentTarget.style.background = 'transparent')}
           >
-            <span
-              className="w-36 shrink-0 truncate text-right text-xs"
-              style={{ color: 'var(--text-secondary)' }}
-            >
+            <span className="w-32 shrink-0 truncate text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
               {i.rotulo}
             </span>
             <div className="relative h-4 flex-1">
-              {/* linha de base no zero (centro) */}
-              <div
-                className="absolute inset-y-0 left-1/2 w-px"
-                style={{ background: 'var(--baseline)' }}
-              />
+              <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: 'var(--baseline)' }} />
+              {posicaoAlvo !== null && posicaoAlvo <= 100 && (
+                <div
+                  className="absolute inset-y-0 w-0"
+                  style={{ left: `${posicaoAlvo}%`, borderLeft: '1.5px dashed var(--text-muted)' }}
+                  title={`Meta: ${fmtPct(alvo!)}`}
+                />
+              )}
               <div
                 className="absolute inset-y-0.5 rounded-sm"
                 style={{
-                  background: positivo ? 'var(--pos)' : 'var(--neg)',
+                  background: corDe(i.margem),
                   left: positivo ? '50%' : `${50 - largura / 2}%`,
                   width: `${largura / 2}%`,
                   minWidth: 2,
                 }}
               />
             </div>
-            <span
-              className="w-14 shrink-0 text-xs font-semibold num"
-              style={{ color: positivo ? 'var(--text-primary)' : 'var(--neg)' }}
-            >
+            <span className="w-14 shrink-0 text-xs font-bold num" style={{ color: positivo ? 'var(--text-primary)' : 'var(--neg)' }}>
               {fmtPct(i.margem)}
             </span>
+            {i.receitaCurta && (
+              <span className="w-16 shrink-0 text-right text-[11px] num" style={{ color: 'var(--text-muted)' }}>
+                {i.receitaCurta}
+              </span>
+            )}
           </div>
         )
       })}
