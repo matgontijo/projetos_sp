@@ -158,26 +158,43 @@ export default function ProjetoDetalhe() {
 
       {f && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-            <KPICard titulo="Receita" valor={fmtBRL(f.receita)} sub={`${f.qtd_receber} títulos`} />
-            <KPICard titulo="Produção" valor={fmtBRL(f.producao)} />
-            <KPICard titulo="Frete" valor={fmtBRL(f.frete)} />
-            <KPICard titulo="Comissão" valor={fmtBRL(f.comissao)} />
-            <KPICard
-              titulo="Impostos"
-              valor={fmtBRL(f.imposto)}
-              sub={
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <KPICard titulo="Receita" hero valor={fmtBRL(f.receita)} sub={`${f.qtd_receber} títulos recebíveis`} />
+            <KPICard titulo="Resultado" hero valor={fmtBRL(f.resultado)} tom={f.resultado >= 0 ? 'pos' : 'neg'} />
+            <KPICard titulo="Margem" hero valor={fmtPct(f.margem)} tom={f.margem >= 0 ? 'pos' : 'neg'} />
+          </div>
+
+          <div className="card mt-3 grid grid-cols-2 gap-x-6 gap-y-3 px-5 py-3.5 sm:grid-cols-5">
+            {(
+              [
+                ['Produção', fmtBRL(f.producao), 'var(--serie-producao)', undefined],
+                ['Frete', fmtBRL(f.frete), 'var(--serie-frete)', undefined],
+                ['Comissão', fmtBRL(f.comissao), 'var(--serie-comissao)', undefined],
                 [
-                  f.imposto_nfe > 0 && `NF-e ${fmtBRL(f.imposto_nfe)}`,
-                  f.imposto_simples > 0 && `Simples ${fmtBRL(f.imposto_simples)}`,
-                  f.imposto_extra > 0 && `Extra ${fmtBRL(f.imposto_extra)}`,
-                ]
-                  .filter(Boolean)
-                  .join(' + ') || `${f.qtd_nfe} NF-e`
-              }
-            />
-            <KPICard titulo="Resultado" valor={fmtBRL(f.resultado)} tom={f.resultado >= 0 ? 'pos' : 'neg'} />
-            <KPICard titulo="Margem" valor={fmtPct(f.margem)} tom={f.margem >= 0 ? 'pos' : 'neg'} />
+                  'Impostos',
+                  fmtBRL(f.imposto),
+                  'var(--serie-imposto)',
+                  [
+                    f.imposto_nfe > 0 && `NF-e ${fmtBRL(f.imposto_nfe)}`,
+                    f.imposto_simples > 0 && `Simples ${fmtBRL(f.imposto_simples)}`,
+                    f.imposto_extra > 0 && `Extra ${fmtBRL(f.imposto_extra)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' + ') || `${f.qtd_nfe} NF-e`,
+                ],
+                ['Outros', fmtBRL(f.outros), 'var(--serie-outros)', undefined],
+              ] as [string, string, string, string | undefined][]
+            ).map(([rotulo, valor, cor, dica]) => (
+              <div key={rotulo} className="kpi min-w-0" title={dica}>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: cor }} />
+                  <span className="titulo-secao">{rotulo}</span>
+                </div>
+                <div className="kpi-valor mt-1" style={{ fontSize: 'clamp(12px, 9cqw, 19px)' }}>
+                  {valor}
+                </div>
+              </div>
+            ))}
           </div>
 
           <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>

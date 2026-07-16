@@ -120,6 +120,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <KPICard
               titulo="Receita"
+              hero
               valor={fmtBRL(consolidado.receita)}
               sub={
                 consolidadoAnterior ? (
@@ -159,6 +160,7 @@ export default function Dashboard() {
             />
             <KPICard
               titulo="Resultado"
+              hero
               valor={fmtBRL(consolidado.resultado)}
               tom={consolidado.resultado >= 0 ? 'pos' : 'neg'}
               sub={
@@ -169,6 +171,7 @@ export default function Dashboard() {
             />
             <KPICard
               titulo="Margem média"
+              hero
               valor={fmtPct(consolidado.margem_media)}
               tom={consolidado.margem_media >= 0 ? 'pos' : 'neg'}
               sub={`${consolidado.qtd_projetos} projetos`}
