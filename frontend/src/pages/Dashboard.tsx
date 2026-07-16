@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../api/client'
+import { api, type Alerta } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import {
@@ -13,6 +14,66 @@ import {
   Skeleton,
 } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
+
+/** Central de alertas: severidade visível, respiro e "mostrar todos". */
+function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string }) {
+  const [expandido, setExpandido] = useState(false)
+  const criticos = alertas.filter((a) => a.gravidade === 'critica').length
+  const atencao = alertas.length - criticos
+  const visiveis = expandido ? alertas : alertas.slice(0, 5)
+
+  return (
+    <div className="card mt-4 px-5 py-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="text-sm font-bold">Precisa de atenção</h2>
+        {criticos > 0 && (
+          <span
+            className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
+            style={{ background: 'color-mix(in srgb, var(--status-critical) 16%, transparent)', color: 'var(--neg)' }}
+          >
+            {criticos} crítico{criticos > 1 ? 's' : ''}
+          </span>
+        )}
+        {atencao > 0 && (
+          <span
+            className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
+            style={{ background: 'color-mix(in srgb, var(--status-warning) 18%, transparent)', color: 'var(--text-primary)' }}
+          >
+            {atencao} atenção
+          </span>
+        )}
+      </div>
+      <div className="grid gap-2">
+        {visiveis.map((a, i) => (
+          <div
+            key={i}
+            className="rounded-lg px-3.5 py-2.5"
+            style={{
+              background: 'color-mix(in srgb, var(--surface-2) 55%, transparent)',
+              borderLeft: `3px solid ${a.gravidade === 'critica' ? 'var(--status-critical)' : 'var(--status-warning)'}`,
+            }}
+          >
+            {a.projeto ? (
+              <Link to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params}`} className="text-sm font-bold hover:underline">
+                {a.titulo} →
+              </Link>
+            ) : (
+              <span className="text-sm font-bold">{a.titulo}</span>
+            )}
+            <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {a.detalhe}
+            </p>
+          </div>
+        ))}
+      </div>
+      {alertas.length > 5 && (
+        <button className="btn btn-ghost mt-3 text-xs" onClick={() => setExpandido(!expandido)}>
+          {expandido ? 'Mostrar menos' : `Mostrar todos (${alertas.length})`}
+        </button>
+      )}
+    </div>
+  )
+}
 
 /** Período imediatamente anterior, com a mesma duração do filtro atual. */
 function periodoAnterior(de?: string, ate?: string): { de: string; ate: string } | null {
@@ -178,40 +239,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {alertas && alertas.length > 0 && (
-            <div className="card mt-4 px-5 py-4">
-              <h2 className="mb-2 text-sm font-bold">
-                Precisa de atenção{' '}
-                <span className="ml-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold" style={{ background: 'color-mix(in srgb, var(--neg) 15%, transparent)', color: 'var(--neg)' }}>
-                  {alertas.length}
-                </span>
-              </h2>
-              <div className="grid gap-1.5">
-                {alertas.map((a, i) => (
-                  <div key={i} className="flex items-start gap-2.5 text-sm">
-                    <span
-                      className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: a.gravidade === 'critica' ? 'var(--status-critical)' : 'var(--status-warning)' }}
-                      title={a.gravidade === 'critica' ? 'Crítico' : 'Atenção'}
-                    />
-                    <div>
-                      {a.projeto ? (
-                        <Link
-                          to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params.toString()}`}
-                          className="font-bold hover:underline"
-                        >
-                          {a.titulo}
-                        </Link>
-                      ) : (
-                        <b>{a.titulo}</b>
-                      )}{' '}
-                      <span style={{ color: 'var(--text-secondary)' }}>{a.detalhe}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {alertas && alertas.length > 0 && <PainelAtencao alertas={alertas} params={params.toString()} />}
 
           {serie && serie.length > 1 && (
             <div className="card mt-4 px-5 py-4">

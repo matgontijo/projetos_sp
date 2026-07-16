@@ -8,19 +8,20 @@ export function Skeleton({ altura = 20, largura = '100%' }: { altura?: number; l
   return <div className="skeleton" style={{ height: altura, width: largura }} />
 }
 
-/** Variação percentual vs o período anterior, com seta e cor. */
+/** Variação vs o período anterior — só aparece quando tem algo a dizer. */
 export function Delta({ atual, anterior, invertido = false }: { atual: number; anterior: number; invertido?: boolean }) {
-  if (!anterior) return null
-  const variacao = (atual - anterior) / Math.abs(anterior)
-  if (!isFinite(variacao)) return null
-  const positivo = invertido ? variacao < 0 : variacao > 0
+  // sem base de comparação (período anterior vazio) ou variação nula: silêncio
+  if (!anterior || anterior <= 0) return null
+  const variacao = (atual - anterior) / anterior
+  if (!isFinite(variacao) || Math.abs(variacao) < 0.0005) return null
+  const bom = invertido ? variacao < 0 : variacao > 0
   return (
     <span
       className="font-semibold"
-      style={{ color: positivo ? 'var(--status-good-text)' : 'var(--neg)' }}
+      style={{ color: bom ? 'var(--status-good-text)' : 'var(--neg)' }}
       title={`Período anterior: ${fmtBRL(anterior)}`}
     >
-      {variacao >= 0 ? '↑' : '↓'} {fmtPct(Math.abs(variacao))} vs anterior
+      {variacao > 0 ? '↑' : '↓'} {fmtPct(Math.abs(variacao))} vs anterior
     </span>
   )
 }

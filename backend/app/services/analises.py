@@ -21,6 +21,12 @@ from .calculo import (
 _STATUS_QUITADO = {"RECEBIDO", "PAGO", "LIQUIDADO", "CANCELADO"}
 
 
+def _brl(valor: float) -> str:
+    """R$ em pt-BR (ponto de milhar, virgula decimal) para textos de alerta."""
+    inteiro, decimal = f"{abs(valor):,.2f}".split(".")
+    return f"{'-' if valor < 0 else ''}R$ {inteiro.replace(',', '.')},{decimal}"
+
+
 def _quitado(status: str) -> bool:
     return (status or "").strip().upper() in _STATUS_QUITADO
 
@@ -176,7 +182,7 @@ def gerar_alertas(
             {
                 "gravidade": "critica",
                 "titulo": f"{p['projeto']} está no prejuízo",
-                "detalhe": f"Resultado de R$ {p['resultado']:,.2f} com receita de R$ {p['receita']:,.2f}.",
+                "detalhe": f"Resultado de {_brl(p['resultado'])} com receita de {_brl(p['receita'])}.",
                 "projeto": p["projeto"],
             }
         )
@@ -207,7 +213,7 @@ def gerar_alertas(
                 {
                     "gravidade": "atencao",
                     "titulo": f"{p['projeto']} estourou o orçamento de custo",
-                    "detalhe": f"Previsto R$ {_f(orc.custo_previsto):,.2f}, realizado R$ {p['custo_total']:,.2f} (+R$ {estouro:,.2f}).",
+                    "detalhe": f"Previsto {_brl(_f(orc.custo_previsto))}, realizado {_brl(p['custo_total'])} (+{_brl(estouro)}).",
                     "projeto": p["projeto"],
                 }
             )
@@ -217,7 +223,7 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "atencao",
-                "titulo": f"R$ {nao_classificado:,.2f} em custos sem classificação",
+                "titulo": f"{_brl(nao_classificado)} em custos sem classificação",
                 "detalhe": "Estão somados em 'Outros'. Classifique em Empresas → Classificar custos.",
                 "projeto": None,
             }
@@ -229,7 +235,7 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "critica",
-                "titulo": f"R$ {caixa['totais']['receber_atrasado']:,.2f} a receber ATRASADOS",
+                "titulo": f"{_brl(caixa['totais']['receber_atrasado'])} a receber ATRASADOS",
                 "detalhe": "Veja a aba Caixa em Análises para cobrar por projeto.",
                 "projeto": None,
             }
