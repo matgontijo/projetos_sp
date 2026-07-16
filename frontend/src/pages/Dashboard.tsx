@@ -6,14 +6,14 @@ import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import {
   BarraComposicao,
+  ComposicaoLinhas,
   Delta,
   GraficoMensal,
   KPICard,
-  LegendaSeries,
   RankingMargem,
   Skeleton,
 } from '../components/Viz'
-import { fmtBRL, fmtPct } from '../lib/format'
+import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
 
 /** Central de alertas: severidade visível, respiro e "mostrar todos". */
 function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string }) {
@@ -101,6 +101,8 @@ export default function Dashboard() {
     queryKey: ['alertas', empresaIds, de, ate],
     queryFn: () => api.alertas(empresaIds, de, ate),
   })
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.lerConfig })
+  const margemAlvo = (config?.margem_alvo ?? 20) / 100
   const anterior = periodoAnterior(de, ate)
   const { data: dataAnterior } = useQuery({
     queryKey: ['fechamento', empresaIds, anterior?.de, anterior?.ate],
@@ -121,6 +123,7 @@ export default function Dashboard() {
       chave: p.projeto,
       rotulo: p.projeto,
       margem: p.margem,
+      receitaCurta: fmtBRLCurto(p.receita),
       detalhe: `${p.projeto} — receita ${fmtBRL(p.receita)}, resultado ${fmtBRL(p.resultado)}, margem ${fmtPct(p.margem)}`,
     }))
 
@@ -253,9 +256,10 @@ export default function Dashboard() {
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="card px-5 py-4">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-bold">Composição da receita</h2>
-              </div>
+              <h2 className="mb-1 text-sm font-bold">Para onde foi cada real</h2>
+              <p className="mb-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                Quanto da receita cada grupo consumiu — e o que sobrou.
+              </p>
               <BarraComposicao
                 receita={consolidado.receita}
                 producao={consolidado.producao}
@@ -265,20 +269,20 @@ export default function Dashboard() {
                 outros={consolidado.outros}
                 resultado={consolidado.resultado}
               />
-              <div className="mt-2">
-                <LegendaSeries />
-              </div>
-              <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Cada segmento é a fração da receita consumida pelo grupo; "Resultado" é o que sobra.
-                {consolidado.cp_impostos > 0 &&
-                  ` Tributos pagos via contas a pagar (${fmtBRL(consolidado.cp_impostos)}) aparecem no detalhe e não somam no custo.`}
-              </p>
+              <ComposicaoLinhas consolidado={consolidado} />
+              {consolidado.cp_impostos > 0 && (
+                <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Tributos pagos via contas a pagar ({fmtBRL(consolidado.cp_impostos)}) aparecem no detalhe e não somam
+                  no custo.
+                </p>
+              )}
             </div>
 
             <div className="card px-5 py-4">
               <h2 className="mb-1 text-sm font-bold">Margem dos 15 maiores projetos</h2>
               <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Ordenados pela margem — azul = lucro, vermelho = prejuízo. Clique para abrir o projeto.
+                Verde = na meta de {fmtPct(margemAlvo)} (linha tracejada) · amarelo = abaixo · vermelho = prejuízo.
+                Clique para abrir o projeto.
               </p>
               {ranking.length === 0 ? (
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -287,6 +291,7 @@ export default function Dashboard() {
               ) : (
                 <RankingMargem
                   itens={ranking}
+                  alvo={margemAlvo}
                   aoClicar={(nome) => navigate(`/projeto?nome=${encodeURIComponent(nome)}&${params.toString()}`)}
                 />
               )}
