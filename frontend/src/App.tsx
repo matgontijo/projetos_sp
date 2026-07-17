@@ -11,15 +11,25 @@ import {
 } from './api/client'
 import { ICONES } from './components/Layout'
 import Analises from './pages/Analises'
+import CadastroPrecificacao from './pages/CadastroPrecificacao'
 import Dashboard from './pages/Dashboard'
 import Empresas from './pages/Empresas'
 import Login from './pages/Login'
+import OrcamentosVenda from './pages/OrcamentosVenda'
+import Precificacao from './pages/Precificacao'
 import ProjetoDetalhe from './pages/ProjetoDetalhe'
 import Projetos from './pages/Projetos'
 import Simulador from './pages/Simulador'
 import Sincronizar from './pages/Sincronizar'
 
-const LINKS = [
+interface ItemMenu {
+  to: string
+  label: string
+  icone: React.ReactNode
+  tambem?: string
+}
+
+const LINKS_CUSTEIO: ItemMenu[] = [
   { to: '/dashboard', label: 'Visão geral', icone: ICONES.visao },
   { to: '/projetos', label: 'Projetos', icone: ICONES.projetos, tambem: '/projeto' },
   { to: '/analises', label: 'Análises', icone: ICONES.analises },
@@ -28,7 +38,27 @@ const LINKS = [
   { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
 ]
 
-const PAPEL_LABEL: Record<string, string> = { admin: 'Administradora', financeiro: 'Financeiro', leitura: 'Leitura' }
+const LINKS_PRECIFICACAO: ItemMenu[] = [
+  { to: '/precificacao', label: 'Precificação', icone: ICONES.precificacao },
+  { to: '/orcamentos-venda', label: 'Orçamentos', icone: ICONES.orcamentos },
+]
+
+// cadastros de precificação: só quem edita tabelas (admin/financeiro)
+const LINK_CADASTROS: ItemMenu = { to: '/cadastros-precificacao', label: 'Cadastros', icone: ICONES.cadastros }
+
+/** Menu por papel: comercial SÓ vê precificação; leitura só custeio; admin/financeiro veem tudo. */
+function linksDoPapel(papel: string) {
+  if (papel === 'comercial') return LINKS_PRECIFICACAO
+  if (papel === 'leitura') return LINKS_CUSTEIO
+  return [...LINKS_CUSTEIO, ...LINKS_PRECIFICACAO, LINK_CADASTROS]
+}
+
+const PAPEL_LABEL: Record<string, string> = {
+  admin: 'Administradora',
+  financeiro: 'Financeiro',
+  leitura: 'Leitura',
+  comercial: 'Comercial',
+}
 
 export default function App() {
   const queryClient = useQueryClient()
@@ -90,7 +120,10 @@ export default function App() {
     </div>
   )
 
-  const itens = LINKS.map((l) => (
+  const ehComercial = usuario.papel === 'comercial'
+  const inicio = ehComercial ? '/precificacao' : '/dashboard'
+
+  const itens = linksDoPapel(usuario.papel).map((l) => (
     <NavLink
       key={l.to}
       to={`${l.to}${sufixoFiltros}`}
@@ -153,14 +186,30 @@ export default function App() {
 
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-6 md:px-8">
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/projetos" element={<Projetos />} />
-            <Route path="/projeto" element={<ProjetoDetalhe />} />
-            <Route path="/analises" element={<Analises />} />
-            <Route path="/simulador" element={<Simulador />} />
-            <Route path="/sincronizar" element={<Sincronizar />} />
-            <Route path="/empresas" element={<Empresas />} />
+            <Route path="/" element={<Navigate to={inicio} replace />} />
+            {/* custeio: invisível para o comercial (o servidor também bloqueia com 403) */}
+            {!ehComercial && (
+              <>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/projetos" element={<Projetos />} />
+                <Route path="/projeto" element={<ProjetoDetalhe />} />
+                <Route path="/analises" element={<Analises />} />
+                <Route path="/simulador" element={<Simulador />} />
+                <Route path="/sincronizar" element={<Sincronizar />} />
+                <Route path="/empresas" element={<Empresas />} />
+              </>
+            )}
+            {/* precificação: comercial, financeiro e admin (leitura não) */}
+            {usuario.papel !== 'leitura' && (
+              <>
+                <Route path="/precificacao" element={<Precificacao />} />
+                <Route path="/orcamentos-venda" element={<OrcamentosVenda />} />
+              </>
+            )}
+            {(usuario.papel === 'admin' || usuario.papel === 'financeiro') && (
+              <Route path="/cadastros-precificacao" element={<CadastroPrecificacao />} />
+            )}
+            <Route path="*" element={<Navigate to={inicio} replace />} />
           </Routes>
         </main>
       </div>
