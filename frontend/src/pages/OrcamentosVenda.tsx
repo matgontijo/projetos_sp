@@ -341,7 +341,7 @@ export default function OrcamentosVenda() {
 }
 
 /** Campos fiscais que o app NÃO tem — o Paulo completa no Omie ao montar a nota. */
-const CAMPOS_OMIE = ['CNPJ/CPF e endereço do cliente', 'Natureza da operação (CFOP)', 'NCM de cada produto', 'Transportadora / frete']
+const CAMPOS_OMIE = ['Endereço do cliente', 'Natureza da operação (CFOP)', 'NCM de cada produto', 'Transportadora / frete']
 
 /** Resumo para faturamento: tudo que o Paulo precisa pra digitar a nota no Omie. */
 function ResumoFaturamento({ id, onClose }: { id: number; onClose: () => void }) {
@@ -359,6 +359,7 @@ function ResumoFaturamento({ id, onClose }: { id: number; onClose: () => void })
       `Emitir pela: ${f.emitente.nome}`,
       `CNPJ: ${f.emitente.cnpj}  (${f.emitente.regime})`,
       `Cliente: ${f.cliente || '—'}`,
+      `CNPJ do cliente: ${f.cliente_cnpj || '—'}`,
       `Pagamento: ${f.condicao}`,
       ``,
       `ITENS:`,
@@ -417,6 +418,9 @@ function ResumoFaturamento({ id, onClose }: { id: number; onClose: () => void })
               <div>
                 <div className="titulo-secao">Cliente</div>
                 <div className="font-semibold">{f.cliente || '—'}</div>
+                <div className="num text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  CNPJ {f.cliente_cnpj || '— (preencher)'}
+                </div>
               </div>
               <div>
                 <div className="titulo-secao">Pagamento</div>

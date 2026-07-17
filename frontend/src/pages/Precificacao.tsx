@@ -53,6 +53,7 @@ export default function Precificacao() {
   const [local, setLocal] = useState('') // vazio = automático pelo regime da empresa
   const [condicao, setCondicao] = useState('0')
   const [cliente, setCliente] = useState('')
+  const [clienteCnpj, setClienteCnpj] = useState('')
   // itens do pedido
   const [itens, setItens] = useState<LinhaItem[]>(() => [novaLinha()])
   const [salvo, setSalvo] = useState<{ id: number; numero: string } | null>(null)
@@ -106,7 +107,7 @@ export default function Precificacao() {
   })
 
   const salvar = useMutation({
-    mutationFn: () => api.criarOrcamentoVenda({ cliente, itens: entradas! }),
+    mutationFn: () => api.criarOrcamentoVenda({ cliente, cliente_cnpj: clienteCnpj, itens: entradas! }),
     onSuccess: (res) => setSalvo({ id: res.id, numero: res.numero }),
   })
   // qualquer mudança na configuração invalida o "salvo" (o preço mudou)
@@ -182,6 +183,16 @@ export default function Precificacao() {
           <label className="text-sm">
             Cliente
             <input className="input mt-1 block w-full" placeholder="ex.: Paróquia N. Sra. de Guadalupe" value={cliente} onChange={(e) => setCliente(e.target.value)} />
+          </label>
+          <label className="text-sm">
+            CNPJ do cliente
+            <input
+              className="input mt-1 block w-full"
+              placeholder="00.000.000/0000-00"
+              value={clienteCnpj}
+              onChange={(e) => setClienteCnpj(e.target.value)}
+            />
+            <span className="help mt-1 block">Usado no faturamento (montar a nota no Omie).</span>
           </label>
         </div>
       </div>
