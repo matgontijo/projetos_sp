@@ -102,6 +102,7 @@ function Produtos() {
           Adicionar
         </button>
       </div>
+      <div className="overflow-x-auto">
       <table className="tabela w-full text-sm">
         <thead>
           <tr>
@@ -162,6 +163,7 @@ function Produtos() {
           ))}
         </tbody>
       </table>
+      </div>
       <p className="help mt-3">Desativar não apaga: orçamentos antigos continuam apontando para o produto (auditoria).</p>
     </div>
   )

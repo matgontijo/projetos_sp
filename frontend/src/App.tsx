@@ -63,6 +63,7 @@ const PAPEL_LABEL: Record<string, string> = {
 export default function App() {
   const queryClient = useQueryClient()
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(() => (tokenAtual() ? usuarioLogado() : null))
+  const [menuAberto, setMenuAberto] = useState(false)
 
   useEffect(() => {
     const aoExpirar = () => setUsuario(null)
@@ -171,20 +172,42 @@ export default function App() {
         <div className="mt-auto">{caixaUsuario}</div>
       </aside>
 
-      {/* Barra superior (telas pequenas) */}
+      {/* Barra superior + gaveta (telas pequenas) */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header
-          className="flex items-center gap-3 overflow-x-auto px-4 py-2.5 md:hidden"
+          className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-2.5 md:hidden"
           style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-hairline)' }}
         >
           {marca}
-          <nav className="flex gap-1">{itens}</nav>
-          <button className="btn btn-ghost ml-auto text-xs" onClick={sair}>
-            Sair
+          <button
+            className="btn btn-ghost px-2.5 py-2"
+            aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
+            onClick={() => setMenuAberto(!menuAberto)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              {menuAberto ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
           </button>
         </header>
 
-        <main className="mx-auto w-full max-w-[1240px] flex-1 px-5 py-6 md:px-8">
+        {menuAberto && (
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuAberto(false)}>
+            <div className="absolute inset-0" style={{ background: 'color-mix(in srgb, black 45%, transparent)' }} />
+            <div
+              className="absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col gap-1 overflow-y-auto px-4 py-5"
+              style={{ background: 'var(--surface-1)', borderLeft: '1px solid var(--border-hairline)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 px-1">{marca}</div>
+              <nav className="grid gap-1" onClick={() => setMenuAberto(false)}>
+                {itens}
+              </nav>
+              <div className="mt-auto pt-4">{caixaUsuario}</div>
+            </div>
+          </div>
+        )}
+
+        <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 py-5 md:px-8 md:py-6">
           <Routes>
             <Route path="/" element={<Navigate to={inicio} replace />} />
             {/* custeio: invisível para o comercial (o servidor também bloqueia com 403) */}

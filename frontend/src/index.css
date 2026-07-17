@@ -356,3 +356,19 @@ tr.linha-clicavel:hover td {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ---------- mobile ---------- */
+
+/* Tabelas de dados mantem as colunas em uma linha e rolam na horizontal
+   (sem isso o navegador espreme as celulas e cada linha vira um paragrafo) */
+@media (max-width: 767px) {
+  table.data,
+  table.tabela {
+    white-space: nowrap;
+  }
+  /* toques maiores nos itens de menu da gaveta */
+  .sidebar-item {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
