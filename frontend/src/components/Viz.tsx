@@ -185,11 +185,12 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
         {serie.map((mes, i) => (
           <div
             key={mes.mes}
-            className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[10px] font-semibold"
+            className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-center text-[10px] font-semibold"
             style={{ color: hover === i ? 'var(--text-primary)' : 'var(--text-muted)' }}
           >
-            {/* rótulo aparece afinado (ou sempre no mês sob o mouse) para não colidir */}
-            {mostraRotulo(i) || hover === i ? rotulo(mes.mes) : ' '}
+            {/* rótulo afinado; NÃO força o do mês sob o mouse (colidiria com o vizinho —
+                o cabeçalho do tooltip já mostra o mês) */}
+            {mostraRotulo(i) ? rotulo(mes.mes) : ' '}
           </div>
         ))}
       </div>
