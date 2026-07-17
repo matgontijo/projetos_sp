@@ -285,6 +285,112 @@ class Comentario(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+# ===================== Módulo de Precificação =====================
+
+
+class Produto(Base):
+    __tablename__ = "produto"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(120))
+    categoria: Mapped[str] = mapped_column(String(20), default="outro")  # copo/balde/bowl/tirante/label/outro
+    unidade: Mapped[str] = mapped_column(String(10), default="un")
+    custo_base: Mapped[float] = mapped_column(Numeric(15, 4), default=0)  # custo unitário do insumo
+    montagem_por_chapa: Mapped[int] = mapped_column(default=1)  # rende N peças por chapa de label
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    config: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)  # volume, cor etc.
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TabelaLabel(Base):
+    """Preço unitário do label por acabamento × faixa de quantidade (escala decrescente)."""
+
+    __tablename__ = "tabela_label"
+    __table_args__ = (UniqueConstraint("acabamento", "quantidade_min", name="uq_label_acab_faixa"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    acabamento: Mapped[str] = mapped_column(String(30))  # liso/casca/transparente/metalizado
+    quantidade_min: Mapped[int] = mapped_column()  # faixa: a partir desta qtd
+    preco_unitario: Mapped[float] = mapped_column(Numeric(15, 4))
+
+
+class TabelaAliquota(Base):
+    """Alíquota de imposto por local de faturamento / regime (seed da planilha, editável)."""
+
+    __tablename__ = "tabela_aliquota"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    local: Mapped[str] = mapped_column(String(60), unique=True)  # 'Simples Nacional', 'SP revenda'...
+    aliquota: Mapped[float] = mapped_column(Numeric(8, 5))  # fração (0.105 = 10,5%)
+    regime: Mapped[str | None] = mapped_column(String(10), nullable=True)  # 'simples'|'nota'|None
+    ordem: Mapped[int] = mapped_column(default=100)
+
+
+class ComponenteCusto(Base):
+    """Custo extra reutilizável (insumo, porta-copo PVC, frete...) por unidade ou por pedido."""
+
+    __tablename__ = "componente_custo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(80))
+    valor: Mapped[float] = mapped_column(Numeric(15, 4), default=0)
+    por_pedido: Mapped[bool] = mapped_column(Boolean, default=False)  # False = por unidade
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ParametroPrecificacao(Base):
+    """Parâmetros padrão (global ou por empresa). empresa_id NULL = global."""
+
+    __tablename__ = "parametro_precificacao"
+    __table_args__ = (UniqueConstraint("empresa_id", name="uq_parametro_empresa"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int | None] = mapped_column(ForeignKey("empresa.id", ondelete="CASCADE"), nullable=True)
+    margem_padrao: Mapped[float] = mapped_column(Numeric(6, 4), default=0.15)  # fração
+    comissao_padrao: Mapped[float] = mapped_column(Numeric(6, 4), default=0.025)
+    custo_fixo_padrao: Mapped[float] = mapped_column(Numeric(6, 4), default=0.0)  # contribuição custo fixo
+    juros_mes: Mapped[float] = mapped_column(Numeric(6, 4), default=0.025)  # custo financeiro a.m.
+    prazo_padrao: Mapped[int] = mapped_column(default=30)
+    perda_label: Mapped[float] = mapped_column(Numeric(6, 4), default=0.05)
+
+
+class OrcamentoVenda(Base):
+    """Orçamento comercial de precificação — imutável após sair de rascunho.
+
+    (Distinto de `Orcamento`, que é o Orçado×Realizado do custeio.)
+    """
+
+    __tablename__ = "orcamento_venda"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    numero: Mapped[str] = mapped_column(String(40), default="")
+    cliente: Mapped[str] = mapped_column(String(150), default="")
+    empresa_faturamento_id: Mapped[int | None] = mapped_column(ForeignKey("empresa.id", ondelete="SET NULL"), nullable=True)
+    condicao_pagamento_dias: Mapped[int] = mapped_column(default=0)  # 0 = à vista
+    preco_unitario: Mapped[float] = mapped_column(Numeric(15, 4), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    snapshot: Mapped[dict] = mapped_column(JSONVariant)  # cálculo completo congelado
+    status: Mapped[str] = mapped_column(String(12), default="rascunho")  # rascunho/enviado/aprovado
+    criado_por: Mapped[str] = mapped_column(String(80), default="")
+    criado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ItemOrcamento(Base):
+    __tablename__ = "item_orcamento"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orcamento_id: Mapped[int] = mapped_column(ForeignKey("orcamento_venda.id", ondelete="CASCADE"), index=True)
+    produto_id: Mapped[int | None] = mapped_column(ForeignKey("produto.id", ondelete="SET NULL"), nullable=True)
+    descricao: Mapped[str] = mapped_column(String(150), default="")
+    quantidade: Mapped[int] = mapped_column(default=0)
+    acabamento: Mapped[str] = mapped_column(String(30), default="")
+    preco_unitario: Mapped[float] = mapped_column(Numeric(15, 4), default=0)
+    total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    snapshot: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True)
+
+
 class SyncLog(Base):
     __tablename__ = "sync_log"
 

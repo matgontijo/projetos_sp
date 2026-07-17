@@ -19,7 +19,11 @@ from . import models
 from .db import get_db
 from .models import utcnow
 
-PAPEIS = {"admin", "financeiro", "leitura"}
+# admin: tudo | financeiro: opera custeio+precificacao | leitura: consulta custeio
+# comercial: SO precificacao/orcamentos (custeio invisivel e bloqueado)
+PAPEIS = {"admin", "financeiro", "leitura", "comercial"}
+PAPEIS_PRECIFICACAO = {"admin", "financeiro", "comercial"}
+PAPEIS_CUSTEIO = {"admin", "financeiro", "leitura"}
 _SESSAO_DIAS = 30
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
 
@@ -111,4 +115,23 @@ def usuario_logado(
 def exigir_admin(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
     if usuario.papel != "admin":
         raise HTTPException(status_code=403, detail="Apenas administradoras podem gerenciar usuários")
+    return usuario
+
+
+def guarda_custeio(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
+    """Bloqueia o papel 'comercial' — ele não enxerga o módulo de custeio."""
+    if usuario.papel not in PAPEIS_CUSTEIO:
+        raise HTTPException(status_code=403, detail="Seu acesso é ao módulo de Precificação")
+    return usuario
+
+
+def guarda_precificacao(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
+    if usuario.papel not in PAPEIS_PRECIFICACAO:
+        raise HTTPException(status_code=403, detail="Sem acesso ao módulo de Precificação")
+    return usuario
+
+
+def exigir_admin_ou_financeiro(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
+    if usuario.papel not in ("admin", "financeiro"):
+        raise HTTPException(status_code=403, detail="Apenas admin ou financeiro podem editar cadastros")
     return usuario
