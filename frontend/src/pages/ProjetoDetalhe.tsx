@@ -214,7 +214,7 @@ export default function ProjetoDetalhe() {
       {f && orcamento && <OrcadoRealizado nome={nome} orcamento={orcamento} fechamento={f} />}
 
       {data && (
-        <div className="mt-4 flex gap-1 border-b" style={{ borderColor: 'var(--baseline)' }}>
+        <div className="mt-4 flex gap-1 overflow-x-auto border-b" style={{ borderColor: 'var(--baseline)' }}>
           {abas.map((a) => (
             <button key={a.id} className={`tab ${aba === a.id ? 'tab-ativa' : ''}`} onClick={() => setAba(a.id)}>
               {a.rotulo}
