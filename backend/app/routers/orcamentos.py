@@ -13,7 +13,8 @@ from ..db import get_db
 from ..precificacao import documentos, servico
 from ..routers.precificacao import CalculoIn
 
-router = APIRouter(prefix="/api/orcamentos", tags=["orcamentos"])
+# prefixo distinto de /api/orcamentos, que ja e o Orcado x Realizado do custeio
+router = APIRouter(prefix="/api/orcamentos-venda", tags=["orcamentos"])
 
 STATUS_VALIDOS = {"rascunho", "enviado", "aprovado"}
 
@@ -289,7 +290,7 @@ def excluir_orcamento(
     return {"ok": True}
 
 
-@router.post("/{orcamento_id}/pdf")
+@router.api_route("/{orcamento_id}/pdf", methods=["GET", "POST"])
 def pdf_orcamento(orcamento_id: int, db: Session = Depends(get_db), _: models.Usuario = Depends(guarda_precificacao)):
     orc = db.get(models.OrcamentoVenda, orcamento_id)
     if not orc:

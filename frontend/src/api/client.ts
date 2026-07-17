@@ -245,7 +245,7 @@ export interface UsuarioLogado {
   id: number
   nome: string
   email: string
-  papel: 'admin' | 'financeiro' | 'leitura'
+  papel: 'admin' | 'financeiro' | 'leitura' | 'comercial'
   ativo: boolean
 }
 
@@ -308,6 +308,113 @@ function qs(params: Record<string, string | undefined>): string {
   const pairs = Object.entries(params).filter(([, v]) => v)
   if (!pairs.length) return ''
   return '?' + pairs.map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&')
+}
+
+// ===================== Precificação (orçamentos do comercial) =====================
+
+export interface EmpresaFaturamento {
+  id: number
+  nome: string
+  regime: 'nota' | 'simples'
+}
+
+export interface OpcoesPrecificacao {
+  produtos: { id: number; nome: string; categoria: string; custo_base: number }[]
+  acabamentos: string[]
+  locais: { local: string; aliquota: number; regime: string | null }[]
+  parametros: {
+    margem_padrao: number
+    comissao_padrao: number
+    custo_fixo_padrao: number
+    juros_mes: number
+    prazo_padrao: number
+  }
+}
+
+export interface EntradaCalculo {
+  produto_id?: number | null
+  quantidade: number
+  acabamento: string
+  empresa_faturamento_id: number
+  local_faturamento?: string | null
+  condicao_pagamento_dias: number
+  margem?: number | null
+  comissao?: number | null
+  custo_fixo?: number | null
+  porta_copo?: boolean
+  extras?: { nome: string; valor: number }[]
+}
+
+export interface ResultadoCalculo {
+  quantidade: number
+  custo_unitario: number
+  componentes: { nome: string; grupo: string; valor: number }[]
+  fator_venda: number
+  aliquota_imposto: number
+  margem: number
+  comissao: number
+  custo_fixo: number
+  preco_a_vista: number
+  custo_financeiro_unitario: number
+  preco_a_prazo: number
+  imposto_unitario: number
+  total_a_vista: number
+  total_a_prazo: number
+  total: number
+  margem_valor_unitario: number
+  aviso: string
+  empresa: string
+  regime: string
+  local_faturamento: string
+}
+
+export interface Comparacao {
+  cenarios: {
+    empresa_id: number
+    empresa: string
+    regime: string
+    aliquota_imposto: number
+    preco_a_vista: number
+    preco_a_prazo: number
+    total: number
+  }[]
+  melhor_empresa_id: number | null
+  economia: number
+}
+
+export interface OrcamentoVenda {
+  id: number
+  numero: string
+  cliente: string
+  empresa: string
+  empresa_faturamento_id: number | null
+  status: 'rascunho' | 'enviado' | 'aprovado'
+  quantidade: number
+  preco_unitario: number
+  total: number
+  condicao: string
+  condicao_pagamento_dias: number
+  criado_por: string
+  criado_em: string | null
+}
+
+export interface OrcamentoVendaDetalhe extends OrcamentoVenda {
+  snapshot: { itens: ResultadoCalculo[]; entradas: EntradaCalculo[]; total: number }
+  itens: { descricao: string; quantidade: number; acabamento: string; preco_unitario: number; total: number }[]
+}
+
+export interface ResumoOrcamentos {
+  orcamentos_mes: number
+  total_mes: number
+  ticket_medio: number
+  margem_media: number
+  por_status: Record<string, number>
+  ranking_produtos: { produto: string; orcamentos: number; total: number }[]
+}
+
+export interface FaixaLabel {
+  quantidade_min: number
+  preco_unitario: number
 }
 
 /** Baixa um arquivo via fetch (aguenta cold start do servidor, ao contrário do download nativo). */
@@ -435,4 +542,57 @@ export const api = {
     `/api/export/fechamento.xlsx${qs({ empresa_ids: empresaIds, de, ate })}`,
   urlExportPdf: (empresaIds?: string, de?: string, ate?: string) =>
     `/api/export/fechamento.pdf${qs({ empresa_ids: empresaIds, de, ate })}`,
+
+  // ===================== Precificação =====================
+  precificacaoEmpresas: () => request<EmpresaFaturamento[]>('/api/precificacao/empresas'),
+  precificacaoOpcoes: () => request<OpcoesPrecificacao>('/api/precificacao/opcoes'),
+  precificacaoCalcular: (dados: EntradaCalculo) =>
+    request<ResultadoCalculo>('/api/precificacao/calcular', { method: 'POST', body: JSON.stringify(dados) }),
+  precificacaoComparar: (dados: EntradaCalculo) =>
+    request<Comparacao>('/api/precificacao/comparar', { method: 'POST', body: JSON.stringify(dados) }),
+
+  // Cadastros de precificação (admin/financeiro)
+  criarProduto: (dados: { nome: string; categoria: string; custo_base: number; ativo: boolean }) =>
+    request<{ id: number }>('/api/precificacao/produtos', { method: 'POST', body: JSON.stringify(dados) }),
+  editarProduto: (id: number, dados: { nome: string; categoria: string; custo_base: number; ativo: boolean }) =>
+    request<{ ok: boolean }>(`/api/precificacao/produtos/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+  excluirProduto: (id: number) => request<{ ok: boolean }>(`/api/precificacao/produtos/${id}`, { method: 'DELETE' }),
+  listarTabelasLabel: () =>
+    request<{ acabamento: string; faixas: FaixaLabel[] }[]>('/api/precificacao/tabelas-label'),
+  salvarTabelaLabel: (acabamento: string, faixas: FaixaLabel[]) =>
+    request<{ ok: boolean }>('/api/precificacao/tabelas-label', {
+      method: 'PUT',
+      body: JSON.stringify({ acabamento, faixas }),
+    }),
+  salvarAliquota: (local: string, aliquota: number) =>
+    request<{ ok: boolean }>('/api/precificacao/tabelas-aliquota', {
+      method: 'PUT',
+      body: JSON.stringify({ local, aliquota }),
+    }),
+  salvarParametrosPrecificacao: (dados: {
+    margem_padrao: number
+    comissao_padrao: number
+    custo_fixo_padrao: number
+    juros_mes: number
+    prazo_padrao: number
+  }) => request<{ ok: boolean }>('/api/precificacao/parametros', { method: 'PUT', body: JSON.stringify(dados) }),
+
+  // Orçamentos de venda
+  criarOrcamentoVenda: (dados: { numero?: string; cliente: string; itens: (EntradaCalculo & { descricao?: string })[] }) =>
+    request<{ id: number; numero: string; total: number; status: string }>('/api/orcamentos-venda', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+    }),
+  listarOrcamentosVenda: (filtros: { cliente?: string; empresa_id?: string; status?: string; de?: string; ate?: string }) =>
+    request<OrcamentoVenda[]>(`/api/orcamentos-venda${qs(filtros)}`),
+  detalheOrcamentoVenda: (id: number) => request<OrcamentoVendaDetalhe>(`/api/orcamentos-venda/${id}`),
+  mudarStatusOrcamento: (id: number, status: string) =>
+    request<{ id: number; status: string }>(`/api/orcamentos-venda/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
+  excluirOrcamentoVenda: (id: number) => request<{ ok: boolean }>(`/api/orcamentos-venda/${id}`, { method: 'DELETE' }),
+  resumoOrcamentos: () => request<ResumoOrcamentos>('/api/orcamentos-venda/resumo'),
+  urlPdfOrcamento: (id: number) => `/api/orcamentos-venda/${id}/pdf`,
+  urlExportOrcamentos: (formato: 'csv' | 'xlsx') => `/api/orcamentos-venda/export?formato=${formato}`,
 }
