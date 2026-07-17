@@ -45,6 +45,10 @@ FIO = (228, 231, 236)  # hairlines
 AMBAR_FUNDO = (255, 244, 219)
 AMBAR_TEXTO = (140, 89, 8)
 
+# contato do comercial exibido no "proximo passo" da proposta.
+# Por enquanto e um padrao unico; depois pode virar um campo por vendedor no cadastro.
+WHATSAPP_PADRAO = "+55 (61) 99563-0090"
+
 
 def _txt(valor) -> str:
     return str(valor)
@@ -255,20 +259,26 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
 
     # ---- proximo passo: flui logo apos as condicoes (ancorar no pe abria um
     # vazio de ~90mm nas propostas curtas — critica de direcao de arte) ----
-    ALTURA_CTA = 21
+    ALTURA_CTA = 28
     pdf.ln(9)
     if pdf.get_y() + ALTURA_CTA > pdf.h - 24:  # nao deixa o cartao quebrar entre paginas
         pdf.add_page()
     y0 = pdf.get_y()
+    responsavel = orc.criado_por or "nosso time comercial"
     pdf.set_fill_color(*MARINHO)
     pdf.rect(pdf.l_margin, y0, util, ALTURA_CTA, style="F", round_corners=True, corner_radius=3)
     pdf.set_xy(pdf.l_margin + 7, y0 + 4.5)
     pdf.micro("Próximo passo", cor=(255, 255, 255))
-    pdf.set_xy(pdf.l_margin + 7, y0 + 11)
-    pdf.set_font("Manrope", "", 8.7)
+    # linha-heroi: o canal acionavel (WhatsApp) em destaque
+    pdf.set_xy(pdf.l_margin + 7, y0 + 10)
+    pdf.set_font("ManropeX", "", 11.5)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(util - 14, 6, _txt(f"WhatsApp {WHATSAPP_PADRAO}"))
+    # apoio: com quem falar + fallback
+    pdf.set_xy(pdf.l_margin + 7, y0 + 18)
+    pdf.set_font("Manrope", "", 8.5)
     pdf.set_text_color(198, 210, 232)
-    responsavel = orc.criado_por or "nosso time comercial"
-    pdf.cell(util - 14, 5, _txt(f"Para aprovar, responda esta proposta ou fale com {responsavel}. A produção inicia logo após a confirmação."))
+    pdf.cell(util - 14, 5, _txt(f"Fale com {responsavel} ou responda esta proposta — a produção inicia após a confirmação."))
 
     return bytes(pdf.output())
 
