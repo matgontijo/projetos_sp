@@ -14,48 +14,74 @@ from openpyxl.styles import Font
 
 from ..services.export import _moeda_pt, _pdf_txt
 
+AZUL = (43, 108, 238)
+CINZA = (100, 100, 100)
+TINTA = (25, 25, 28)
+
+
+def _txt(valor) -> str:
+    """Latin-1 nao tem travessao/bullet: troca por equivalentes antes de sanear."""
+    texto = str(valor).replace("—", "-").replace("–", "-").replace("·", "-").replace("…", "...")
+    return _pdf_txt(texto)
+
 
 def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
     """Proposta de fornecimento (A4 retrato): cliente, itens, condicoes, validade."""
     pdf = FPDF(orientation="P", format="A4")
     pdf.set_auto_page_break(auto=True, margin=14)
     pdf.add_page()
+    largura_util = pdf.w - pdf.l_margin - pdf.r_margin
 
-    # cabecalho
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 9, _pdf_txt("PROPOSTA DE FORNECIMENTO"), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(90, 90, 90)
-    pdf.cell(0, 6, _pdf_txt(f"Orçamento {orc.numero} — {empresa_nome}"), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_text_color(30, 30, 30)
+    # faixa de acento no topo
+    pdf.set_fill_color(*AZUL)
+    pdf.rect(0, 0, pdf.w, 3.2, style="F")
+    pdf.ln(2)
+
+    # cabecalho: titulo a esquerda, numero em destaque a direita
+    pdf.set_font("Helvetica", "B", 17)
+    pdf.set_text_color(*TINTA)
+    pdf.cell(largura_util - 52, 10, _txt("PROPOSTA DE FORNECIMENTO"))
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*AZUL)
+    pdf.cell(52, 10, _txt(f"Nº {orc.numero}"), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*CINZA)
+    pdf.multi_cell(largura_util, 4.6, _txt(empresa_nome), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1.5)
+    pdf.set_draw_color(210, 210, 210)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(4)
 
     # dados do cliente
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(28, 7, "CLIENTE:", border=0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 7, _pdf_txt(orc.cliente or "-"), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(28, 7, "DATA:", border=0)
-    pdf.set_font("Helvetica", "", 10)
     criado = orc.criado_em.strftime("%d/%m/%Y") if orc.criado_em else datetime.now().strftime("%d/%m/%Y")
     validade = (orc.criado_em or datetime.now()) + timedelta(days=15)
+    pdf.set_text_color(*TINTA)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(28, 7, "CLIENTE:")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.multi_cell(largura_util - 28, 7, _txt(orc.cliente or "-"), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(28, 7, "DATA:")
+    pdf.set_font("Helvetica", "", 10)
     pdf.cell(60, 7, criado)
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(34, 7, "VALIDADE:", border=0)
+    pdf.cell(34, 7, "VALIDADE:")
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 7, _pdf_txt(validade.strftime("%d/%m/%Y")), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 7, _txt(validade.strftime("%d/%m/%Y")), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
-    # tabela de itens
+    # tabela de itens (zebra + cabecalho azul)
     colunas = [("item", "ITEM", 14, "C"), ("descricao", "DESCRIÇÃO", 86, "L"),
                ("quantidade", "QTDE", 22, "R"), ("preco", "PREÇO UNIT.", 32, "R"), ("total", "TOTAL", 34, "R")]
     pdf.set_font("Helvetica", "B", 9)
-    pdf.set_fill_color(235, 235, 232)
+    pdf.set_fill_color(*AZUL)
+    pdf.set_text_color(255, 255, 255)
     for _, titulo, largura, alinh in colunas:
-        pdf.cell(largura, 7, _pdf_txt(titulo), border="B", align=alinh, fill=True)
+        pdf.cell(largura, 7.5, _txt(titulo), align=alinh, fill=True)
     pdf.ln()
     pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*TINTA)
+    pdf.set_fill_color(245, 246, 250)
     for i, item in enumerate(itens, start=1):
         valores = {
             "item": str(i),
@@ -65,18 +91,20 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
             "total": f"R$ {_moeda_pt(item['total'])}",
         }
         for campo, _, largura, alinh in colunas:
-            pdf.cell(largura, 6.5, _pdf_txt(valores[campo]), border="B", align=alinh)
+            pdf.cell(largura, 7, _txt(valores[campo]), border="B", align=alinh, fill=i % 2 == 0)
         pdf.ln()
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(122, 8, "")
-    pdf.cell(32, 8, "TOTAL GERAL", align="R")
-    pdf.cell(34, 8, _pdf_txt(f"R$ {_moeda_pt(float(orc.total))}"), align="R", border="T")
-    pdf.ln(12)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(122, 9, "")
+    pdf.cell(32, 9, "TOTAL GERAL", align="R")
+    pdf.set_text_color(*AZUL)
+    pdf.cell(34, 9, _txt(f"R$ {_moeda_pt(float(orc.total))}"), align="R", border="T")
+    pdf.set_text_color(*TINTA)
+    pdf.ln(14)
 
     # condicoes
     condicao = "À vista" if orc.condicao_pagamento_dias == 0 else f"{orc.condicao_pagamento_dias} dias"
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 7, _pdf_txt("CONSIDERAÇÕES DO PEDIDO"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 7, _txt("CONSIDERAÇÕES DO PEDIDO"), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9)
     for rotulo, valor in [
         ("Condições de pagamento", condicao),
@@ -84,15 +112,15 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
         ("Frete", "A combinar"),
         ("Responsável comercial", orc.criado_por or "-"),
     ]:
-        pdf.set_text_color(90, 90, 90)
-        pdf.cell(52, 6, _pdf_txt(f"{rotulo}:"))
-        pdf.set_text_color(30, 30, 30)
-        pdf.cell(0, 6, _pdf_txt(valor), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*CINZA)
+        pdf.cell(52, 6, _txt(f"{rotulo}:"))
+        pdf.set_text_color(*TINTA)
+        pdf.multi_cell(largura_util - 52, 6, _txt(valor), new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(6)
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, _pdf_txt(f"Proposta gerada em {datetime.now().strftime('%d/%m/%Y %H:%M')} — validade de 15 dias."))
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.set_text_color(140, 140, 140)
+    pdf.cell(0, 5, _txt(f"Proposta gerada em {datetime.now().strftime('%d/%m/%Y %H:%M')} - validade de 15 dias a partir da emissão."))
     return bytes(pdf.output())
 
 
