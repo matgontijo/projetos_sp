@@ -98,6 +98,46 @@ def comparar_empresas(payload: CalculoIn, db: Session = Depends(get_db)):
     return {"cenarios": cenarios, "melhor_empresa_id": melhor["empresa_id"] if melhor else None, "economia": economia}
 
 
+class PedidoIn(BaseModel):
+    """Um pedido com vários itens (ex.: copo + tirante) faturado por uma empresa."""
+
+    itens: list[CalculoIn] = Field(min_length=1)
+
+
+@router.post("/calcular-pedido")
+def calcular_pedido(payload: PedidoIn, db: Session = Depends(get_db)):
+    """Calcula cada item e o total combinado do pedido (preview em tempo real, sem salvar)."""
+    itens = [_calcular(db, i) for i in payload.itens]
+    return {
+        "itens": itens,
+        "total": round(sum(i["total"] for i in itens), 2),
+        "total_a_vista": round(sum(i["total_a_vista"] for i in itens), 2),
+        "total_a_prazo": round(sum(i["total_a_prazo"] for i in itens), 2),
+        "custo_total": round(sum(i["custo_unitario"] * i["quantidade"] for i in itens), 2),
+        "imposto_total": round(sum(i["imposto_unitario"] * i["quantidade"] for i in itens), 2),
+    }
+
+
+@router.post("/comparar-pedido")
+def comparar_pedido(payload: PedidoIn, db: Session = Depends(get_db)):
+    """Pedido inteiro nas duas empresas: qual faturamento sai mais vantajoso no total?"""
+    empresas = db.scalars(select(models.Empresa).where(models.Empresa.ativa).order_by(models.Empresa.nome)).all()
+    cenarios = []
+    for e in empresas:
+        calc = [_calcular(db, i, empresa_id=e.id, local=None) for i in payload.itens]
+        cenarios.append({
+            "empresa_id": e.id, "empresa": e.nome, "regime": e.regime,
+            "aliquota_imposto": calc[0]["aliquota_imposto"] if calc else 0,
+            "total": round(sum(c["total"] for c in calc), 2),
+        })
+    if len(cenarios) >= 2:
+        melhor = min(cenarios, key=lambda c: c["total"])
+        economia = max(cenarios, key=lambda c: c["total"])["total"] - melhor["total"]
+    else:
+        melhor, economia = (cenarios[0] if cenarios else None), 0
+    return {"cenarios": cenarios, "melhor_empresa_id": melhor["empresa_id"] if melhor else None, "economia": economia}
+
+
 # ===================== Cadastros (escrita: admin/financeiro) =====================
 
 _EDITA = [Depends(exigir_admin_ou_financeiro)]
