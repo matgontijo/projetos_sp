@@ -14,6 +14,7 @@ from .routers import (
     empresas,
     export,
     extras,
+    orcamentos,
     precificacao,
     projetos,
     sync,
@@ -65,6 +66,7 @@ app.include_router(extras.router, dependencies=_CUSTEIO)
 
 # precificacao: admin, financeiro e comercial (guardas internas por rota)
 app.include_router(precificacao.router)
+app.include_router(orcamentos.router)
 
 
 @app.get("/api/health")
