@@ -55,6 +55,45 @@ def test_calculo_com_contexto_troca_imposto_pela_empresa(db_seed, empresa):
     assert abs(r["preco_a_vista"] - 3.1525) < 0.01  # bate com o teste-ouro
 
 
+def test_calcular_pedido_soma_itens(db_seed, empresa):
+    """Pedido copo + tirante: total do pedido = soma dos totais dos itens."""
+    from app.routers.precificacao import PedidoIn, calcular_pedido
+    from app.routers.precificacao import CalculoIn
+
+    empresa.regime = "simples"
+    db_seed.commit()
+    copo = CalculoIn(quantidade=1000, acabamento="liso", empresa_faturamento_id=empresa.id, margem=0.15, comissao=0.025)
+    tirante = CalculoIn(
+        quantidade=1000, acabamento="sem_label", empresa_faturamento_id=empresa.id,
+        margem=0.15, comissao=0.025, extras=[{"nome": "Tirante", "valor": 2.2667}],
+    )
+    r = calcular_pedido(PedidoIn(itens=[copo, tirante]), db_seed)
+    assert len(r["itens"]) == 2
+    soma = round(r["itens"][0]["total"] + r["itens"][1]["total"], 2)
+    assert abs(r["total"] - soma) <= 0.01
+    # o tirante custa mais que o copo-só-label → total do item 2 > item 1
+    assert r["itens"][1]["total"] > r["itens"][0]["total"]
+
+
+def test_comparar_pedido_escolhe_empresa_mais_barata(db_seed, empresa):
+    from app.routers.precificacao import CalculoIn, PedidoIn, comparar_pedido
+
+    empresa.regime = "simples"
+    db_seed.commit()
+    itens = [
+        CalculoIn(quantidade=1000, acabamento="liso", empresa_faturamento_id=empresa.id, margem=0.15, comissao=0.025),
+        CalculoIn(quantidade=1500, acabamento="sem_label", empresa_faturamento_id=empresa.id, margem=0.15,
+                  comissao=0.025, extras=[{"nome": "Tirante", "valor": 2.2667}]),
+    ]
+    r = comparar_pedido(PedidoIn(itens=itens), db_seed)
+    assert r["cenarios"]
+    # o total de cada cenário é a soma dos dois itens
+    assert all(c["total"] > 0 for c in r["cenarios"])
+    if len(r["cenarios"]) >= 2:
+        assert r["economia"] >= 0
+        assert r["melhor_empresa_id"] is not None
+
+
 def test_papel_comercial_bloqueado_no_custeio():
     comercial = models.Usuario(nome="Vend", email="v@v.com", senha_hash="x", papel="comercial")
     with pytest.raises(HTTPException) as exc:

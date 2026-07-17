@@ -374,12 +374,21 @@ export interface Comparacao {
     empresa: string
     regime: string
     aliquota_imposto: number
-    preco_a_vista: number
-    preco_a_prazo: number
+    preco_a_vista?: number
+    preco_a_prazo?: number
     total: number
   }[]
   melhor_empresa_id: number | null
   economia: number
+}
+
+export interface ResultadoPedido {
+  itens: ResultadoCalculo[]
+  total: number
+  total_a_vista: number
+  total_a_prazo: number
+  custo_total: number
+  imposto_total: number
 }
 
 export interface OrcamentoVenda {
@@ -550,6 +559,10 @@ export const api = {
     request<ResultadoCalculo>('/api/precificacao/calcular', { method: 'POST', body: JSON.stringify(dados) }),
   precificacaoComparar: (dados: EntradaCalculo) =>
     request<Comparacao>('/api/precificacao/comparar', { method: 'POST', body: JSON.stringify(dados) }),
+  precificacaoCalcularPedido: (itens: EntradaCalculo[]) =>
+    request<ResultadoPedido>('/api/precificacao/calcular-pedido', { method: 'POST', body: JSON.stringify({ itens }) }),
+  precificacaoCompararPedido: (itens: EntradaCalculo[]) =>
+    request<Comparacao>('/api/precificacao/comparar-pedido', { method: 'POST', body: JSON.stringify({ itens }) }),
 
   // Cadastros de precificação (admin/financeiro)
   criarProduto: (dados: { nome: string; categoria: string; custo_base: number; ativo: boolean }) =>
