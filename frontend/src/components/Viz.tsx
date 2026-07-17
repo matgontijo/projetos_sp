@@ -36,6 +36,10 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
   const areaPos = maxNeg > 0 ? ALTURA * (maxPos / (maxPos + maxNeg)) : ALTURA
   const areaNeg = ALTURA - areaPos
   const n = serie.length
+  // com muitos meses os rótulos colidem: mostra no máximo ~16, sempre incluindo o mais recente
+  const denso = n > 28
+  const passoRotulo = Math.max(1, Math.ceil(n / 16))
+  const mostraRotulo = (i: number) => (n - 1 - i) % passoRotulo === 0
 
   const rotulo = (mes: string) => {
     const [ano, m] = mes.split('-')
@@ -72,14 +76,14 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
           />
         )}
 
-        {/* barras de receita */}
-        <div className="absolute inset-0 flex items-end gap-1">
+        {/* barras de receita (menos espaço entre elas quando há muitos meses) */}
+        <div className="absolute inset-0 flex items-end" style={{ gap: denso ? 1 : 4 }}>
           {serie.map((mes, i) => (
             <div key={mes.mes} className="flex h-full flex-1 items-end justify-center" style={{ height: areaPos }}>
               <div
-                className="rounded-t-[5px] transition-all"
+                className="rounded-t-[3px] transition-all"
                 style={{
-                  width: '58%',
+                  width: denso ? '76%' : '58%',
                   height: Math.max((mes.receita / maxPos) * areaPos, mes.receita > 0 ? 2 : 0),
                   background: `linear-gradient(180deg, var(--serie-producao), color-mix(in srgb, var(--serie-producao) 55%, var(--surface-1)))`,
                   opacity: hover === null || hover === i ? 1 : 0.45,
@@ -111,21 +115,28 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        {/* pontos da linha (HTML p/ não distorcer): vermelho = mês negativo */}
-        {serie.map((mes, i) => (
-          <div
-            key={mes.mes}
-            className="pointer-events-none absolute rounded-full transition-transform"
-            style={{
-              left: `calc(${xCentro(i)}% - ${hover === i ? 5 : 4}px)`,
-              top: yResultado(mes.resultado) - (hover === i ? 5 : 4),
-              width: hover === i ? 10 : 8,
-              height: hover === i ? 10 : 8,
-              background: mes.resultado < 0 ? 'var(--neg)' : 'var(--serie-resultado)',
-              border: '2px solid var(--surface-1)',
-            }}
-          />
-        ))}
+        {/* pontos da linha (HTML p/ não distorcer): vermelho = mês negativo.
+            Quando denso, só desenha o ponto nos meses de prejuízo e no mês sob o mouse
+            — a linha já mostra a tendência; pontos demais viram ruído. */}
+        {serie.map((mes, i) => {
+          const negativo = mes.resultado < 0
+          if (denso && !negativo && hover !== i) return null
+          const raio = hover === i ? 5 : denso ? 3 : 4
+          return (
+            <div
+              key={mes.mes}
+              className="pointer-events-none absolute rounded-full transition-transform"
+              style={{
+                left: `calc(${xCentro(i)}% - ${raio}px)`,
+                top: yResultado(mes.resultado) - raio,
+                width: raio * 2,
+                height: raio * 2,
+                background: negativo ? 'var(--neg)' : 'var(--serie-resultado)',
+                border: '2px solid var(--surface-1)',
+              }}
+            />
+          )
+        })}
 
         {/* zonas de hover por mês */}
         <div className="absolute inset-0 flex">
@@ -170,14 +181,15 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
         )}
       </div>
 
-      <div className="mt-1 flex gap-1 border-t pt-1" style={{ borderColor: 'var(--baseline)' }}>
+      <div className="mt-1 flex border-t pt-1" style={{ borderColor: 'var(--baseline)', gap: denso ? 1 : 4 }}>
         {serie.map((mes, i) => (
           <div
             key={mes.mes}
-            className="flex-1 text-center text-[10px] font-semibold"
+            className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[10px] font-semibold"
             style={{ color: hover === i ? 'var(--text-primary)' : 'var(--text-muted)' }}
           >
-            {rotulo(mes.mes)}
+            {/* rótulo aparece afinado (ou sempre no mês sob o mouse) para não colidir */}
+            {mostraRotulo(i) || hover === i ? rotulo(mes.mes) : ' '}
           </div>
         ))}
       </div>
