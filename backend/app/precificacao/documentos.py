@@ -49,36 +49,27 @@ class _PropostaBase(FPDF):
         self.set_auto_page_break(auto=True, margin=22)
 
     def header(self):
+        util = self.w - self.l_margin - self.r_margin
         self.set_fill_color(*MARINHO)
-        self.rect(0, 0, self.w, 27, style="F")
+        self.rect(0, 0, self.w, 26, style="F")
         self.set_fill_color(*AZUL)
-        self.rect(0, 27, self.w, 1.4, style="F")
-        # marca a esquerda
+        self.rect(0, 26, self.w, 1.2, style="F")
+        # duas linhas, MESMAS baselines dos dois lados (grid)
         self.set_xy(self.l_margin, 6.5)
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(255, 255, 255)
-        self.cell(110, 8, _txt(_marca(self.empresa_nome)))
-        self.set_xy(self.l_margin, 15)
-        self.set_font("Helvetica", "", 7.5)
-        self.set_text_color(168, 182, 210)
-        self.cell(110, 4, _txt(self.empresa_nome[:78]))
-        # documento a direita
-        direita = self.w - self.r_margin - 58
-        self.set_xy(direita, 5.5)
-        self.set_font("Helvetica", "", 7.5)
-        self.set_text_color(168, 182, 210)
-        self.cell(58, 4, _txt("PROPOSTA COMERCIAL"), align="R")
-        self.set_xy(direita, 10)
+        self.cell(util - 70, 8, _txt(_marca(self.empresa_nome)))
         self.set_font("Helvetica", "B", 14)
-        self.set_text_color(255, 255, 255)
-        self.cell(58, 7, _txt(f"Nº {self.numero}"), align="R")
-        self.set_xy(direita, 17.5)
-        self.set_font("Helvetica", "", 8)
+        self.cell(70, 8, _txt(f"Nº {self.numero}"), align="R")
+        self.set_xy(self.l_margin, 16)
+        self.set_font("Helvetica", "", 7.5)
         self.set_text_color(168, 182, 210)
-        self.cell(58, 4, _txt(self.data), align="R")
-        self.set_y(34)
+        self.cell(util - 70, 4, _txt(self.empresa_nome[:76]))
+        self.cell(70, 4, _txt(f"Proposta comercial - {self.data}"), align="R")
+        self.set_y(35)
 
     def footer(self):
+        util = self.w - self.l_margin - self.r_margin
         self.set_y(-14)
         self.set_draw_color(222, 224, 230)
         self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
@@ -86,8 +77,8 @@ class _PropostaBase(FPDF):
         self.set_font("Helvetica", "", 7)
         self.set_text_color(150, 154, 162)
         gerado = datetime.now().strftime("%d/%m/%Y %H:%M")
-        self.cell(0, 4, _txt(f"{_marca(self.empresa_nome)} - proposta gerada em {gerado}"))
-        self.cell(0, 4, _txt(f"Página {self.page_no()}/{{nb}}"), align="R")
+        self.cell(util - 40, 4, _txt(f"{_marca(self.empresa_nome)} - proposta gerada em {gerado}"))
+        self.cell(40, 4, _txt(f"Página {self.page_no()}/{{nb}}"), align="R")
 
 
 def _rotulo_secao(pdf: FPDF, texto: str) -> None:
@@ -114,54 +105,59 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
     pdf.set_font("Helvetica", "B", 15)
     pdf.set_text_color(*TINTA)
     pdf.multi_cell(largura_util, 8, _txt(orc.cliente or "Cliente"), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(3)
+    pdf.ln(4)
 
-    # ---- cartao-heroi: o investimento ----
+    # ---- cartao-heroi: o investimento (grid: rotulos numa linha, valores noutra) ----
     y0 = pdf.get_y()
-    ALTURA_CARTAO = 27
+    ALTURA_CARTAO = 26
+    PAD = 6
     pdf.set_fill_color(*AZUL_SUAVE)
     pdf.rect(pdf.l_margin, y0, largura_util, ALTURA_CARTAO, style="F")
     pdf.set_fill_color(*AZUL)
     pdf.rect(pdf.l_margin, y0, 1.8, ALTURA_CARTAO, style="F")
-    pdf.set_xy(pdf.l_margin + 6, y0 + 4.5)
-    pdf.set_font("Helvetica", "B", 7.5)
-    pdf.set_text_color(*CINZA)
-    pdf.cell(80, 4, _txt("INVESTIMENTO TOTAL"))
-    pdf.set_xy(pdf.l_margin + 6, y0 + 9.5)
-    pdf.set_font("Helvetica", "B", 21)
-    pdf.set_text_color(*AZUL)
-    pdf.cell(88, 12, _txt(f"R$ {_moeda_pt(float(orc.total))}"))
-    # mini-fatos a direita (o que o cliente pergunta primeiro)
+
     fatos = [
         ("QUANTIDADE", f"{qtd_total:,}".replace(",", ".") + " un"),
         ("PREÇO UNITÁRIO", f"R$ {_moeda_pt(float(orc.total) / qtd_total)}"),
         ("PAGAMENTO", condicao),
     ]
-    x_fato = pdf.l_margin + 98
-    for rotulo, valor in fatos:
-        pdf.set_xy(x_fato, y0 + 6)
-        pdf.set_font("Helvetica", "B", 6.8)
-        pdf.set_text_color(*CINZA)
-        pdf.cell(26, 4, _txt(rotulo))
-        pdf.set_xy(x_fato, y0 + 11)
-        pdf.set_font("Helvetica", "B", 10.5)
-        pdf.set_text_color(*TINTA)
-        pdf.cell(26, 6, _txt(valor))
-        x_fato += 28.5
-    pdf.set_y(y0 + ALTURA_CARTAO + 3)
+    x_esq = pdf.l_margin + PAD  # bloco do total
+    x_fatos = pdf.l_margin + 104  # 3 colunas de 28mm terminam rentes ao padding direito
+    LARG_FATO = 28
 
-    # ---- urgencia: validade ----
+    # linha 1: TODOS os rotulos na mesma baseline
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(*CINZA)
+    pdf.set_xy(x_esq, y0 + 5)
+    pdf.cell(80, 4, _txt("INVESTIMENTO TOTAL"))
+    for i, (rotulo, _) in enumerate(fatos):
+        pdf.set_xy(x_fatos + i * LARG_FATO, y0 + 5)
+        pdf.cell(LARG_FATO - 2, 4, _txt(rotulo))
+    # linha 2: TODOS os valores na mesma baseline
+    pdf.set_xy(x_esq, y0 + 10.5)
+    pdf.set_font("Helvetica", "B", 21)
+    pdf.set_text_color(*AZUL)
+    pdf.cell(86, 11, _txt(f"R$ {_moeda_pt(float(orc.total))}"))
+    pdf.set_font("Helvetica", "B", 10.5)
+    pdf.set_text_color(*TINTA)
+    for i, (_, valor) in enumerate(fatos):
+        pdf.set_xy(x_fatos + i * LARG_FATO, y0 + 13)
+        pdf.cell(LARG_FATO - 2, 6, _txt(valor))
+    pdf.set_y(y0 + ALTURA_CARTAO + 4)
+
+    # ---- urgencia: validade (texto centralizado na faixa) ----
+    y0 = pdf.get_y()
     pdf.set_fill_color(*AMBAR_FUNDO)
-    pdf.rect(pdf.l_margin, pdf.get_y(), largura_util, 8, style="F")
-    pdf.set_xy(pdf.l_margin + 4, pdf.get_y() + 1.4)
+    pdf.rect(pdf.l_margin, y0, largura_util, 9, style="F")
+    pdf.set_xy(pdf.l_margin + PAD, y0)
     pdf.set_font("Helvetica", "B", 8.5)
     pdf.set_text_color(*AMBAR_TEXTO)
-    pdf.cell(0, 5, _txt(f"Proposta válida até {validade.strftime('%d/%m/%Y')} - garanta estas condições confirmando dentro do prazo."))
-    pdf.ln(9)
+    pdf.cell(largura_util - 2 * PAD, 9, _txt(f"Proposta válida até {validade.strftime('%d/%m/%Y')} - garanta estas condições confirmando dentro do prazo."))
+    pdf.set_y(y0 + 9 + 7)
 
-    # ---- itens ----
+    # ---- itens (colunas somam EXATAMENTE a largura util: bordas rentes ao grid) ----
     _rotulo_secao(pdf, "Itens da proposta")
-    colunas = [("item", "#", 10, "C"), ("descricao", "DESCRIÇÃO", 90, "L"),
+    colunas = [("item", "#", 10, "C"), ("descricao", "DESCRIÇÃO", 92, "L"),
                ("quantidade", "QTDE", 22, "R"), ("preco", "PREÇO UNIT.", 32, "R"), ("total", "TOTAL", 34, "R")]
     pdf.set_font("Helvetica", "B", 8.5)
     pdf.set_fill_color(*MARINHO)
@@ -185,13 +181,13 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
         pdf.ln()
     pdf.set_font("Helvetica", "B", 10.5)
     pdf.set_text_color(*TINTA)
-    pdf.cell(122, 9, "")
+    pdf.cell(124, 9, "")
     pdf.cell(32, 9, "TOTAL", align="R")
     pdf.set_text_color(*AZUL)
     pdf.cell(34, 9, _txt(f"R$ {_moeda_pt(float(orc.total))}"), align="R", border="T")
-    pdf.ln(13)
+    pdf.ln(16)
 
-    # ---- condicoes em duas colunas ----
+    # ---- condicoes em grade 2x2 (mesma largura de rotulo nas duas colunas) ----
     _rotulo_secao(pdf, "Condições de fornecimento")
     # razao social completa ja esta no cabecalho; aqui o nome curto evita colisao de colunas
     pares = [
@@ -201,32 +197,38 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
         ("Validade da proposta", validade.strftime("%d/%m/%Y")),
     ]
     meia = largura_util / 2
+    ROTULO_LARG = 36
     for linha in range(0, len(pares), 2):
+        y_linha = pdf.get_y()
         for coluna, (rotulo, valor) in enumerate(pares[linha:linha + 2]):
-            pdf.set_xy(pdf.l_margin + coluna * meia, pdf.get_y())
+            pdf.set_xy(pdf.l_margin + coluna * meia, y_linha)
             pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(*CINZA)
-            pdf.cell(34, 6, _txt(f"{rotulo}:"))
+            pdf.cell(ROTULO_LARG, 6.5, _txt(f"{rotulo}:"))
             pdf.set_font("Helvetica", "B", 8.5)
             pdf.set_text_color(*TINTA)
-            pdf.cell(meia - 34, 6, _txt(valor))
-        pdf.ln(6)
-    pdf.ln(4)
+            pdf.cell(meia - ROTULO_LARG, 6.5, _txt(valor))
+        pdf.set_y(y_linha + 6.5)
 
-    # ---- proximo passo (CTA) ----
+    # ---- proximo passo (CTA) ancorado no pe da pagina: composicao fecha ----
+    ALTURA_CTA = 18
+    y_cta = pdf.h - 14 - 8 - ALTURA_CTA  # rodape (14) + respiro (8)
+    if pdf.get_y() + 8 < y_cta:
+        pdf.set_y(y_cta)
+    else:
+        pdf.ln(6)
     y0 = pdf.get_y()
     pdf.set_fill_color(*MARINHO)
-    pdf.rect(pdf.l_margin, y0, largura_util, 17, style="F")
-    pdf.set_xy(pdf.l_margin + 5, y0 + 3)
+    pdf.rect(pdf.l_margin, y0, largura_util, ALTURA_CTA, style="F")
+    pdf.set_xy(pdf.l_margin + PAD, y0 + 3.5)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 5, _txt("PRÓXIMO PASSO"))
-    pdf.set_xy(pdf.l_margin + 5, y0 + 8.5)
+    pdf.cell(largura_util - 2 * PAD, 5, _txt("PRÓXIMO PASSO"))
+    pdf.set_xy(pdf.l_margin + PAD, y0 + 9.5)
     pdf.set_font("Helvetica", "", 8.5)
     pdf.set_text_color(200, 212, 235)
     responsavel = orc.criado_por or "nosso time comercial"
-    pdf.cell(0, 5, _txt(f"Para aprovar, basta responder esta proposta ou falar com {responsavel}. Produção inicia após a confirmação."))
-    pdf.set_y(y0 + 20)
+    pdf.cell(largura_util - 2 * PAD, 5, _txt(f"Para aprovar, basta responder esta proposta ou falar com {responsavel}. Produção inicia após a confirmação."))
 
     return bytes(pdf.output())
 
