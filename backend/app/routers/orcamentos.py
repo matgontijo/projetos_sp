@@ -248,6 +248,44 @@ def detalhe_orcamento(orcamento_id: int, db: Session = Depends(get_db), _: model
     }
 
 
+@router.get("/{orcamento_id}/faturamento")
+def resumo_faturamento(orcamento_id: int, db: Session = Depends(get_db), _: models.Usuario = Depends(guarda_precificacao)):
+    """Resumo para o Paulo montar a nota no Omie (SÓ LEITURA — o app não emite nada).
+
+    Junta o que o orçamento já tem (emitente/CNPJ, cliente, itens, totais, imposto)
+    para ele não precisar caçar dado; os campos fiscais (CFOP, NCM...) ele completa no Omie.
+    """
+    orc = db.get(models.OrcamentoVenda, orcamento_id)
+    if not orc:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    empresa = db.get(models.Empresa, orc.empresa_faturamento_id) if orc.empresa_faturamento_id else None
+    itens = db.scalars(select(models.ItemOrcamento).where(models.ItemOrcamento.orcamento_id == orc.id)).all()
+    snap_itens = (orc.snapshot or {}).get("itens", [])
+    imposto_total = sum(float(s.get("imposto_unitario", 0)) * s.get("quantidade", 0) for s in snap_itens)
+    aliquota = float(snap_itens[0]["aliquota_imposto"]) if snap_itens else 0
+    regime_nome = "Simples Nacional" if (empresa and empresa.regime == "simples") else "Lucro Presumido"
+    return {
+        "numero": orc.numero,
+        "cliente": orc.cliente,
+        "status": orc.status,
+        "condicao": "À vista" if orc.condicao_pagamento_dias == 0 else f"{orc.condicao_pagamento_dias} dias",
+        "criado_por": orc.criado_por,
+        "criado_em": orc.criado_em.isoformat() if orc.criado_em else None,
+        "emitente": {
+            "nome": empresa.nome if empresa else "—",
+            "cnpj": empresa.cnpj if empresa else "",
+            "regime": regime_nome,
+        },
+        "itens": [
+            {"descricao": i.descricao, "quantidade": i.quantidade, "preco_unitario": float(i.preco_unitario), "total": float(i.total)}
+            for i in itens
+        ],
+        "total": float(orc.total),
+        "aliquota": aliquota,
+        "imposto_total": round(imposto_total, 2),
+    }
+
+
 class StatusIn(BaseModel):
     status: str
 

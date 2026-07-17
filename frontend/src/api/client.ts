@@ -412,6 +412,20 @@ export interface OrcamentoVendaDetalhe extends OrcamentoVenda {
   itens: { descricao: string; quantidade: number; acabamento: string; preco_unitario: number; total: number }[]
 }
 
+export interface ResumoFaturamento {
+  numero: string
+  cliente: string
+  status: string
+  condicao: string
+  criado_por: string
+  criado_em: string | null
+  emitente: { nome: string; cnpj: string; regime: string }
+  itens: { descricao: string; quantidade: number; preco_unitario: number; total: number }[]
+  total: number
+  aliquota: number
+  imposto_total: number
+}
+
 export interface ResumoOrcamentos {
   orcamentos_mes: number
   total_mes: number
@@ -606,6 +620,7 @@ export const api = {
     }),
   excluirOrcamentoVenda: (id: number) => request<{ ok: boolean }>(`/api/orcamentos-venda/${id}`, { method: 'DELETE' }),
   resumoOrcamentos: () => request<ResumoOrcamentos>('/api/orcamentos-venda/resumo'),
+  faturamentoOrcamento: (id: number) => request<ResumoFaturamento>(`/api/orcamentos-venda/${id}/faturamento`),
   urlPdfOrcamento: (id: number) => `/api/orcamentos-venda/${id}/pdf`,
   urlExportOrcamentos: (formato: 'csv' | 'xlsx') => `/api/orcamentos-venda/export?formato=${formato}`,
 }
