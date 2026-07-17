@@ -30,6 +30,7 @@ export default function OrcamentosVenda() {
   const [de, setDe] = useState('')
   const [ate, setAte] = useState('')
   const [abertoId, setAbertoId] = useState<number | null>(null)
+  const [faturarId, setFaturarId] = useState<number | null>(null)
   const [baixando, setBaixando] = useState('')
 
   const { data: empresas } = useQuery({ queryKey: ['prec-empresas'], queryFn: api.precificacaoEmpresas })
@@ -214,6 +215,15 @@ export default function OrcamentosVenda() {
                           Aprovar
                         </button>
                       )}
+                      {o.status === 'aprovado' && (
+                        <button
+                          className="btn btn-ghost px-2 py-1 text-xs font-bold"
+                          style={{ color: 'var(--status-good-text)' }}
+                          onClick={() => setFaturarId(o.id)}
+                        >
+                          Faturar
+                        </button>
+                      )}
                       <button
                         className="btn btn-ghost px-2 py-1 text-xs"
                         disabled={baixando === `pdf${o.id}`}
@@ -303,7 +313,10 @@ export default function OrcamentosVenda() {
                   alíquotas mudarem depois.
                 </div>
 
-                <div className="mt-4 flex justify-end gap-2">
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <button className="btn btn-ghost text-sm" onClick={() => setFaturarId(d.id)}>
+                    Resumo p/ faturamento
+                  </button>
                   <button
                     className="btn btn-ghost text-sm"
                     disabled={baixando === `pdfd${d.id}`}
@@ -320,6 +333,159 @@ export default function OrcamentosVenda() {
           </div>
         </div>
       )}
+
+      {/* resumo para o faturamento no Omie (só leitura — o app não emite nota) */}
+      {faturarId !== null && <ResumoFaturamento id={faturarId} onClose={() => setFaturarId(null)} />}
+    </div>
+  )
+}
+
+/** Campos fiscais que o app NÃO tem — o Paulo completa no Omie ao montar a nota. */
+const CAMPOS_OMIE = ['CNPJ/CPF e endereço do cliente', 'Natureza da operação (CFOP)', 'NCM de cada produto', 'Transportadora / frete']
+
+/** Resumo para faturamento: tudo que o Paulo precisa pra digitar a nota no Omie. */
+function ResumoFaturamento({ id, onClose }: { id: number; onClose: () => void }) {
+  const [copiado, setCopiado] = useState(false)
+  const { data: f, isLoading, isError, error } = useQuery({
+    queryKey: ['faturamento', id],
+    queryFn: () => api.faturamentoOrcamento(id),
+  })
+
+  function textoResumo(): string {
+    if (!f) return ''
+    const linhas = [
+      `RESUMO PARA FATURAMENTO — ${f.numero}`,
+      ``,
+      `Emitir pela: ${f.emitente.nome}`,
+      `CNPJ: ${f.emitente.cnpj}  (${f.emitente.regime})`,
+      `Cliente: ${f.cliente || '—'}`,
+      `Pagamento: ${f.condicao}`,
+      ``,
+      `ITENS:`,
+      ...f.itens.map((i, n) => `  ${n + 1}. ${i.descricao} — ${i.quantidade.toLocaleString('pt-BR')} un x ${fmtBRL(i.preco_unitario)} = ${fmtBRL(i.total)}`),
+      ``,
+      `TOTAL DA NOTA: ${fmtBRL(f.total)}`,
+      `Imposto estimado (${fmtPct(f.aliquota)}): ${fmtBRL(f.imposto_total)}`,
+    ]
+    return linhas.join('\n')
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(textoResumo())
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      /* clipboard indisponível */
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center p-4"
+      style={{ background: 'color-mix(in srgb, black 50%, transparent)' }}
+      onClick={onClose}
+    >
+      <div className="card max-h-[88vh] w-full max-w-lg overflow-y-auto px-6 py-5" onClick={(e) => e.stopPropagation()}>
+        {isLoading && <Skeleton altura={200} />}
+        {isError && <p className="text-sm" style={{ color: 'var(--neg)' }}>{(error as Error).message}</p>}
+        {f && (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-extrabold">Resumo para faturamento</h2>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  {f.numero} — use estes dados para montar a nota no Omie
+                </p>
+              </div>
+              <BadgeStatus status={f.status} />
+            </div>
+
+            {/* emitente: o dado mais importante (por qual CNPJ faturar) */}
+            <div
+              className="mt-4 rounded-lg px-4 py-3"
+              style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}
+            >
+              <div className="titulo-secao">Emitir a nota pela</div>
+              <div className="mt-0.5 text-base font-extrabold">{f.emitente.nome}</div>
+              <div className="num text-sm" style={{ color: 'var(--text-secondary)' }}>
+                CNPJ {f.emitente.cnpj || '—'} · {f.emitente.regime}
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="titulo-secao">Cliente</div>
+                <div className="font-semibold">{f.cliente || '—'}</div>
+              </div>
+              <div>
+                <div className="titulo-secao">Pagamento</div>
+                <div className="font-semibold">{f.condicao}</div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="titulo-secao mb-1">Itens da nota</div>
+              <div className="overflow-x-auto">
+                <table className="tabela w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="text-left">Descrição</th>
+                      <th className="text-right">Qtde</th>
+                      <th className="text-right">Unitário</th>
+                      <th className="text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {f.itens.map((i, n) => (
+                      <tr key={n}>
+                        <td>{i.descricao}</td>
+                        <td className="num text-right">{i.quantidade.toLocaleString('pt-BR')}</td>
+                        <td className="num text-right">{fmtBRL(i.preco_unitario)}</td>
+                        <td className="num text-right font-bold">{fmtBRL(i.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between border-t pt-3" style={{ borderColor: 'var(--gridline)' }}>
+              <div>
+                <div className="titulo-secao">Total da nota</div>
+                <div className="text-xl font-extrabold" style={{ color: 'var(--accent)' }}>{fmtBRL(f.total)}</div>
+              </div>
+              <div className="text-right text-sm" style={{ color: 'var(--text-secondary)' }}>
+                Imposto estimado
+                <div className="num font-semibold">{fmtBRL(f.imposto_total)} <span style={{ color: 'var(--text-muted)' }}>({fmtPct(f.aliquota)})</span></div>
+              </div>
+            </div>
+
+            {/* o que ainda falta preencher no Omie (o app não tem esses campos fiscais) */}
+            <div className="mt-4 rounded-lg px-4 py-3 text-sm" style={{ background: 'var(--surface-2)' }}>
+              <div className="titulo-secao mb-1.5">No Omie, complete os campos fiscais</div>
+              <ul className="grid gap-1" style={{ color: 'var(--text-secondary)' }}>
+                {CAMPOS_OMIE.map((c) => (
+                  <li key={c} className="flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: 'var(--text-muted)' }} />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="btn btn-ghost text-sm" onClick={copiar}>
+                {copiado ? 'Copiado ✓' : 'Copiar resumo'}
+              </button>
+              <button className="btn btn-primary text-sm" onClick={onClose}>
+                Fechar
+              </button>
+            </div>
+            <p className="help mt-3">O app não emite nota — só organiza os dados. A emissão continua sendo feita por você no Omie.</p>
+          </>
+        )}
+      </div>
     </div>
   )
 }
