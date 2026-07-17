@@ -185,7 +185,7 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
         {serie.map((mes, i) => (
           <div
             key={mes.mes}
-            className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-center text-[10px] font-semibold"
+            className="flex-1 whitespace-nowrap text-center text-[10px] font-semibold"
             style={{ color: hover === i ? 'var(--text-primary)' : 'var(--text-muted)' }}
           >
             {/* rótulo afinado; NÃO força o do mês sob o mouse (colidiria com o vizinho —
