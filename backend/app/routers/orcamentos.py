@@ -44,6 +44,7 @@ class ItemIn(CalculoIn):
 class OrcamentoIn(BaseModel):
     numero: str = ""  # vazio = gera automático (ORC26_001...)
     cliente: str = ""
+    cliente_cnpj: str = ""  # p/ o Paulo montar a nota no Omie
     itens: list[ItemIn] = Field(min_length=1)
 
 
@@ -87,6 +88,7 @@ def criar_orcamento(
     orc = models.OrcamentoVenda(
         numero=payload.numero.strip() or _numero_automatico(db),
         cliente=payload.cliente.strip(),
+        cliente_cnpj=payload.cliente_cnpj.strip(),
         empresa_faturamento_id=primeiro.empresa_faturamento_id,
         condicao_pagamento_dias=primeiro.condicao_pagamento_dias,
         preco_unitario=resultados[0]["preco_a_prazo" if primeiro.condicao_pagamento_dias else "preco_a_vista"],
@@ -267,6 +269,7 @@ def resumo_faturamento(orcamento_id: int, db: Session = Depends(get_db), _: mode
     return {
         "numero": orc.numero,
         "cliente": orc.cliente,
+        "cliente_cnpj": orc.cliente_cnpj or "",
         "status": orc.status,
         "condicao": "À vista" if orc.condicao_pagamento_dias == 0 else f"{orc.condicao_pagamento_dias} dias",
         "criado_por": orc.criado_por,

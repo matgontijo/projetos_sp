@@ -365,6 +365,7 @@ class OrcamentoVenda(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     numero: Mapped[str] = mapped_column(String(40), default="")
     cliente: Mapped[str] = mapped_column(String(150), default="")
+    cliente_cnpj: Mapped[str] = mapped_column(String(20), default="")  # p/ o faturamento no Omie
     empresa_faturamento_id: Mapped[int | None] = mapped_column(ForeignKey("empresa.id", ondelete="SET NULL"), nullable=True)
     condicao_pagamento_dias: Mapped[int] = mapped_column(default=0)  # 0 = à vista
     preco_unitario: Mapped[float] = mapped_column(Numeric(15, 4), default=0)

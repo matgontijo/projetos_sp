@@ -415,6 +415,7 @@ export interface OrcamentoVendaDetalhe extends OrcamentoVenda {
 export interface ResumoFaturamento {
   numero: string
   cliente: string
+  cliente_cnpj: string
   status: string
   condicao: string
   criado_por: string
@@ -605,7 +606,7 @@ export const api = {
   }) => request<{ ok: boolean }>('/api/precificacao/parametros', { method: 'PUT', body: JSON.stringify(dados) }),
 
   // Orçamentos de venda
-  criarOrcamentoVenda: (dados: { numero?: string; cliente: string; itens: (EntradaCalculo & { descricao?: string })[] }) =>
+  criarOrcamentoVenda: (dados: { numero?: string; cliente: string; cliente_cnpj?: string; itens: (EntradaCalculo & { descricao?: string })[] }) =>
     request<{ id: number; numero: string; total: number; status: string }>('/api/orcamentos-venda', {
       method: 'POST',
       body: JSON.stringify(dados),

@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 _COLUNAS_ADITIVAS = [
     ("empresa", "aliquota_extra", "NUMERIC(6,3)", "0"),
     ("titulo", "codigo_vendedor", "BIGINT", None),
+    ("orcamento_venda", "cliente_cnpj", "VARCHAR(20)", "''"),
 ]
 
 
