@@ -402,6 +402,7 @@ function Preferencias() {
 const PAPEIS_OPCOES = [
   { valor: 'admin', label: 'Administradora — tudo, inclusive usuários' },
   { valor: 'financeiro', label: 'Financeiro — opera tudo, menos usuários' },
+  { valor: 'comercial', label: 'Comercial — só precificação e orçamentos' },
   { valor: 'leitura', label: 'Leitura — só consulta e simulador' },
 ]
 
