@@ -17,11 +17,7 @@ function BadgeSituacao({ situacao }: { situacao: string }) {
   const s = SITUACOES.find((x) => x.valor === situacao)
   if (!s) return <span className="text-xs">{situacao}</span>
   return (
-    <span
-      className="whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
-      style={{ background: `color-mix(in srgb, ${s.cor} 16%, transparent)`, color: s.cor }}
-      title={s.ajuda}
-    >
+    <span className="pill" style={{ '--pill': s.cor } as React.CSSProperties} title={s.ajuda}>
       {s.rotulo}
     </span>
   )
