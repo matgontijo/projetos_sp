@@ -64,6 +64,13 @@ export const ICONES = {
       <path d="M8 7h2M8 11h2M8 15h2" />
     </svg>
   ),
+  compras: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4h2l2.4 11.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6" />
+      <circle cx="10" cy="20" r="1.3" />
+      <circle cx="17.5" cy="20" r="1.3" />
+    </svg>
+  ),
   precificacao: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" />
