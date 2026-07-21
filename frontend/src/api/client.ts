@@ -310,6 +310,34 @@ function qs(params: Record<string, string | undefined>): string {
   return '?' + pairs.map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&')
 }
 
+// ===================== Compras (pedidos de compra do Omie) =====================
+
+export interface PedidoCompra {
+  id: number
+  empresa: string
+  numero: string
+  situacao: 'pendente' | 'faturado' | 'recebido' | 'encerrado'
+  etapa: string
+  categoria: string
+  observacao: string
+  data_inclusao: string | null
+  data_previsao: string | null
+  valor_total: number
+  credito_impostos: number
+  valor_icms: number
+  valor_ipi: number
+  proximo_vencimento: string | null
+  qtd_parcelas: number
+}
+
+export interface ResumoCompras {
+  por_situacao: Record<string, { qtd: number; valor: number }>
+  credito_impostos: number
+  comprometido_30_dias: number
+  comprometido_vencido: number
+  total_pedidos: number
+}
+
 // ===================== Precificação (orçamentos do comercial) =====================
 
 export interface EmpresaFaturamento {
@@ -566,6 +594,11 @@ export const api = {
     `/api/export/fechamento.xlsx${qs({ empresa_ids: empresaIds, de, ate })}`,
   urlExportPdf: (empresaIds?: string, de?: string, ate?: string) =>
     `/api/export/fechamento.pdf${qs({ empresa_ids: empresaIds, de, ate })}`,
+
+  // Compras (pedidos de compra)
+  pedidosCompra: (filtros: { empresa_ids?: string; situacao?: string; de?: string; ate?: string; busca?: string }) =>
+    request<PedidoCompra[]>(`/api/compras/pedidos${qs(filtros)}`),
+  resumoCompras: (empresaIds?: string) => request<ResumoCompras>(`/api/compras/resumo${qs({ empresa_ids: empresaIds })}`),
 
   // ===================== Precificação =====================
   precificacaoEmpresas: () => request<EmpresaFaturamento[]>('/api/precificacao/empresas'),

@@ -151,11 +151,15 @@ export default function OrcamentosVenda() {
       )}
 
       {!lista.isLoading && orcamentos.length === 0 && (
-        <div className="card mt-4 px-5 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-          Nenhum orçamento {cliente || status || de ? 'com esses filtros' : 'ainda'}.{' '}
-          <Link to="/precificacao" className="font-bold hover:underline" style={{ color: 'var(--accent)' }}>
-            Criar o primeiro →
-          </Link>
+        <div className="card mt-4">
+          <div className="vazio">
+            <span className="vazio-titulo">
+              Nenhum orçamento {cliente || status || de ? 'com esses filtros' : 'ainda'}
+            </span>
+            <Link to="/precificacao" className="font-bold hover:underline" style={{ color: 'var(--accent)' }}>
+              Criar o primeiro →
+            </Link>
+          </div>
         </div>
       )}
 

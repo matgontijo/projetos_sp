@@ -12,6 +12,7 @@ import {
 import { ICONES } from './components/Layout'
 import Analises from './pages/Analises'
 import CadastroPrecificacao from './pages/CadastroPrecificacao'
+import Compras from './pages/Compras'
 import Dashboard from './pages/Dashboard'
 import Empresas from './pages/Empresas'
 import Login from './pages/Login'
@@ -33,6 +34,7 @@ const LINKS_CUSTEIO: ItemMenu[] = [
   { to: '/dashboard', label: 'Visão geral', icone: ICONES.visao },
   { to: '/projetos', label: 'Projetos', icone: ICONES.projetos, tambem: '/projeto' },
   { to: '/analises', label: 'Análises', icone: ICONES.analises },
+  { to: '/compras', label: 'Compras', icone: ICONES.compras },
   { to: '/simulador', label: 'Simulador', icone: ICONES.simulador },
   { to: '/sincronizar', label: 'Buscar dados', icone: ICONES.buscar },
   { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
@@ -217,6 +219,7 @@ export default function App() {
                 <Route path="/projetos" element={<Projetos />} />
                 <Route path="/projeto" element={<ProjetoDetalhe />} />
                 <Route path="/analises" element={<Analises />} />
+                <Route path="/compras" element={<Compras />} />
                 <Route path="/simulador" element={<Simulador />} />
                 <Route path="/sincronizar" element={<Sincronizar />} />
                 <Route path="/empresas" element={<Empresas />} />
