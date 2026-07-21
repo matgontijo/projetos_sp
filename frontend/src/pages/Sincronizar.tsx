@@ -94,13 +94,25 @@ export default function Sincronizar() {
             <div className="mb-1 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
               Emissão de
             </div>
-            <input type="date" className="input" value={de} onChange={(e) => setDe(e.target.value)} />
+            <input
+              type="date"
+              className="input"
+              aria-label="Buscar dados emitidos a partir de"
+              value={de}
+              onChange={(e) => setDe(e.target.value)}
+            />
           </div>
           <div>
             <div className="mb-1 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
               até
             </div>
-            <input type="date" className="input" value={ate} onChange={(e) => setAte(e.target.value)} />
+            <input
+              type="date"
+              className="input"
+              aria-label="Buscar dados emitidos até"
+              value={ate}
+              onChange={(e) => setAte(e.target.value)}
+            />
           </div>
           <button
             className="btn btn-primary"

@@ -104,11 +104,25 @@ export function FiltrosBar() {
             </button>
           )
         })}
-        <input type="date" className="input" value={de || ''} onChange={(e) => set('de', e.target.value)} />
+        <input
+          type="date"
+          className="input"
+          aria-label="Data inicial do período"
+          title="Data inicial"
+          value={de || ''}
+          onChange={(e) => set('de', e.target.value)}
+        />
         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
           até
         </span>
-        <input type="date" className="input" value={ate || ''} onChange={(e) => set('ate', e.target.value)} />
+        <input
+          type="date"
+          className="input"
+          aria-label="Data final do período"
+          title="Data final"
+          value={ate || ''}
+          onChange={(e) => set('ate', e.target.value)}
+        />
       </div>
     </div>
   )

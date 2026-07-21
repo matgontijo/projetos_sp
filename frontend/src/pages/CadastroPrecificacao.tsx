@@ -7,6 +7,17 @@ import { fmtBRL, fmtPct } from '../lib/format'
 
 type Aba = 'produtos' | 'labels' | 'aliquotas' | 'parametros'
 
+/** Falha ao salvar precisa aparecer: sem isso a pessoa acha que salvou. */
+function ErroSalvar({ de }: { de: { isError: boolean; error: unknown }[] }) {
+  const falha = de.find((m) => m.isError)
+  if (!falha) return null
+  return (
+    <p className="mt-3 text-sm font-semibold" role="alert" style={{ color: 'var(--neg)' }}>
+      Não foi possível salvar: {(falha.error as Error)?.message || 'erro desconhecido'}
+    </p>
+  )
+}
+
 export default function CadastroPrecificacao() {
   const [aba, setAba] = useState<Aba>('produtos')
   return (
@@ -164,6 +175,7 @@ function Produtos() {
         </tbody>
       </table>
       </div>
+      <ErroSalvar de={[criar, editar, excluir]} />
       <p className="help mt-3">Desativar não apaga: orçamentos antigos continuam apontando para o produto (auditoria).</p>
     </div>
   )
@@ -241,6 +253,7 @@ function TabelaLabels() {
           </div>
         ))}
       </div>
+      <ErroSalvar de={[salvar]} />
       <p className="help mt-3">O cálculo usa a maior faixa ≤ quantidade do pedido (preço cai com a escala, como na planilha).</p>
     </div>
   )
@@ -294,6 +307,7 @@ function Aliquotas() {
           )
         })}
       </div>
+      <ErroSalvar de={[salvar]} />
       <p className="help mt-3">
         Valores em % sobre a venda. O regime da empresa escolhe a linha automaticamente ("Simples Nacional" ou "Demais estados"); o
         vendedor pode sobrescrever escolhendo o local na calculadora.
@@ -357,6 +371,7 @@ function Parametros() {
         </button>
         {salvar.isSuccess && <span className="text-xs font-bold" style={{ color: 'var(--status-good-text)' }}>Salvo ✓</span>}
       </div>
+      <ErroSalvar de={[salvar]} />
       <p className="help mt-3">
         Estes são os valores que a calculadora usa quando o vendedor não altera nada. Hoje: margem {opcoes ? fmtPct(opcoes.parametros.margem_padrao) : ''} ·
         comissão {opcoes ? fmtPct(opcoes.parametros.comissao_padrao) : ''} · juros {opcoes ? fmtPct(opcoes.parametros.juros_mes) : ''} a.m.
