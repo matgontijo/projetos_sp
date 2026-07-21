@@ -353,6 +353,7 @@ function Preferencias() {
             max="95"
             step="0.5"
             className="input w-24"
+            aria-label="Meta de margem em porcentagem"
             value={margem ?? String(config.margem_alvo)}
             onChange={(e) => setMargem(e.target.value)}
           />
@@ -499,6 +500,7 @@ function Equipe() {
             </b>
             <select
               className="input py-1 text-xs"
+              aria-label={`Tipo de acesso de ${u.nome}`}
               value={u.papel}
               disabled={u.id === eu?.id}
               onChange={(e) => atualizar.mutate({ id: u.id, dados: { papel: e.target.value } })}
