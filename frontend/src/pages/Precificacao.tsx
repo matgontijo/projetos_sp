@@ -364,7 +364,7 @@ function LinhaCard({
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-bold">{total > 1 ? `Item ${indice + 1}` : 'Produto'}</h3>
         {onRemover && (
-          <button className="btn btn-ghost px-2 py-1 text-xs" style={{ color: 'var(--neg)' }} onClick={onRemover}>
+          <button className="btn btn-perigo px-2 py-1 text-xs" onClick={onRemover}>
             Remover
           </button>
         )}

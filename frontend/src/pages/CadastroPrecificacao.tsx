@@ -165,7 +165,7 @@ function Produtos() {
                       Editar custo
                     </button>
                   )}
-                  <button className="btn btn-ghost px-2 py-1 text-xs" style={{ color: 'var(--neg)' }} onClick={() => excluir.mutate(p.id)}>
+                  <button className="btn btn-perigo px-2 py-1 text-xs" onClick={() => excluir.mutate(p.id)}>
                     Desativar
                   </button>
                 </div>
@@ -247,7 +247,7 @@ function TabelaLabels() {
               value={f.preco_unitario}
               onChange={(e) => setFaixas(faixas.map((x, j) => (j === i ? { ...x, preco_unitario: Number(e.target.value) } : x)))}
             />
-            <button className="btn btn-ghost px-2 py-1 text-xs" style={{ color: 'var(--neg)' }} onClick={() => setFaixas(faixas.filter((_, j) => j !== i))}>
+            <button className="btn btn-perigo px-2 py-1 text-xs" onClick={() => setFaixas(faixas.filter((_, j) => j !== i))}>
               ×
             </button>
           </div>

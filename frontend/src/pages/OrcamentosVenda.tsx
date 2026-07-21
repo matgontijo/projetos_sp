@@ -6,16 +6,16 @@ import { PageHeader } from '../components/Layout'
 import { KPICard, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
-const STATUS_COR: Record<string, { fundo: string; texto: string; rotulo: string }> = {
-  rascunho: { fundo: 'color-mix(in srgb, var(--text-muted) 15%, transparent)', texto: 'var(--text-secondary)', rotulo: 'Rascunho' },
-  enviado: { fundo: 'color-mix(in srgb, var(--serie-producao) 18%, transparent)', texto: 'var(--serie-producao)', rotulo: 'Enviado' },
-  aprovado: { fundo: 'color-mix(in srgb, var(--status-good) 18%, transparent)', texto: 'var(--status-good-text)', rotulo: 'Aprovado' },
+const STATUS_COR: Record<string, { cor: string; rotulo: string }> = {
+  rascunho: { cor: 'var(--text-muted)', rotulo: 'Rascunho' },
+  enviado: { cor: 'var(--serie-producao)', rotulo: 'Enviado' },
+  aprovado: { cor: 'var(--status-good-text)', rotulo: 'Aprovado' },
 }
 
 function BadgeStatus({ status }: { status: string }) {
   const s = STATUS_COR[status] || STATUS_COR.rascunho
   return (
-    <span className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold" style={{ background: s.fundo, color: s.texto }}>
+    <span className="pill" style={{ '--pill': s.cor } as React.CSSProperties}>
       {s.rotulo}
     </span>
   )
