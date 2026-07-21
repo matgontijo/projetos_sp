@@ -285,9 +285,68 @@ def sync_nfe(db: Session, empresa: models.Empresa, client: OmieClient, de: date,
     return qtd
 
 
+def sync_pedidos_compra(db: Session, empresa: models.Empresa, client: OmieClient, de: date, ate: date) -> int:
+    """Pedidos de compra por situacao — compromisso de saida antes da conta a pagar.
+
+    Guarda tambem os impostos dos itens (ICMS/PIS/COFINS/IPI), que sao o credito
+    que a empresa acompanha pelo pedido, e as parcelas (quando/quanto sai do caixa).
+    """
+    qtd = 0
+    for situacao in omie_api.SITUACOES_COMPRA:
+        for ped in omie_api.pesquisar_pedidos_compra(client, situacao, de, ate):
+            cab = ped.get("cabecalho_consulta") or {}
+            codigo = _int_ou_none(cab.get("nCodPed"))
+            if not codigo:
+                continue
+            itens = ped.get("produtos_consulta") or []
+            registro = db.scalar(
+                select(models.PedidoCompra).where(
+                    models.PedidoCompra.empresa_id == empresa.id,
+                    models.PedidoCompra.codigo_pedido == codigo,
+                )
+            )
+            if registro is None:
+                registro = models.PedidoCompra(empresa_id=empresa.id, codigo_pedido=codigo)
+                db.add(registro)
+            registro.situacao = situacao
+            registro.numero = str(cab.get("cNumero") or "")[:30]
+            registro.etapa = str(cab.get("cEtapa") or "")[:10]
+            registro.codigo_projeto = _int_ou_none(cab.get("nCodProj"))
+            registro.codigo_fornecedor = _int_ou_none(cab.get("nCodFor"))
+            registro.codigo_categoria = str(cab.get("cCodCateg") or "")[:20]
+            registro.data_inclusao = _data(cab.get("dIncData"))
+            registro.data_previsao = _data(cab.get("dDtPrevisao"))
+            registro.observacao = str(cab.get("cObs") or "")[:300]
+            registro.valor_total = round(sum(_num(i.get("nValTot")) for i in itens), 2)
+            registro.valor_icms = round(sum(_num(i.get("nValorIcms")) for i in itens), 2)
+            registro.valor_pis = round(sum(_num(i.get("nValorPis")) for i in itens), 2)
+            registro.valor_cofins = round(sum(_num(i.get("nValorCofins")) for i in itens), 2)
+            registro.valor_ipi = round(sum(_num(i.get("nValorIpi")) for i in itens), 2)
+            registro.raw = ped
+            db.flush()
+
+            # parcelas: recria (a fonte da verdade e a Omie)
+            registro.parcelas.clear()
+            db.flush()
+            for parc in ped.get("parcelas_consulta") or []:
+                registro.parcelas.append(
+                    models.ParcelaCompra(
+                        numero_parcela=int(_num(parc.get("nParcela")) or 1),
+                        vencimento=_data(parc.get("dVencto")),
+                        valor=round(_num(parc.get("nValor")), 2),
+                    )
+                )
+            qtd += 1
+        db.commit()
+    return qtd
+
+
 # --- Orquestracao ------------------------------------------------------------
 
-RECURSOS = ("projetos", "categorias", "clientes", "vendedores", "contas_receber", "contas_pagar", "nfe")
+RECURSOS = (
+    "projetos", "categorias", "clientes", "vendedores",
+    "contas_receber", "contas_pagar", "nfe", "pedidos_compra",
+)
 
 
 def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) -> None:
@@ -318,6 +377,8 @@ def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) ->
                         qtd = sync_contas_receber(db, empresa, client, de, ate)
                     elif recurso == "contas_pagar":
                         qtd = sync_contas_pagar(db, empresa, client, de, ate)
+                    elif recurso == "pedidos_compra":
+                        qtd = sync_pedidos_compra(db, empresa, client, de, ate)
                     else:
                         qtd = sync_nfe(db, empresa, client, de, ate)
                     log.status = "concluido"

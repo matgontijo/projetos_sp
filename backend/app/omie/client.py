@@ -179,11 +179,17 @@ class OmieClient:
                     break
             yield from registros
 
-            total_paginas = 1
+            total_paginas = None
             for key in _KEYS_TOTAL_PAGINAS:
                 if data.get(key):
                     total_paginas = int(data[key])
                     break
-            if pagina >= total_paginas:
+            if total_paginas is None:
+                # Alguns endpoints (ex.: PesquisarPedCompra) nao devolvem total de
+                # paginas: segue enquanto a pagina vier cheia; a pagina seguinte
+                # sem registros encerra via OmieNoRecordsError.
+                if len(registros) < per_page:
+                    return
+            elif pagina >= total_paginas:
                 return
             pagina += 1
