@@ -36,12 +36,38 @@ def listar(db: Session = Depends(get_db)):
     return db.scalars(select(models.Empresa).order_by(models.Empresa.nome)).all()
 
 
+def _impedir_credencial_duplicada(db: Session, app_key: str, ignorar_id: int | None = None) -> None:
+    """Duas empresas com a MESMA chave leem a MESMA conta Omie — e o app soma as
+    duas, dobrando todos os valores. Erro silencioso e caro: barrado aqui."""
+    if not app_key:
+        return
+    chave = app_key.strip()
+    for outra in db.scalars(select(models.Empresa)).all():
+        if ignorar_id is not None and outra.id == ignorar_id:
+            continue
+        try:
+            if decrypt_str(outra.app_key_enc) == chave:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Esta App Key já está em uso pela empresa '{outra.nome}'. "
+                        "Cada CNPJ tem a sua própria chave no Omie — usar a mesma faz o app "
+                        "ler a mesma conta duas vezes e dobrar todos os valores."
+                    ),
+                )
+        except HTTPException:
+            raise
+        except Exception:  # credencial antiga ilegivel: nao bloqueia o cadastro
+            continue
+
+
 @router.post("", response_model=schemas.EmpresaOut, status_code=201)
 def criar(payload: schemas.EmpresaCreate, db: Session = Depends(get_db)):
     if payload.regime not in REGIMES:
         raise HTTPException(status_code=422, detail="Regime deve ser 'nota' ou 'simples'")
     if payload.simples_anexo not in ANEXOS:
         raise HTTPException(status_code=422, detail="Anexo do Simples deve ser I a V")
+    _impedir_credencial_duplicada(db, payload.app_key)
     empresa = models.Empresa(
         nome=payload.nome.strip(),
         cnpj=payload.cnpj.strip(),
@@ -70,6 +96,8 @@ def limpar_cache_empresa(db: Session, empresa_id: int) -> None:
 @router.put("/{empresa_id}", response_model=schemas.EmpresaOut)
 def atualizar(empresa_id: int, payload: schemas.EmpresaUpdate, db: Session = Depends(get_db)):
     empresa = _get_empresa(db, empresa_id)
+    if payload.app_key:
+        _impedir_credencial_duplicada(db, payload.app_key, ignorar_id=empresa_id)
     if payload.app_key or payload.app_secret:
         limpar_cache_empresa(db, empresa_id)
     if payload.regime is not None:

@@ -285,6 +285,57 @@ class Comentario(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class PedidoCompra(Base):
+    """Pedido de compra do Omie — compromisso de saída ANTES de virar conta a pagar.
+
+    É por ele que a empresa acompanha o crédito de ICMS/PIS/COFINS das compras.
+    """
+
+    __tablename__ = "pedido_compra"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "codigo_pedido", name="uq_pedcompra_empresa_codigo"),
+        Index("ix_pedcompra_empresa_situacao", "empresa_id", "situacao"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresa.id", ondelete="CASCADE"), index=True)
+    codigo_pedido: Mapped[int] = mapped_column(BigInteger)  # nCodPed
+    numero: Mapped[str] = mapped_column(String(30), default="")  # cNumero
+    situacao: Mapped[str] = mapped_column(String(12), default="pendente")  # pendente/faturado/recebido/encerrado
+    etapa: Mapped[str] = mapped_column(String(10), default="")  # cEtapa
+    codigo_projeto: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # nCodProj
+    codigo_fornecedor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # nCodFor
+    codigo_categoria: Mapped[str] = mapped_column(String(20), default="")  # cCodCateg
+    data_inclusao: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_previsao: Mapped[date | None] = mapped_column(Date, nullable=True)
+    observacao: Mapped[str] = mapped_column(String(300), default="")
+    valor_total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    # impostos da compra — o credito que a empresa acompanha
+    valor_icms: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    valor_pis: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    valor_cofins: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    valor_ipi: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    raw: Mapped[dict | None] = mapped_column(JSONVariant, nullable=True, deferred=True)
+
+    parcelas: Mapped[list["ParcelaCompra"]] = relationship(
+        back_populates="pedido", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class ParcelaCompra(Base):
+    """Parcela do pedido de compra: quando e quanto vai sair do caixa."""
+
+    __tablename__ = "parcela_compra"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pedido_id: Mapped[int] = mapped_column(ForeignKey("pedido_compra.id", ondelete="CASCADE"), index=True)
+    numero_parcela: Mapped[int] = mapped_column(default=1)
+    vencimento: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    valor: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+
+    pedido: Mapped["PedidoCompra"] = relationship(back_populates="parcelas")
+
+
 # ===================== Módulo de Precificação =====================
 
 

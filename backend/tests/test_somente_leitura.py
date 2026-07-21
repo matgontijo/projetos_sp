@@ -2,7 +2,7 @@
 
 O requisito do negocio e que o app nunca faca input na Omie — so busque dados.
 Este teste inspeciona o modulo de wrappers e falha se qualquer chamada usar um
-metodo fora da whitelist de consulta (Listar*/Consultar*).
+metodo fora da whitelist de consulta (Listar*/Consultar*/Pesquisar*).
 """
 
 import re
@@ -16,6 +16,10 @@ METODOS_PERMITIDOS = {
     "ListarClientesResumido",
     "ListarCategorias",
     "ListarVendedores",
+    # Pedido de compra: a Omie nomeia a CONSULTA como "Pesquisar" (nao "Listar").
+    # Continua sendo leitura pura — os metodos de escrita desse servico sao
+    # Incluir/Alterar/Excluir/UpsertPedCompra, barrados pelo teste abaixo.
+    "PesquisarPedCompra",
 }
 
 API_PY = Path(__file__).resolve().parent.parent / "app" / "omie" / "api.py"

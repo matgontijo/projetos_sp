@@ -59,6 +59,45 @@ def listar_vendedores(client: OmieClient) -> list[dict]:
     return list(client.paginate("geral/vendedores", "ListarVendedores", {}, list_keys=("cadastro", "vendedor_cadastro")))
 
 
+# Situacoes do pedido de compra -> flag que a Omie usa para exibi-las.
+# Por padrao TODAS vem desligadas: sem flag, a busca volta vazia.
+SITUACOES_COMPRA = {
+    "pendente": "lExibirPedidosPendentes",  # ainda NAO virou conta a pagar
+    "faturado": "lExibirPedidosFaturados",
+    "recebido": "lExibirPedidosRecebidos",
+    "encerrado": "lExibirPedidosEncerrados",
+}
+
+
+def pesquisar_pedidos_compra(
+    client: OmieClient,
+    situacao: str,
+    de: date | None = None,
+    ate: date | None = None,
+) -> list[dict]:
+    """Pedidos de compra de UMA situacao (consulta pura).
+
+    O metodo e 'PesquisarPedCompra' (nao 'Listar') e usa paginacao propria
+    (nPagina/nRegsPorPagina), sem total de paginas na resposta.
+    """
+    flag = SITUACOES_COMPRA[situacao]
+    param: dict = {flag: True}
+    if de:
+        param["dDataInicial"] = _fmt(de)
+    if ate:
+        param["dDataFinal"] = _fmt(ate)
+    return list(
+        client.paginate(
+            "produtos/pedidocompra",
+            "PesquisarPedCompra",
+            param,
+            list_keys=("pedidos_pesquisa",),
+            page_field="nPagina",
+            per_page_field="nRegsPorPagina",
+        )
+    )
+
+
 def testar_conexao(client: OmieClient) -> dict:
     """Chamada minima para validar credenciais; retorna contagem de projetos."""
     try:
