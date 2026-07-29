@@ -8,7 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
-from . import simples
 from .calculo import (
     _Contexto,
     _cancelado,
@@ -253,11 +252,9 @@ def _aliquota_da_empresa(db: Session, empresa: models.Empresa) -> dict:
     """Fracao de imposto sobre a venda para simulacao, com a origem explicada."""
     extra = _f(empresa.aliquota_extra) / 100.0
     if empresa.regime == "simples":
-        competencia = date.today().strftime("%Y-%m")
-        aliquota = simples.aliquota_da_competencia(db, empresa, competencia)
-        if aliquota > 0:
-            return {"aliquota": aliquota + extra, "origem": f"Simples efetivo de {competencia} + {extra*100:.1f}% extra"}
-        return {"aliquota": extra, "origem": "Simples sem base de 12 meses — sincronize o ano anterior"}
+        if extra > 0:
+            return {"aliquota": extra, "origem": f"{extra * 100:.1f}% do Simples configurado no cadastro"}
+        return {"aliquota": 0.0, "origem": "Simples sem alíquota configurada — informe na tela Empresas"}
     # Presumido/Real: taxa efetiva observada nos ultimos 12 meses de vendas BR
     hoje = date.today()
     fechamento = fechar_projetos(db, [empresa.id], hoje - timedelta(days=365), hoje)

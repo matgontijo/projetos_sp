@@ -107,16 +107,3 @@ class AjusteOut(BaseModel):
     motivo: str
     usuario: str
     criado_em: datetime
-
-
-# --- Simples ---
-class SimplesPeriodoIn(BaseModel):
-    competencia: str  # 'YYYY-MM'
-    rbt12: float | None
-
-
-class SimplesPeriodoOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    competencia: str
-    rbt12: float | None

@@ -1,84 +1,72 @@
-"""Testes do Simples Nacional: aliquota efetiva e aplicacao no fechamento."""
+"""Testes do imposto do Simples: aliquota configurada no cadastro sobre a receita.
+
+O calculo automatico (RBT12 x tabela da LC 123) foi removido: ele sobrepunha a
+aliquota configurada e inflava o imposto (bug do pedido de R$ 1.320 -> R$ 212,82).
+"""
 
 from datetime import date
 
 import pytest
 
-from app import models
 from app.services import calculo
-from app.services.simples import aliquota_efetiva
 
 from .conftest import criar_projeto, criar_titulo
 
 
-def test_aliquota_efetiva_anexo_i_faixa_2():
-    # RBT12 300.000 (Anexo I, 2a faixa): (300000*0,073 - 5940)/300000 = 5,32%
-    assert aliquota_efetiva(300_000, "I") == pytest.approx(0.0532)
-
-
-def test_aliquota_efetiva_primeira_faixa_e_nominal():
-    assert aliquota_efetiva(100_000, "I") == pytest.approx(0.04)
-    assert aliquota_efetiva(0, "II") == pytest.approx(0.045)  # sem RBT12: nominal da 1a faixa
-
-
-def test_aliquota_efetiva_anexo_ii():
-    # RBT12 1.000.000 (Anexo II, 4a faixa): (1000000*0,112 - 22500)/1000000 = 8,95%
-    assert aliquota_efetiva(1_000_000, "II") == pytest.approx(0.0895)
-
-
-def test_empresa_simples_aplica_aliquota_sobre_receita(db, empresa):
+def test_empresa_simples_usa_aliquota_do_cadastro(db, empresa):
+    """Caso do bug: receita 1.320,00 x 10,5% = 138,60 de imposto e 1.181,40 de resultado."""
     empresa.regime = "simples"
-    empresa.simples_anexo = "I"
-    db.add(models.SimplesPeriodo(empresa_id=empresa.id, competencia="2026-05", rbt12=300_000))
+    empresa.aliquota_extra = 10.5
     db.commit()
 
     criar_projeto(db, empresa, 100, "BR26_055")
-    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100, emissao=date(2026, 5, 10))
+    criar_titulo(db, empresa, "receber", 1, 1_320.0, projeto=100, emissao=date(2026, 7, 10))
+    # faturamento alto nos 12 meses anteriores NAO pode mudar a aliquota (era o bug)
+    criar_titulo(db, empresa, "receber", 50, 20_000_000.0, projeto=100, emissao=date(2025, 9, 15))
 
-    linha = calculo.fechar_projetos(db, [empresa.id])["projetos"][0]
-    assert linha["imposto_simples"] == pytest.approx(532.0)  # 10000 x 5,32%
-    assert linha["imposto"] == pytest.approx(532.0)
-    assert linha["resultado"] == pytest.approx(9_468.0)
+    resultado = calculo.fechar_projetos(db, [empresa.id], de=date(2026, 7, 1), ate=date(2026, 7, 31))
+    linha = resultado["projetos"][0]
+    assert linha["imposto_simples"] == pytest.approx(138.60)
+    assert linha["imposto"] == pytest.approx(138.60)
+    assert linha["resultado"] == pytest.approx(1_181.40)
 
 
-def test_empresa_regime_nota_nao_aplica_simples(db, empresa):
-    db.add(models.SimplesPeriodo(empresa_id=empresa.id, competencia="2026-05", rbt12=300_000))
+def test_empresa_simples_sem_aliquota_configurada_nao_gera_imposto(db, empresa):
+    """Sem aliquota no cadastro nao ha imposto automatico — a tela avisa para configurar."""
+    empresa.regime = "simples"
+    empresa.aliquota_extra = 0
     db.commit()
+
     criar_projeto(db, empresa, 100, "BR26_055")
-    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100, emissao=date(2026, 5, 10))
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
 
     linha = calculo.fechar_projetos(db, [empresa.id])["projetos"][0]
     assert linha["imposto_simples"] == 0.0
+    assert linha["imposto"] == 0.0
 
 
-def test_rbt12_manual_zero_usa_nominal_da_primeira_faixa(db, empresa):
-    """Regressao: RBT12=0 informado era tratado como ausente (caia no derivado)."""
-    empresa.regime = "simples"
-    empresa.simples_anexo = "I"
-    db.add(models.SimplesPeriodo(empresa_id=empresa.id, competencia="2026-05", rbt12=0))
+def test_empresa_regime_nota_usa_o_campo_como_extra(db, empresa):
+    """No Presumido a % do cadastro segue sendo ADICIONAL (IRPJ/CSLL fora da NF-e)."""
+    empresa.aliquota_extra = 3.4
     db.commit()
+
     criar_projeto(db, empresa, 100, "BR26_055")
-    # cache com receita alta nos 12 meses anteriores NAO pode sobrepor o manual=0
-    criar_titulo(db, empresa, "receber", 50, 500_000.0, projeto=100, emissao=date(2025, 8, 15))
-    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100, emissao=date(2026, 5, 10))
+    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
 
-    resultado = calculo.fechar_projetos(db, [empresa.id], de=date(2026, 5, 1), ate=date(2026, 5, 31))
-    # aliquota nominal da 1a faixa do Anexo I = 4%
-    assert resultado["projetos"][0]["imposto_simples"] == pytest.approx(400.0)
+    linha = calculo.fechar_projetos(db, [empresa.id])["projetos"][0]
+    assert linha["imposto_simples"] == 0.0
+    assert linha["imposto_extra"] == pytest.approx(340.0)
 
 
-def test_rbt12_derivado_do_cache_quando_nao_informado(db, empresa):
+def test_serie_mensal_aplica_aliquota_do_cadastro(db, empresa):
     empresa.regime = "simples"
-    empresa.simples_anexo = "I"
+    empresa.aliquota_extra = 10.5
     db.commit()
-    criar_projeto(db, empresa, 100, "BR26_055")
-    # 12 meses anteriores somando 360.000 (30.000/mes de jun/2025 a mai/2026... usamos 2 lancamentos)
-    criar_titulo(db, empresa, "receber", 50, 180_000.0, projeto=100, emissao=date(2025, 8, 15))
-    criar_titulo(db, empresa, "receber", 51, 120_000.0, projeto=100, emissao=date(2026, 2, 15))
-    # competencia analisada: jun/2026
-    criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100, emissao=date(2026, 6, 10))
 
-    resultado = calculo.fechar_projetos(db, [empresa.id], de=date(2026, 6, 1), ate=date(2026, 6, 30))
-    linha = resultado["projetos"][0]
-    # RBT12 derivado = 300.000 -> aliquota 5,32%
-    assert linha["imposto_simples"] == pytest.approx(532.0)
+    criar_projeto(db, empresa, 100, "BR26_055")
+    criar_titulo(db, empresa, "receber", 1, 1_320.0, projeto=100, emissao=date(2026, 7, 10))
+
+    serie = calculo.serie_mensal(db, [empresa.id])
+    julho = next(m for m in serie if m["mes"] == "2026-07")
+    assert julho["imposto"] == pytest.approx(138.60)
+    assert julho["resultado"] == pytest.approx(1_181.40)

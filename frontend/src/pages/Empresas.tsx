@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, usuarioLogado, type TesteConexao, type UsuarioLogado } from '../api/client'
 import { PageHeader } from '../components/Layout'
-import { fmtBRL } from '../lib/format'
 
 const GRUPOS = [
   { valor: '', label: '— ainda não classificada —' },
@@ -21,12 +20,11 @@ interface FormEmpresa {
   app_key: string
   app_secret: string
   regime: 'nota' | 'simples'
-  simples_anexo: string
   aliquota_extra: string
 }
 
 const FORM_VAZIO: FormEmpresa = {
-  nome: '', cnpj: '', app_key: '', app_secret: '', regime: 'nota', simples_anexo: '', aliquota_extra: '',
+  nome: '', cnpj: '', app_key: '', app_secret: '', regime: 'nota', aliquota_extra: '',
 }
 
 export default function Empresas() {
@@ -34,7 +32,7 @@ export default function Empresas() {
   const { data: empresas } = useQuery({ queryKey: ['empresas'], queryFn: api.listarEmpresas })
   const [form, setForm] = useState<FormEmpresa | null>(null)
   const [testes, setTestes] = useState<Record<number, TesteConexao | 'testando'>>({})
-  const [painelAberto, setPainelAberto] = useState<{ empresa: number; painel: 'categorias' | 'simples' } | null>(null)
+  const [categoriasAbertas, setCategoriasAbertas] = useState<number | null>(null)
 
   const invalidar = () => queryClient.invalidateQueries({ queryKey: ['empresas'] })
 
@@ -44,7 +42,6 @@ export default function Empresas() {
         nome: f.nome,
         cnpj: f.cnpj,
         regime: f.regime,
-        simples_anexo: f.simples_anexo || null,
         aliquota_extra: f.aliquota_extra === '' ? 0 : Number(f.aliquota_extra),
       }
       if (f.app_key) payload.app_key = f.app_key
@@ -73,10 +70,8 @@ export default function Empresas() {
     }
   }
 
-  function alternarPainel(empresa: number, painel: 'categorias' | 'simples') {
-    setPainelAberto((atual) =>
-      atual && atual.empresa === empresa && atual.painel === painel ? null : { empresa, painel },
-    )
+  function alternarCategorias(empresa: number) {
+    setCategoriasAbertas((atual) => (atual === empresa ? null : empresa))
   }
 
   return (
@@ -115,14 +110,23 @@ export default function Empresas() {
                         color: 'var(--text-secondary)',
                       }}
                     >
-                      {e.regime === 'simples' ? `Simples Nacional · Anexo ${e.simples_anexo || 'I'}` : 'Lucro Presumido / Real'}
+                      {e.regime === 'simples' ? 'Simples Nacional' : 'Lucro Presumido / Real'}
                     </span>
                     {e.aliquota_extra > 0 && (
                       <span
                         className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         style={{ background: 'color-mix(in srgb, var(--serie-imposto) 15%, transparent)', color: 'var(--text-secondary)' }}
                       >
-                        +{String(e.aliquota_extra).replace('.', ',')}% de imposto s/ receita
+                        {e.regime === 'simples' ? '' : '+'}
+                        {String(e.aliquota_extra).replace('.', ',')}% de imposto s/ receita
+                      </span>
+                    )}
+                    {e.regime === 'simples' && !(e.aliquota_extra > 0) && (
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ background: 'color-mix(in srgb, var(--neg) 12%, transparent)', color: 'var(--neg)' }}
+                      >
+                        sem alíquota — imposto fica R$ 0
                       </span>
                     )}
                     {!e.ativa && (
@@ -146,7 +150,6 @@ export default function Empresas() {
                         app_key: '',
                         app_secret: '',
                         regime: e.regime,
-                        simples_anexo: e.simples_anexo || '',
                         aliquota_extra: e.aliquota_extra ? String(e.aliquota_extra) : '',
                       })
                     }
@@ -172,23 +175,11 @@ export default function Empresas() {
               )}
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <button className="btn btn-ghost text-xs" onClick={() => alternarPainel(e.id, 'categorias')}>
-                  {painelAberto?.empresa === e.id && painelAberto.painel === 'categorias'
-                    ? 'Fechar classificação'
-                    : 'Classificar custos'}
+                <button className="btn btn-ghost text-xs" onClick={() => alternarCategorias(e.id)}>
+                  {categoriasAbertas === e.id ? 'Fechar classificação' : 'Classificar custos'}
                 </button>
-                {e.regime === 'simples' && (
-                  <button className="btn btn-ghost text-xs" onClick={() => alternarPainel(e.id, 'simples')}>
-                    {painelAberto?.empresa === e.id && painelAberto.painel === 'simples'
-                      ? 'Fechar imposto do Simples'
-                      : 'Imposto do Simples'}
-                  </button>
-                )}
               </div>
-              {painelAberto?.empresa === e.id && painelAberto.painel === 'categorias' && <Categorias empresaId={e.id} />}
-              {painelAberto?.empresa === e.id && painelAberto.painel === 'simples' && (
-                <SimplesConfig empresaId={e.id} anexo={e.simples_anexo || 'I'} />
-              )}
+              {categoriasAbertas === e.id && <Categorias empresaId={e.id} />}
             </div>
           )
         })}
@@ -254,38 +245,19 @@ export default function Empresas() {
                   rode uma nova busca depois.
                 </p>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm">
-                  Como calcular os impostos?
-                  <select
-                    className="input mt-1 w-full"
-                    value={form.regime}
-                    onChange={(ev) => setForm({ ...form, regime: ev.target.value as 'nota' | 'simples' })}
-                  >
-                    <option value="nota">Pelas notas fiscais (Presumido/Real)</option>
-                    <option value="simples">Simples Nacional (automático)</option>
-                  </select>
-                </label>
-                {form.regime === 'simples' && (
-                  <label className="text-sm">
-                    Anexo do Simples
-                    <select
-                      className="input mt-1 w-full"
-                      value={form.simples_anexo}
-                      onChange={(ev) => setForm({ ...form, simples_anexo: ev.target.value })}
-                    >
-                      <option value="">— pergunte ao contador —</option>
-                      <option value="I">Anexo I — comércio/revenda</option>
-                      <option value="II">Anexo II — indústria</option>
-                      <option value="III">Anexo III — serviços</option>
-                      <option value="IV">Anexo IV — serviços (obras etc.)</option>
-                      <option value="V">Anexo V — serviços técnicos</option>
-                    </select>
-                  </label>
-                )}
-              </div>
               <label className="text-sm">
-                Imposto extra sobre a receita (%)
+                Como calcular os impostos?
+                <select
+                  className="input mt-1 w-full"
+                  value={form.regime}
+                  onChange={(ev) => setForm({ ...form, regime: ev.target.value as 'nota' | 'simples' })}
+                >
+                  <option value="nota">Pelas notas fiscais (Presumido/Real)</option>
+                  <option value="simples">Simples Nacional (alíquota fixa sobre a receita)</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                {form.regime === 'simples' ? 'Alíquota do Simples sobre a receita (%)' : 'Imposto extra sobre a receita (%)'}
                 <input
                   type="number"
                   step="0.1"
@@ -297,8 +269,9 @@ export default function Empresas() {
                   onChange={(ev) => setForm({ ...form, aliquota_extra: ev.target.value })}
                 />
                 <span className="help mt-1 block">
-                  Para impostos que não aparecem na nota fiscal, como IRPJ/CSLL do Lucro Presumido (na planilha de
-                  vocês isso é ~3,4% da venda). Deixe 0 se não souber — dá para ajustar depois.
+                  {form.regime === 'simples'
+                    ? 'É esta alíquota que o app aplica sobre a receita dos projetos desta empresa (ex.: 10,5). Sem ela, o imposto do Simples fica em R$ 0.'
+                    : 'Para impostos que não aparecem na nota fiscal, como IRPJ/CSLL do Lucro Presumido (na planilha de vocês isso é ~3,4% da venda). Deixe 0 se não souber — dá para ajustar depois.'}
                 </span>
               </label>
             </div>
@@ -624,95 +597,6 @@ function Categorias({ empresaId }: { empresaId: number }) {
           </p>
         )}
       </div>
-    </div>
-  )
-}
-
-function SimplesConfig({ empresaId, anexo }: { empresaId: number; anexo: string }) {
-  const queryClient = useQueryClient()
-  const { data: periodos } = useQuery({
-    queryKey: ['simples', empresaId],
-    queryFn: () => api.listarSimples(empresaId),
-  })
-  const [competencia, setCompetencia] = useState('')
-  const [valor, setValor] = useState('')
-
-  const salvar = useMutation({
-    mutationFn: (dados: { competencia: string; rbt12: number | null }) => api.salvarSimples(empresaId, [dados]),
-    onSuccess: () => {
-      setCompetencia('')
-      setValor('')
-      queryClient.invalidateQueries({ queryKey: ['simples', empresaId] })
-      queryClient.invalidateQueries({ queryKey: ['fechamento'] })
-    },
-  })
-
-  const informados = (periodos || []).filter((p) => p.rbt12 !== null)
-
-  return (
-    <div className="mt-3 rounded-lg border p-3" style={{ borderColor: 'var(--gridline)' }}>
-      <p className="help">
-        <b>O imposto do Simples é calculado sozinho.</b> Para cada mês, o app soma o que a empresa faturou nos 12
-        meses anteriores e aplica a tabela oficial do Simples (Anexo {anexo}). Você não precisa configurar nada aqui.
-      </p>
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-          Ajuste fino (opcional): informar o faturamento que o contador passou
-        </summary>
-        <p className="help mt-2">
-          Se o contador te passar o <b>faturamento acumulado de 12 meses</b> usado na guia de algum mês, informe aqui
-          que ele vale no lugar do cálculo automático (útil quando nem todas as vendas passam pela Omie).
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Mês
-            <input
-              type="month"
-              className="input ml-1 text-xs"
-              value={competencia}
-              onChange={(ev) => setCompetencia(ev.target.value)}
-            />
-          </label>
-          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Faturamento 12 meses (R$)
-            <input
-              type="number"
-              className="input ml-1 w-36 text-xs"
-              placeholder="ex.: 3500000"
-              value={valor}
-              onChange={(ev) => setValor(ev.target.value)}
-            />
-          </label>
-          <button
-            className="btn btn-ghost text-xs"
-            disabled={!competencia || valor === '' || salvar.isPending}
-            onClick={() => salvar.mutate({ competencia, rbt12: Number(valor) })}
-          >
-            Salvar
-          </button>
-        </div>
-        {informados.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {informados.map((p) => (
-              <span
-                key={p.competencia}
-                className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
-                style={{ borderColor: 'var(--gridline)', color: 'var(--text-secondary)' }}
-              >
-                {p.competencia}: {fmtBRL(p.rbt12 || 0)}
-                <button
-                  title="Voltar para o cálculo automático neste mês"
-                  className="cursor-pointer font-bold"
-                  style={{ color: 'var(--neg)' }}
-                  onClick={() => salvar.mutate({ competencia: p.competencia, rbt12: null })}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </details>
     </div>
   )
 }

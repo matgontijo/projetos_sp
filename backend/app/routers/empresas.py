@@ -148,33 +148,3 @@ def testar_conexao(empresa_id: int, db: Session = Depends(get_db)):
         return schemas.TesteConexaoOut(ok=False, erro=f"Omie recusou a chamada: {exc.faultstring}")
     except OmieTransportError as exc:
         return schemas.TesteConexaoOut(ok=False, erro=str(exc))
-
-
-@router.get("/{empresa_id}/simples", response_model=list[schemas.SimplesPeriodoOut])
-def listar_simples(empresa_id: int, db: Session = Depends(get_db)):
-    _get_empresa(db, empresa_id)
-    rows = db.scalars(
-        select(models.SimplesPeriodo)
-        .where(models.SimplesPeriodo.empresa_id == empresa_id)
-        .order_by(models.SimplesPeriodo.competencia)
-    ).all()
-    return rows
-
-
-@router.put("/{empresa_id}/simples", response_model=list[schemas.SimplesPeriodoOut])
-def salvar_simples(empresa_id: int, payload: list[schemas.SimplesPeriodoIn], db: Session = Depends(get_db)):
-    _get_empresa(db, empresa_id)
-    for item in payload:
-        row = db.scalar(
-            select(models.SimplesPeriodo).where(
-                models.SimplesPeriodo.empresa_id == empresa_id,
-                models.SimplesPeriodo.competencia == item.competencia,
-            )
-        )
-        if row is None:
-            row = models.SimplesPeriodo(empresa_id=empresa_id, competencia=item.competencia)
-            db.add(row)
-        row.rbt12 = item.rbt12
-    db.commit()
-    cache.invalidar()  # aliquota do Simples muda o imposto calculado
-    return listar_simples(empresa_id, db)

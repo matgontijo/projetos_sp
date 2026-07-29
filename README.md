@@ -7,9 +7,9 @@ Receita − Produção − Frete − Impostos (− Outros) = Resultado
 Margem % = Resultado ÷ Receita
 ```
 
-- **Mesmo projeto em várias empresas**: se o projeto é faturado por mais de um CNPJ (ex.: uma empresa no Lucro Presumido e outra no Simples), o app **consolida pela numeração do projeto** — uma linha só, somando as duas empresas, com o imposto certo de cada lado (NF-e no Presumido, alíquota efetiva no Simples). O filtro de empresa mostra a parcela de cada uma.
-- **Impostos automáticos**: lidos dos tributos destacados nas NF-e (ICMS, ICMS-ST, FCP, IPI, PIS, COFINS — e IBS/CBS quando a Omie passar a retorná-los). Ninguém digita alíquota.
-- **Simples Nacional**: por empresa, dá para ligar o modo Simples (alíquota efetiva derivada do RBT12, por competência). Desligado por padrão.
+- **Mesmo projeto em várias empresas**: se o projeto é faturado por mais de um CNPJ (ex.: uma empresa no Lucro Presumido e outra no Simples), o app **consolida pela numeração do projeto** — uma linha só, somando as duas empresas, com o imposto certo de cada lado (NF-e no Presumido, alíquota do cadastro no Simples). O filtro de empresa mostra a parcela de cada uma.
+- **Impostos automáticos**: lidos dos tributos destacados nas NF-e (ICMS, ICMS-ST, FCP, IPI, PIS, COFINS — e IBS/CBS quando a Omie passar a retorná-los).
+- **Simples Nacional**: por empresa, dá para ligar o modo Simples — o imposto é a alíquota configurada no cadastro aplicada sobre a receita da empresa. Desligado por padrão.
 - **Tributos em Contas a Pagar** (gerados pela Omie): classificados como grupo "Imposto" — aparecem no detalhe mas **não somam no custo**, para não duplicar com a NF-e.
 - **Ajustes manuais auditáveis**: reclassificar um custo, corrigir um imposto, mover ou excluir um lançamento — sempre registrando quem, quando e por quê. O cache nunca é alterado.
 - **Exportação** do fechamento em CSV e Excel (pt-BR).
@@ -103,7 +103,7 @@ cd backend
 .venv\Scripts\python -m pytest
 ```
 
-Cobrem: cliente Omie (paginação completa, faultstring, retry/backoff, HTTP 425), agrupamento por projeto, grupos de custo com rateio, não-duplicação de tributos, margem, filtro de período, ajustes auditáveis e alíquota efetiva do Simples (28 testes).
+Cobrem: cliente Omie (paginação completa, faultstring, retry/backoff, HTTP 425), agrupamento por projeto, grupos de custo com rateio, não-duplicação de tributos, margem, filtro de período, ajustes auditáveis e a alíquota do Simples configurada no cadastro.
 
 ## Deploy no Render (recomendado)
 
