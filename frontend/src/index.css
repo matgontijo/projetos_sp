@@ -125,17 +125,6 @@ body {
   font-size: 14px;
 }
 
-/* brilho ambiente esmeralda no topo — profundidade sem virar carnaval */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0 0 auto 0;
-  height: 420px;
-  pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(720px 320px at 30% -100px, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
-}
-
 h1, h2, h3,
 .kpi-valor,
 .card-head .titulo {
@@ -223,23 +212,80 @@ h1, h2, h3,
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.kpi-hero {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--kpi-acento, var(--accent)) 9%, var(--surface-1)), var(--surface-1) 62%);
-}
-.kpi-hero::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 38%;
-  height: 3px;
-  border-radius: 0 0 3px 3px;
-  background: linear-gradient(90deg, var(--kpi-acento, var(--accent)), transparent);
-}
+/* destaque SEM decoração: só o número maior (as faixas degradê pareciam defeito) */
 .kpi-hero .kpi-valor {
   font-size: clamp(14px, 9.3cqw, 34px);
+}
+
+/* ---------- herói da Visão geral ---------- */
+
+.hero-metricas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+.hero-metricas > * + * {
+  border-left: 1px solid var(--gridline);
+}
+.hero-protagonista {
+  padding: 1.5rem 1.75rem 1.4rem;
+  container-type: inline-size;
+  min-width: 0;
+}
+.hero-valor {
+  font-family: var(--font-display);
+  /* escala com a largura do painel: nunca invade a coluna vizinha
+     (coeficiente p/ o pior caso: R$ 14.780.835,64 = 16 caracteres) */
+  font-size: clamp(24px, 9.2cqw, 52px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hero-sub {
+  padding: 1.5rem 1.4rem 1.4rem;
+  container-type: inline-size;
+  min-width: 0;
+}
+.hero-sub .valor {
+  font-family: var(--font-display);
+  font-size: clamp(14px, 8.6cqw, 23px);
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .hero-metricas {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hero-protagonista {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .hero-metricas > * + * {
+    border-left: none;
+  }
+  .hero-sub + .hero-sub {
+    border-left: 1px solid var(--gridline);
+  }
+  .hero-sub:last-child {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--gridline);
+    border-left: none;
+  }
+}
+
+/* alerta compacto: uma linha por projeto, sem blocos */
+.alerta-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--gridline);
+  font-size: 0.85rem;
 }
 
 .titulo-secao {
