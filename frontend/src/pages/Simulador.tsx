@@ -90,7 +90,7 @@ export default function Simulador() {
         )}
         <p className="help mt-3">
           A conta usa o imposto real de cada empresa: no Presumido, a % efetiva observada nas vendas dos últimos 12
-          meses; no Simples, a alíquota do mês (faturamento de 12 meses) — as mesmas do fechamento.
+          meses; no Simples, a alíquota configurada no cadastro da empresa — as mesmas do fechamento.
         </p>
       </div>
 

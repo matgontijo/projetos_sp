@@ -5,7 +5,6 @@ export interface Empresa {
   nome: string
   cnpj: string
   regime: 'nota' | 'simples'
-  simples_anexo: string | null
   aliquota_extra: number
   ativa: boolean
   criado_em: string
@@ -512,12 +511,6 @@ export const api = {
     request<Empresa>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
   excluirEmpresa: (id: number) => request<void>(`/api/empresas/${id}`, { method: 'DELETE' }),
   testarConexao: (id: number) => request<TesteConexao>(`/api/empresas/${id}/testar-conexao`, { method: 'POST' }),
-
-  // Simples
-  listarSimples: (empresaId: number) =>
-    request<{ competencia: string; rbt12: number | null }[]>(`/api/empresas/${empresaId}/simples`),
-  salvarSimples: (empresaId: number, periodos: { competencia: string; rbt12: number | null }[]) =>
-    request(`/api/empresas/${empresaId}/simples`, { method: 'PUT', body: JSON.stringify(periodos) }),
 
   // Sync
   iniciarSync: (empresaIds: number[], de: string, ate: string) =>

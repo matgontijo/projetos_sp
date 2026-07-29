@@ -87,11 +87,8 @@ def test_simulador_preco_minimo_e_comparacao(db, empresa):
     # empresa 'nota' SEM historico -> usa so o % extra
     empresa.aliquota_extra = 10.0
     empresa2 = models.Empresa(nome="Simples Ltda", cnpj="2", app_key_enc="x", app_secret_enc="y",
-                              regime="simples", simples_anexo="I")
+                              regime="simples", aliquota_extra=8.0)
     db.add(empresa2)
-    db.commit()
-    comp = date.today().strftime("%Y-%m")
-    db.add(models.SimplesPeriodo(empresa_id=empresa2.id, competencia=comp, rbt12=300_000))
     db.commit()
 
     resultado = analises.simular_preco(db, custo=1_000.0, margem_alvo=0.2)
@@ -100,8 +97,8 @@ def test_simulador_preco_minimo_e_comparacao(db, empresa):
     # preco = 1000 / (1 - 0.10 - 0.20) = 1428.57
     assert c1["preco_minimo"] == pytest.approx(1428.57, abs=0.01)
     c2 = next(c for c in resultado["cenarios"] if c["empresa_id"] == empresa2.id)
-    # aliquota Simples 5,32% -> preco = 1000 / (1 - 0.0532 - 0.2) = 1339.03
-    assert c2["preco_minimo"] == pytest.approx(1339.03, abs=0.05)
+    # aliquota do Simples configurada no cadastro (8%) -> preco = 1000 / (1 - 0.08 - 0.2) = 1388.89
+    assert c2["preco_minimo"] == pytest.approx(1388.89, abs=0.01)
     assert resultado["empresa_recomendada"] == "Simples Ltda"
 
 

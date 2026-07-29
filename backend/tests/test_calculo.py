@@ -35,11 +35,9 @@ def test_consolida_mesmo_projeto_entre_empresas(db, empresa):
     """
     empresa2 = models.Empresa(
         nome="Empresa Simples", cnpj="2", app_key_enc="x", app_secret_enc="y",
-        regime="simples", simples_anexo="I",
+        regime="simples", aliquota_extra=10.5,
     )
     db.add(empresa2)
-    db.commit()
-    db.add(models.SimplesPeriodo(empresa_id=empresa2.id, competencia="2026-05", rbt12=300_000))
     db.commit()
 
     # mesmo numero de projeto, codigos internos diferentes em cada conta Omie
@@ -51,7 +49,7 @@ def test_consolida_mesmo_projeto_entre_empresas(db, empresa):
     criar_titulo(db, empresa, "receber", 1, 10_000.0, projeto=100)
     criar_titulo(db, empresa, "pagar", 2, 4_000.0, projeto=100, categoria="2.01.01")
     criar_nfe(db, empresa, 555, projeto=100, v_icms=1_200.0)
-    # empresa 2 (Simples): receita 5k na mesma obra -> DAS efetivo 5,32%
+    # empresa 2 (Simples): receita 5k na mesma obra -> 10,5% do cadastro
     criar_titulo(db, empresa2, "receber", 3, 5_000.0, projeto=900, emissao=date(2026, 5, 10))
 
     resultado = calculo.fechar_projetos(db, [empresa.id, empresa2.id])
@@ -61,9 +59,9 @@ def test_consolida_mesmo_projeto_entre_empresas(db, empresa):
     assert linha["receita"] == 15_000.0
     assert linha["producao"] == 4_000.0
     assert linha["imposto_nfe"] == 1_200.0
-    # Simples aplicado SO sobre os 5k da empresa Simples: 5000 x 5,32% = 266
-    assert linha["imposto_simples"] == pytest.approx(266.0)
-    assert linha["resultado"] == pytest.approx(15_000 - 4_000 - 1_200 - 266)
+    # Simples aplicado SO sobre os 5k da empresa Simples: 5000 x 10,5% = 525
+    assert linha["imposto_simples"] == pytest.approx(525.0)
+    assert linha["resultado"] == pytest.approx(15_000 - 4_000 - 1_200 - 525)
     assert "Empresa Simples" in linha["empresas"] and "Empresa Teste" in linha["empresas"]
 
     # filtrando so a empresa Simples, ve-se apenas a parcela dela

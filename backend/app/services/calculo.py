@@ -10,8 +10,8 @@ Regras (do levantamento de requisitos):
              (producao / frete / comissao / outros; rateio `categorias[]` respeitado)
 - comissao ENTRA no custo do projeto (regra da cliente, igual a planilha delas)
 - imposto  = tributos destacados nas NF-e do projeto (ICMS, ST, FCP, FCPST, IPI,
-             PIS, COFINS, IBS/CBS) + Simples efetivo sobre a parcela da receita
-             faturada por empresa marcada como Simples
+             PIS, COFINS, IBS/CBS) + aliquota da empresa (cadastro) sobre a parcela
+             da receita faturada por empresa do Simples
 - CP de tributos (grupo 'imposto') NUNCA soma no custo — o imposto ja vem da NF-e;
   somar de novo duplicaria. Ficam visiveis no detalhe.
 - custo_total = producao + frete + imposto + outros
@@ -20,7 +20,7 @@ Regras (do levantamento de requisitos):
 """
 
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -28,7 +28,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
-from . import simples
 
 SEM_PROJETO_NOME = "Sem projeto"
 
@@ -65,7 +64,7 @@ class LinhaFechamento:
     comissao: float = 0.0
     outros: float = 0.0
     imposto_nfe: float = 0.0
-    imposto_simples: float = 0.0
+    imposto_simples: float = 0.0  # aliquota do cadastro s/ receita de empresa do Simples
     imposto_extra: float = 0.0  # % extra s/ receita (ex.: IRPJ/CSLL Presumido)
     cp_impostos: float = 0.0  # informativo, fora do custo
     nao_classificado: float = 0.0  # parcela de 'outros' sem categoria mapeada
@@ -264,8 +263,7 @@ def fechar_projetos(
             linhas[chave] = LinhaFechamento(projeto=nome)
         return linhas[chave]
 
-    # --- Contas a Receber: receita (+ base do Simples por empresa/competencia) ---
-    receita_simples: dict[tuple[int, str, str], float] = defaultdict(float)
+    # --- Contas a Receber: receita (+ imposto % da empresa sobre a receita) ---
     for titulo in ctx.titulos:
         if titulo.tipo != "receber" or _cancelado(titulo.status_titulo):
             continue
@@ -282,12 +280,14 @@ def fechar_projetos(
         if titulo.codigo_cliente_fornecedor:
             ln._clientes[(titulo.empresa_id, titulo.codigo_cliente_fornecedor)] += 1
         empresa = ctx.empresas.get(titulo.empresa_id)
-        if empresa and empresa.regime == "simples" and titulo.data_emissao:
-            competencia = titulo.data_emissao.strftime("%Y-%m")
-            receita_simples[(titulo.empresa_id, chave_projeto(nome), competencia)] += valor
         if empresa and _f(empresa.aliquota_extra) > 0:
-            # impostos fora da NF-e (ex.: IRPJ/CSLL do Presumido), % sobre a receita
-            ln.imposto_extra += valor * _f(empresa.aliquota_extra) / 100.0
+            parcela = valor * _f(empresa.aliquota_extra) / 100.0
+            if empresa.regime == "simples":
+                # Simples: a aliquota do cadastro E o imposto da empresa (sem calculo automatico)
+                ln.imposto_simples += parcela
+            else:
+                # impostos fora da NF-e (ex.: IRPJ/CSLL do Presumido), % sobre a receita
+                ln.imposto_extra += parcela
 
     # --- Contas a Pagar: custos por grupo ---
     for titulo in ctx.titulos:
@@ -342,14 +342,6 @@ def fechar_projetos(
         ln.imposto_nfe += imposto
         ln.qtd_nfe += 1
 
-    # --- Simples Nacional: aliquota efetiva da empresa x receita dela na competencia ---
-    aliquotas: dict[tuple[int, str], float] = {}
-    for (empresa_id, chave, competencia), valor in receita_simples.items():
-        chave_aliq = (empresa_id, competencia)
-        if chave_aliq not in aliquotas:
-            aliquotas[chave_aliq] = simples.aliquota_da_competencia(db, ctx.empresas[empresa_id], competencia)
-        linhas[chave].imposto_simples += valor * aliquotas[chave_aliq]
-
     # --- Nome do cliente principal ---
     for ln in linhas.values():
         if ln._clientes:
@@ -398,7 +390,6 @@ def serie_mensal(
             meses[mes] = {"mes": mes, "receita": 0.0, "custos": 0.0, "imposto": 0.0}
         return meses[mes]
 
-    aliquotas: dict[tuple[int, str], float] = {}
     for titulo in ctx.titulos:
         if _cancelado(titulo.status_titulo) or ctx.ajustes.excluido("titulo", titulo.id):
             continue
@@ -412,12 +403,8 @@ def serie_mensal(
             valor = _f(titulo.valor_documento)
             ln["receita"] += valor
             empresa = ctx.empresas.get(titulo.empresa_id)
-            if empresa and empresa.regime == "simples":
-                chave_aliq = (titulo.empresa_id, mes)
-                if chave_aliq not in aliquotas:
-                    aliquotas[chave_aliq] = simples.aliquota_da_competencia(db, empresa, mes)
-                ln["imposto"] += valor * aliquotas[chave_aliq]
             if empresa and _f(empresa.aliquota_extra) > 0:
+                # Simples: aliquota do cadastro; Presumido: % extra fora da NF-e
                 ln["imposto"] += valor * _f(empresa.aliquota_extra) / 100.0
         else:
             grupo_override = ctx.ajustes.get("titulo", titulo.id, "grupo")

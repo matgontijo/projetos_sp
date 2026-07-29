@@ -34,11 +34,11 @@ class Empresa(Base):
     # Credenciais Omie criptografadas (Fernet) — nunca expostas pela API
     app_key_enc: Mapped[str] = mapped_column(Text)
     app_secret_enc: Mapped[str] = mapped_column(Text)
-    # 'nota' (Presumido/Real: impostos lidos das NF-e) | 'simples' (aplica aliquota efetiva)
+    # 'nota' (Presumido/Real: impostos lidos das NF-e) | 'simples' (aliquota do cadastro)
     regime: Mapped[str] = mapped_column(String(10), default="nota")
-    simples_anexo: Mapped[str | None] = mapped_column(String(3), nullable=True)
-    # % ADICIONAL sobre a receita para impostos que nao vem na NF-e
-    # (ex.: IRPJ/CSLL do Lucro Presumido ~3,4%). Em pontos percentuais (3.4 = 3,4%).
+    simples_anexo: Mapped[str | None] = mapped_column(String(3), nullable=True)  # informativo
+    # % sobre a receita, em pontos percentuais (10.5 = 10,5%). No Simples e A aliquota
+    # da empresa; no Presumido e o ADICIONAL fora da NF-e (ex.: IRPJ/CSLL ~3,4%).
     aliquota_extra: Mapped[float] = mapped_column(Numeric(6, 3), default=0)
     ativa: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -191,7 +191,8 @@ class Ajuste(Base):
 
 
 class SimplesPeriodo(Base):
-    """RBT12/aliquota efetiva do Simples por competencia (usado so se empresa.regime='simples')."""
+    """LEGADO — o calculo automatico do Simples (RBT12 x tabela) foi removido; o imposto
+    usa a aliquota do cadastro da empresa. Tabela mantida so para preservar dados digitados."""
 
     __tablename__ = "simples_periodo"
     __table_args__ = (UniqueConstraint("empresa_id", "competencia", name="uq_simples_empresa_comp"),)

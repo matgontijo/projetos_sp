@@ -7,8 +7,7 @@ import { fmtData, fmtDataHora } from '../lib/format'
 function hoje(): string {
   return new Date().toISOString().slice(0, 10)
 }
-// padrao: ano passado inteiro + ano atual — assim o imposto do Simples consegue
-// derivar o faturamento dos 12 meses anteriores a cada competencia
+// padrao: ano passado inteiro + ano atual, para comparar o fechamento entre anos
 function inicioPadrao(): string {
   return `${new Date().getFullYear() - 1}-01-01`
 }
@@ -64,8 +63,7 @@ export default function Sincronizar() {
       />
       <div className="card px-5 py-4">
         <p className="help mb-3">
-          Pode rodar quantas vezes quiser — só atualiza o que mudou, sem duplicar nada. Dica: inclua o ano anterior
-          no período para o imposto do Simples sair certinho (ele depende do faturamento dos 12 meses anteriores).
+          Pode rodar quantas vezes quiser — só atualiza o que mudou, sem duplicar nada.
         </p>
         <div className="flex flex-wrap items-end gap-4">
           <div>
