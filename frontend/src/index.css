@@ -1,24 +1,41 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Design system — "terminal financeiro"
-   Superfícies em camadas, um acento, tipografia Manrope,
-   dark-first com light mode completo.
+   Design system — "Cofre"
+   Identidade: verde-esmeralda (dinheiro) sobre neutros quentes,
+   sidebar escura nos DOIS temas, Archivo p/ títulos e números,
+   Inter p/ texto. Tema claro/escuro/sistema via data-theme.
+
+   As cores das SÉRIES dos gráficos não mudam entre identidades:
+   são a paleta validada p/ daltonismo (ordem fixa, dois temas).
    ============================================================ */
 
 :root {
-  --page: #f6f6f4;
+  color-scheme: light;
+
+  --font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Archivo Variable', var(--font-body);
+
+  --page: #f2f1ec;
   --surface-1: #ffffff;
-  --surface-2: #f0f0ed;
-  --text-primary: #16171a;
-  --text-secondary: #53555c;
-  --text-muted: #8a8d95;
-  --gridline: #e7e7e3;
-  --baseline: #cfcfc9;
-  --border-hairline: rgba(20, 20, 25, 0.08);
-  --accent: #2a78d6;
-  --accent-forte: #1c5cab;
-  --sombra-card: 0 1px 2px rgba(15, 15, 20, 0.05), 0 10px 28px -18px rgba(15, 15, 20, 0.28);
+  --surface-2: #f5f4ee;
+  --text-primary: #14171a;
+  --text-secondary: #4d5450;
+  --text-muted: #7f8781;
+  --gridline: #e8e7df;
+  --baseline: #cbcac1;
+  --border-hairline: rgba(16, 22, 18, 0.09);
+  --accent: #0a7d55;
+  --accent-forte: #076247;
+  --sombra-card: 0 1px 2px rgba(18, 22, 19, 0.04), 0 14px 34px -22px rgba(18, 22, 19, 0.3);
+
+  /* Sidebar: escura nos dois temas — assinatura da identidade */
+  --nav-bg: #0d1512;
+  --nav-surface: #17211c;
+  --nav-text: #e9efe9;
+  --nav-muted: #8da295;
+  --nav-hairline: rgba(233, 239, 233, 0.08);
+  --nav-accent: #2fbd88;
 
   /* Séries categóricas (ordem fixa, validada p/ daltonismo) */
   --serie-producao: #2a78d6;
@@ -39,20 +56,22 @@
   --status-critical: #d03b3b;
 }
 
+/* tema escuro: pelo sistema (sem escolha manual)… */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --page: #0b0c0f;
-    --surface-1: #14161b;
-    --surface-2: #1c1f25;
-    --text-primary: #f2f3f6;
-    --text-secondary: #b6bac3;
-    --text-muted: #7d818b;
-    --gridline: #23262d;
-    --baseline: #343841;
-    --border-hairline: rgba(255, 255, 255, 0.07);
-    --accent: #3987e5;
-    --accent-forte: #5598e7;
-    --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -20px rgba(0, 0, 0, 0.7);
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0a0d0b;
+    --surface-1: #131815;
+    --surface-2: #1b211d;
+    --text-primary: #eef2ef;
+    --text-secondary: #b3bcb5;
+    --text-muted: #7d857f;
+    --gridline: #232a25;
+    --baseline: #343d37;
+    --border-hairline: rgba(238, 242, 239, 0.07);
+    --accent: #2fbd88;
+    --accent-forte: #4ccb9b;
+    --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -22px rgba(0, 0, 0, 0.7);
 
     --serie-producao: #3987e5;
     --serie-frete: #199e70;
@@ -69,31 +88,63 @@
   }
 }
 
+/* …ou escolhido no botão de tema (data-theme vence o sistema) */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0a0d0b;
+  --surface-1: #131815;
+  --surface-2: #1b211d;
+  --text-primary: #eef2ef;
+  --text-secondary: #b3bcb5;
+  --text-muted: #7d857f;
+  --gridline: #232a25;
+  --baseline: #343d37;
+  --border-hairline: rgba(238, 242, 239, 0.07);
+  --accent: #2fbd88;
+  --accent-forte: #4ccb9b;
+  --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -22px rgba(0, 0, 0, 0.7);
+
+  --serie-producao: #3987e5;
+  --serie-frete: #199e70;
+  --serie-imposto: #c98500;
+  --serie-comissao: #d55181;
+  --serie-outros: #008300;
+  --serie-resultado: #9085e9;
+
+  --pos: #3987e5;
+  --neg: #e66767;
+
+  --status-good: #0ca30c;
+  --status-good-text: #2fbf2f;
+}
+
 body {
   background: var(--page);
   color: var(--text-primary);
-  font-family: 'Manrope Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
-  letter-spacing: -0.006em;
 }
 
-/* brilho ambiente sutil no topo — profundidade sem virar carnaval */
+/* brilho ambiente esmeralda no topo — profundidade sem virar carnaval */
 body::before {
   content: '';
   position: fixed;
   inset: 0 0 auto 0;
-  height: 380px;
+  height: 420px;
   pointer-events: none;
   z-index: -1;
-  background: radial-gradient(640px 300px at 32% -90px, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%);
+  background: radial-gradient(720px 320px at 30% -100px, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
 }
 
-h1, h2, h3 {
-  letter-spacing: -0.02em;
+h1, h2, h3,
+.kpi-valor,
+.card-head .titulo {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 /* ---------- superfícies ---------- */
@@ -101,25 +152,23 @@ h1, h2, h3 {
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border-hairline);
-  border-radius: 14px;
+  border-radius: 18px;
   box-shadow: var(--sombra-card);
 }
 
-/* Cabeçalho de card: antes cada tela inventava o seu (h2 solto com margem
-   ad-hoc). Um só padrão = as telas passam a parecer o mesmo produto. */
+/* Cabeçalho de card: um só padrão em todas as telas */
 .card-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.9rem 1.25rem;
+  padding: 0.95rem 1.3rem;
   border-bottom: 1px solid var(--gridline);
 }
 .card-head .titulo {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 .card-head .sub {
@@ -134,74 +183,69 @@ h1, h2, h3 {
   align-items: center;
   gap: 0.5rem;
 }
-/* corpo com o mesmo respiro do cabeçalho */
 .card-corpo {
-  padding: 1.1rem 1.25rem;
+  padding: 1.1rem 1.3rem;
 }
-/* tabela dentro de card: alinha a 1ª e a última coluna com o padding do card,
-   em vez de encostar na borda */
 .card > .tabela-wrap {
   overflow-x: auto;
 }
 .tabela-wrap table th:first-child,
 .tabela-wrap table td:first-child {
-  padding-left: 1.25rem;
+  padding-left: 1.3rem;
 }
 .tabela-wrap table th:last-child,
 .tabela-wrap table td:last-child {
-  padding-right: 1.25rem;
+  padding-right: 1.3rem;
 }
 
-/* card que abre alguma coisa deve parecer clicável */
 .card-clicavel {
   cursor: pointer;
   transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
 }
 .card-clicavel:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  box-shadow: var(--sombra-card), 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: var(--sombra-card), 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 /* ---------- KPIs ---------- */
 
-/* o card vira um "container": a fonte do valor escala com a LARGURA DO CARD
-   (cqw), então o número nunca é cortado — em nenhuma grade, em nenhuma tela */
+/* o card é um "container": a fonte do valor escala com a LARGURA DO CARD
+   (cqw) — o número nunca é cortado, em nenhuma grade */
 .kpi {
   container-type: inline-size;
   min-width: 0;
 }
 .kpi-valor {
-  /* coeficiente dimensionado p/ o pior caso (R$ 14.368.109,98 = 16 caracteres) */
-  font-size: clamp(12px, 8.5cqw, 26px);
+  /* coeficiente p/ o pior caso (R$ 14.368.109,98 = 16 caracteres) */
+  font-size: clamp(12px, 8.5cqw, 27px);
   line-height: 1;
   font-weight: 800;
-  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .kpi-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--kpi-acento, var(--accent)) 8%, var(--surface-1)), var(--surface-1) 60%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--kpi-acento, var(--accent)) 9%, var(--surface-1)), var(--surface-1) 62%);
 }
 .kpi-hero::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 14px;
-  right: 40%;
-  height: 2px;
-  border-radius: 2px;
+  left: 16px;
+  right: 38%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
   background: linear-gradient(90deg, var(--kpi-acento, var(--accent)), transparent);
 }
 .kpi-hero .kpi-valor {
-  font-size: clamp(14px, 9.3cqw, 32px);
+  font-size: clamp(14px, 9.3cqw, 34px);
 }
 
 .titulo-secao {
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -217,8 +261,8 @@ h1, h2, h3 {
 .input {
   background: var(--surface-2);
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 0.45rem 0.7rem;
+  border-radius: 12px;
+  padding: 0.48rem 0.75rem;
   font-size: 0.875rem;
   color: var(--text-primary);
   transition: border-color 0.12s, background 0.12s;
@@ -233,12 +277,12 @@ h1, h2, h3 {
   outline: none;
   border-color: var(--accent);
   background: var(--surface-1);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .btn {
-  border-radius: 10px;
-  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  padding: 0.48rem 1.05rem;
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -246,7 +290,7 @@ h1, h2, h3 {
   transition: background 0.12s, border-color 0.12s, transform 0.06s;
 }
 .btn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -255,7 +299,7 @@ h1, h2, h3 {
 .btn-primary {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 70%, transparent);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-forte);
@@ -268,8 +312,6 @@ h1, h2, h3 {
 .btn-ghost:hover:not(:disabled) {
   background: var(--surface-2);
 }
-/* Ação destrutiva (Excluir, Desativar): antes cada tela usava style inline
-   vermelho — sem hover, sem consistência. */
 .btn-perigo {
   background: transparent;
   border-color: transparent;
@@ -280,8 +322,7 @@ h1, h2, h3 {
   border-color: color-mix(in srgb, var(--neg) 35%, transparent);
 }
 
-/* Selo de estado (status/situação): 6 telas montavam isso à mão com style
-   inline. `--pill` define a cor; o resto vem daqui. */
+/* Selo de estado: `--pill` define a cor; o resto vem daqui */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -300,7 +341,7 @@ h1, h2, h3 {
 .chip-preset {
   border: 1px solid var(--baseline);
   border-radius: 999px;
-  padding: 0.22rem 0.75rem;
+  padding: 0.24rem 0.8rem;
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-secondary);
@@ -314,8 +355,6 @@ h1, h2, h3 {
 
 /* ---------- tabelas ---------- */
 
-/* `.data` e `.tabela` sao o MESMO componente — telas novas usavam .tabela e
-   ficavam sem estilo nenhum (tabela HTML crua). Um seletor so evita a regressao. */
 table.data,
 table.tabela {
   width: 100%;
@@ -326,11 +365,11 @@ table.data th,
 table.tabela th {
   font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
   text-align: left;
-  padding: 0.6rem 0.7rem;
+  padding: 0.62rem 0.7rem;
   border-bottom: 1px solid var(--baseline);
   white-space: nowrap;
   position: sticky;
@@ -340,11 +379,10 @@ table.tabela th {
 }
 table.data td,
 table.tabela td {
-  padding: 0.6rem 0.7rem;
+  padding: 0.62rem 0.7rem;
   border-bottom: 1px solid var(--gridline);
   vertical-align: middle;
 }
-/* numeros sempre alinhados em coluna, em qualquer tabela */
 table.data td.num,
 table.tabela td.num,
 table.data th.num,
@@ -364,7 +402,6 @@ table.tabela tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* estado vazio padrao — antes cada tela inventava o seu */
 .vazio {
   display: grid;
   place-items: center;
@@ -399,44 +436,77 @@ tr.linha-clicavel {
   cursor: pointer;
 }
 tr.linha-clicavel:hover td {
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface-1)) !important;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-1)) !important;
 }
 
-/* ---------- navegação lateral ---------- */
+/* ---------- navegação lateral (sempre escura) ---------- */
+
+.nav-secao {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nav-muted);
+  padding: 0 0.8rem;
+  margin-top: 1.1rem;
+  margin-bottom: 0.35rem;
+}
+.nav-secao:first-child {
+  margin-top: 0;
+}
 
 .sidebar-item {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  border-radius: 10px;
-  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  padding: 0.52rem 0.8rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--nav-muted);
   transition: background 0.12s, color 0.12s;
 }
 .sidebar-item:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--nav-surface);
+  color: var(--nav-text);
 }
 .sidebar-item-ativo {
-  position: relative;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--nav-accent) 17%, transparent);
+  color: var(--nav-text);
   font-weight: 800;
-}
-.sidebar-item-ativo::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, var(--accent), var(--serie-resultado));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-accent) 30%, transparent);
 }
 .sidebar-item-ativo svg {
-  color: var(--accent);
+  color: var(--nav-accent);
+}
+
+/* seletor de tema (claro/sistema/escuro) no rodapé da sidebar */
+.segmento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--nav-surface);
+  border: 1px solid var(--nav-hairline);
+}
+.segmento button {
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  padding: 0.32rem 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--nav-muted);
+  transition: background 0.12s, color 0.12s;
+}
+.segmento button:hover {
+  color: var(--nav-text);
+}
+.segmento button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--nav-accent) 22%, transparent);
+  color: var(--nav-accent);
 }
 
 /* ---------- abas ---------- */
@@ -475,7 +545,6 @@ tr.linha-clicavel:hover td {
 
 /* ---------- foco de teclado ---------- */
 
-/* quem navega por Tab precisa ver onde está (ninguem tinha estado de foco) */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -495,14 +564,11 @@ tr.linha-clicavel:hover td {
 
 /* ---------- mobile ---------- */
 
-/* Tabelas de dados mantem as colunas em uma linha e rolam na horizontal
-   (sem isso o navegador espreme as celulas e cada linha vira um paragrafo) */
 @media (max-width: 767px) {
   table.data,
   table.tabela {
     white-space: nowrap;
   }
-  /* toques maiores nos itens de menu da gaveta */
   .sidebar-item {
     padding-top: 10px;
     padding-bottom: 10px;

@@ -106,7 +106,7 @@ export default function Empresas() {
                     <span
                       className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                       style={{
-                        background: 'color-mix(in srgb, var(--serie-producao) 12%, transparent)',
+                        background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
                         color: 'var(--text-secondary)',
                       }}
                     >

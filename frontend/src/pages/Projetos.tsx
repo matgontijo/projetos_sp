@@ -155,7 +155,7 @@ export default function Projetos() {
                   <Link
                     to={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`}
                     className="font-semibold underline-offset-2 hover:underline"
-                    style={{ color: 'var(--serie-producao)' }}
+                    style={{ color: 'var(--accent)' }}
                   >
                     {p.projeto}
                   </Link>

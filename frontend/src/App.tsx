@@ -9,7 +9,7 @@ import {
   usuarioLogado,
   type UsuarioLogado,
 } from './api/client'
-import { ICONES } from './components/Layout'
+import { ICONES, Marca } from './components/Layout'
 import Analises from './pages/Analises'
 import CadastroPrecificacao from './pages/CadastroPrecificacao'
 import Compras from './pages/Compras'
@@ -23,36 +23,124 @@ import Projetos from './pages/Projetos'
 import Simulador from './pages/Simulador'
 import Sincronizar from './pages/Sincronizar'
 
+/* ---------- tema claro/escuro/sistema ---------- */
+
+type Tema = 'claro' | 'sistema' | 'escuro'
+
+function aplicarTema(tema: Tema) {
+  const raiz = document.documentElement
+  if (tema === 'claro') raiz.dataset.theme = 'light'
+  else if (tema === 'escuro') raiz.dataset.theme = 'dark'
+  else delete raiz.dataset.theme
+}
+
+function useTema() {
+  const [tema, setTema] = useState<Tema>(() => {
+    const salvo = localStorage.getItem('tema')
+    return salvo === 'claro' || salvo === 'escuro' ? salvo : 'sistema'
+  })
+  useEffect(() => {
+    aplicarTema(tema)
+    localStorage.setItem('tema', tema)
+  }, [tema])
+  return { tema, setTema }
+}
+
+function SeletorTema({ tema, setTema }: { tema: Tema; setTema: (t: Tema) => void }) {
+  const opcoes: { valor: Tema; rotulo: string; icone: React.ReactNode }[] = [
+    {
+      valor: 'claro',
+      rotulo: 'Tema claro',
+      icone: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <circle cx="12" cy="12" r="4.2" />
+          <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4 19 19M19 5l-1.6 1.6M6.6 17.4 5 19" />
+        </svg>
+      ),
+    },
+    {
+      valor: 'sistema',
+      rotulo: 'Seguir o sistema',
+      icone: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4.5" width="18" height="12.5" rx="2" />
+          <path d="M9 20.5h6M12 17v3.5" />
+        </svg>
+      ),
+    },
+    {
+      valor: 'escuro',
+      rotulo: 'Tema escuro',
+      icone: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+        </svg>
+      ),
+    },
+  ]
+  return (
+    <div className="segmento" role="group" aria-label="Tema do aplicativo">
+      {opcoes.map((o) => (
+        <button key={o.valor} aria-pressed={tema === o.valor} aria-label={o.rotulo} title={o.rotulo} onClick={() => setTema(o.valor)}>
+          {o.icone}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ---------- menu agrupado por área ---------- */
+
 interface ItemMenu {
   to: string
   label: string
   icone: React.ReactNode
   tambem?: string
+  papeis?: string[] // além dos papéis da seção
 }
 
-const LINKS_CUSTEIO: ItemMenu[] = [
-  { to: '/dashboard', label: 'Visão geral', icone: ICONES.visao },
-  { to: '/projetos', label: 'Projetos', icone: ICONES.projetos, tambem: '/projeto' },
-  { to: '/analises', label: 'Análises', icone: ICONES.analises },
-  { to: '/compras', label: 'Compras', icone: ICONES.compras },
-  { to: '/simulador', label: 'Simulador', icone: ICONES.simulador },
-  { to: '/sincronizar', label: 'Buscar dados', icone: ICONES.buscar },
-  { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
+interface SecaoMenu {
+  titulo: string
+  papeis: string[]
+  itens: ItemMenu[]
+}
+
+const SECOES: SecaoMenu[] = [
+  {
+    titulo: 'Fechamento',
+    papeis: ['admin', 'financeiro', 'leitura'],
+    itens: [
+      { to: '/dashboard', label: 'Visão geral', icone: ICONES.visao },
+      { to: '/projetos', label: 'Projetos', icone: ICONES.projetos, tambem: '/projeto' },
+      { to: '/analises', label: 'Análises', icone: ICONES.analises },
+      { to: '/compras', label: 'Compras', icone: ICONES.compras },
+      { to: '/simulador', label: 'Simulador', icone: ICONES.simulador },
+    ],
+  },
+  {
+    titulo: 'Comercial',
+    papeis: ['admin', 'financeiro', 'comercial'],
+    itens: [
+      { to: '/precificacao', label: 'Precificação', icone: ICONES.precificacao },
+      { to: '/orcamentos-venda', label: 'Orçamentos', icone: ICONES.orcamentos },
+      { to: '/cadastros-precificacao', label: 'Cadastros', icone: ICONES.cadastros, papeis: ['admin', 'financeiro'] },
+    ],
+  },
+  {
+    titulo: 'Sistema',
+    papeis: ['admin', 'financeiro', 'leitura'],
+    itens: [
+      { to: '/sincronizar', label: 'Buscar dados', icone: ICONES.buscar },
+      { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
+    ],
+  },
 ]
 
-const LINKS_PRECIFICACAO: ItemMenu[] = [
-  { to: '/precificacao', label: 'Precificação', icone: ICONES.precificacao },
-  { to: '/orcamentos-venda', label: 'Orçamentos', icone: ICONES.orcamentos },
-]
-
-// cadastros de precificação: só quem edita tabelas (admin/financeiro)
-const LINK_CADASTROS: ItemMenu = { to: '/cadastros-precificacao', label: 'Cadastros', icone: ICONES.cadastros }
-
-/** Menu por papel: comercial SÓ vê precificação; leitura só custeio; admin/financeiro veem tudo. */
-function linksDoPapel(papel: string) {
-  if (papel === 'comercial') return LINKS_PRECIFICACAO
-  if (papel === 'leitura') return LINKS_CUSTEIO
-  return [...LINKS_CUSTEIO, ...LINKS_PRECIFICACAO, LINK_CADASTROS]
+function secoesDoPapel(papel: string): SecaoMenu[] {
+  return SECOES.map((s) => ({
+    ...s,
+    itens: s.itens.filter((i) => !i.papeis || i.papeis.includes(papel)),
+  })).filter((s) => s.papeis.includes(papel) && s.itens.length > 0)
 }
 
 const PAPEL_LABEL: Record<string, string> = {
@@ -66,6 +154,7 @@ export default function App() {
   const queryClient = useQueryClient()
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(() => (tokenAtual() ? usuarioLogado() : null))
   const [menuAberto, setMenuAberto] = useState(false)
+  const { tema, setTema } = useTema()
 
   useEffect(() => {
     const aoExpirar = () => setUsuario(null)
@@ -105,84 +194,90 @@ export default function App() {
     setUsuario(null)
   }
 
-  const marca = (
-    <div className="flex items-center gap-2.5">
-      <span
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black text-white"
-        style={{ background: 'linear-gradient(135deg, var(--serie-producao), var(--serie-resultado))' }}
-        aria-hidden
-      >
-        F
-      </span>
-      <div className="leading-tight">
-        <div className="text-[15px] font-extrabold tracking-tight">Fechamento</div>
-        <div className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-          de projetos · Omie
-        </div>
-      </div>
-    </div>
-  )
-
   const ehComercial = usuario.papel === 'comercial'
   const inicio = ehComercial ? '/precificacao' : '/dashboard'
 
-  const itens = linksDoPapel(usuario.papel).map((l) => (
-    <NavLink
-      key={l.to}
-      to={`${l.to}${sufixoFiltros}`}
-      className={({ isActive }) =>
-        `sidebar-item ${isActive || (l.tambem && location.pathname.startsWith(l.tambem)) ? 'sidebar-item-ativo' : ''}`
-      }
-    >
-      {l.icone}
-      <span>{l.label}</span>
-    </NavLink>
+  const navegacao = secoesDoPapel(usuario.papel).map((secao) => (
+    <div key={secao.titulo}>
+      <div className="nav-secao">{secao.titulo}</div>
+      <div className="grid gap-0.5">
+        {secao.itens.map((l) => (
+          <NavLink
+            key={l.to}
+            to={`${l.to}${sufixoFiltros}`}
+            className={({ isActive }) =>
+              `sidebar-item ${isActive || (l.tambem && location.pathname.startsWith(l.tambem)) ? 'sidebar-item-ativo' : ''}`
+            }
+          >
+            {l.icone}
+            <span>{l.label}</span>
+          </NavLink>
+        ))}
+      </div>
+    </div>
   ))
 
   const caixaUsuario = (
-    <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2" style={{ background: 'var(--surface-2)' }}>
+    <div className="flex items-center gap-2.5 rounded-2xl px-2.5 py-2" style={{ background: 'var(--nav-surface)' }}>
       <span
         className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black"
-        style={{ background: 'color-mix(in srgb, var(--accent) 18%, transparent)', color: 'var(--accent)' }}
+        style={{ background: 'color-mix(in srgb, var(--nav-accent) 22%, transparent)', color: 'var(--nav-accent)' }}
         aria-hidden
       >
         {usuario.nome.trim().charAt(0).toUpperCase()}
       </span>
       <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-bold" title={usuario.email}>
+        <div className="truncate text-sm font-bold" style={{ color: 'var(--nav-text)' }} title={usuario.email}>
           {usuario.nome}
         </div>
-        <div className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-[11px] font-semibold" style={{ color: 'var(--nav-muted)' }}>
           {PAPEL_LABEL[usuario.papel] || usuario.papel}
         </div>
       </div>
-      <button className="btn btn-ghost px-2 py-1 text-xs" onClick={sair} title="Encerrar a sessão">
+      <button
+        className="rounded-full px-2 py-1 text-xs font-bold"
+        style={{ color: 'var(--nav-muted)', border: '1px solid var(--nav-hairline)' }}
+        onClick={sair}
+        title="Encerrar a sessão"
+      >
         Sair
       </button>
     </div>
   )
 
+  const conteudoSidebar = (
+    <>
+      <div className="mb-5 px-1">
+        <Marca />
+      </div>
+      <nav className="min-h-0 flex-1 overflow-y-auto">{navegacao}</nav>
+      <div className="mt-4 grid gap-2.5">
+        <SeletorTema tema={tema} setTema={setTema} />
+        {caixaUsuario}
+      </div>
+    </>
+  )
+
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar (desktop) */}
+      {/* Sidebar (desktop) — escura nos dois temas */}
       <aside
-        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-1 px-4 py-5 md:flex"
-        style={{ background: 'var(--surface-1)', borderRight: '1px solid var(--border-hairline)' }}
+        className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col px-4 py-5 md:flex"
+        style={{ background: 'var(--nav-bg)', borderRight: '1px solid var(--nav-hairline)' }}
       >
-        <div className="mb-5 px-1">{marca}</div>
-        <nav className="grid gap-1">{itens}</nav>
-        <div className="mt-auto">{caixaUsuario}</div>
+        {conteudoSidebar}
       </aside>
 
       {/* Barra superior + gaveta (telas pequenas) */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header
           className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-2.5 md:hidden"
-          style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-hairline)' }}
+          style={{ background: 'var(--nav-bg)', borderBottom: '1px solid var(--nav-hairline)' }}
         >
-          {marca}
+          <Marca />
           <button
-            className="btn btn-ghost px-2.5 py-2"
+            className="rounded-full p-2"
+            style={{ color: 'var(--nav-text)', border: '1px solid var(--nav-hairline)' }}
             aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
             onClick={() => setMenuAberto(!menuAberto)}
           >
@@ -194,17 +289,22 @@ export default function App() {
 
         {menuAberto && (
           <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuAberto(false)}>
-            <div className="absolute inset-0" style={{ background: 'color-mix(in srgb, black 45%, transparent)' }} />
+            <div className="absolute inset-0" style={{ background: 'color-mix(in srgb, black 55%, transparent)' }} />
             <div
-              className="absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col gap-1 overflow-y-auto px-4 py-5"
-              style={{ background: 'var(--surface-1)', borderLeft: '1px solid var(--border-hairline)' }}
+              className="absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto px-4 py-5"
+              style={{ background: 'var(--nav-bg)', borderLeft: '1px solid var(--nav-hairline)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="mb-4 px-1">{marca}</div>
-              <nav className="grid gap-1" onClick={() => setMenuAberto(false)}>
-                {itens}
+              <div className="mb-4 px-1">
+                <Marca />
+              </div>
+              <nav className="min-h-0 flex-1" onClick={() => setMenuAberto(false)}>
+                {navegacao}
               </nav>
-              <div className="mt-auto pt-4">{caixaUsuario}</div>
+              <div className="mt-4 grid gap-2.5 pt-4">
+                <SeletorTema tema={tema} setTema={setTema} />
+                {caixaUsuario}
+              </div>
             </div>
           </div>
         )}

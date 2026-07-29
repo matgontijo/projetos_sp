@@ -23,27 +23,23 @@ function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string 
   const visiveis = expandido ? alertas : alertas.slice(0, 5)
 
   return (
-    <div className="card mt-4 px-5 py-4">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 className="text-sm font-bold">Precisa de atenção</h2>
-        {criticos > 0 && (
-          <span
-            className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
-            style={{ background: 'color-mix(in srgb, var(--status-critical) 16%, transparent)', color: 'var(--neg)' }}
-          >
-            {criticos} crítico{criticos > 1 ? 's' : ''}
-          </span>
-        )}
-        {atencao > 0 && (
-          <span
-            className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
-            style={{ background: 'color-mix(in srgb, var(--status-warning) 18%, transparent)', color: 'var(--text-primary)' }}
-          >
-            {atencao} atenção
-          </span>
-        )}
+    <div className="card mt-4">
+      <div className="card-head">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="titulo">Precisa de atenção</span>
+          {criticos > 0 && (
+            <span className="pill" style={{ '--pill': 'var(--neg)' } as React.CSSProperties}>
+              {criticos} crítico{criticos > 1 ? 's' : ''}
+            </span>
+          )}
+          {atencao > 0 && (
+            <span className="pill" style={{ '--pill': 'var(--status-warning)' } as React.CSSProperties}>
+              {atencao} atenção
+            </span>
+          )}
+        </div>
       </div>
-      <div className="grid gap-2">
+      <div className="card-corpo grid gap-2">
         {visiveis.map((a, i) => (
           <div
             key={i}
@@ -67,7 +63,7 @@ function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string 
         ))}
       </div>
       {alertas.length > 5 && (
-        <button className="btn btn-ghost mt-3 text-xs" onClick={() => setExpandido(!expandido)}>
+        <button className="btn btn-ghost mx-5 mb-4 -mt-1 text-xs" onClick={() => setExpandido(!expandido)}>
           {expandido ? 'Mostrar menos' : `Mostrar todos (${alertas.length})`}
         </button>
       )}
@@ -245,21 +241,28 @@ export default function Dashboard() {
           {alertas && alertas.length > 0 && <PainelAtencao alertas={alertas} params={params.toString()} />}
 
           {serie && serie.length > 1 && (
-            <div className="card mt-4 px-5 py-4">
-              <h2 className="mb-1 text-sm font-bold">Evolução mensal</h2>
-              <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Receita e resultado dos projetos, mês a mês. Passe o mouse para ver os valores.
-              </p>
-              <GraficoMensal serie={serie} />
+            <div className="card mt-4">
+              <div className="card-head">
+                <div>
+                  <div className="titulo">Evolução mensal</div>
+                  <div className="sub">Receita e resultado dos projetos, mês a mês. Passe o mouse para ver os valores.</div>
+                </div>
+              </div>
+              <div className="card-corpo">
+                <GraficoMensal serie={serie} />
+              </div>
             </div>
           )}
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="card px-5 py-4">
-              <h2 className="mb-1 text-sm font-bold">Para onde foi cada real</h2>
-              <p className="mb-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Quanto da receita cada grupo consumiu — e o que sobrou.
-              </p>
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <div className="titulo">Para onde foi cada real</div>
+                  <div className="sub">Quanto da receita cada grupo consumiu — e o que sobrou.</div>
+                </div>
+              </div>
+              <div className="card-corpo">
               <BarraComposicao
                 receita={consolidado.receita}
                 producao={consolidado.producao}
@@ -276,25 +279,32 @@ export default function Dashboard() {
                   no custo.
                 </p>
               )}
+              </div>
             </div>
 
-            <div className="card px-5 py-4">
-              <h2 className="mb-1 text-sm font-bold">Margem dos 15 maiores projetos</h2>
-              <p className="mb-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Verde = na meta de {fmtPct(margemAlvo)} (linha tracejada) · amarelo = abaixo · vermelho = prejuízo.
-                Clique para abrir o projeto.
-              </p>
-              {ranking.length === 0 ? (
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Nenhum projeto com receita no período.
-                </p>
-              ) : (
-                <RankingMargem
-                  itens={ranking}
-                  alvo={margemAlvo}
-                  aoClicar={(nome) => navigate(`/projeto?nome=${encodeURIComponent(nome)}&${params.toString()}`)}
-                />
-              )}
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <div className="titulo">Margem dos 15 maiores projetos</div>
+                  <div className="sub">
+                    Verde = na meta de {fmtPct(margemAlvo)} (linha tracejada) · amarelo = abaixo · vermelho = prejuízo.
+                    Clique para abrir o projeto.
+                  </div>
+                </div>
+              </div>
+              <div className="card-corpo">
+                {ranking.length === 0 ? (
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Nenhum projeto com receita no período.
+                  </p>
+                ) : (
+                  <RankingMargem
+                    itens={ranking}
+                    alvo={margemAlvo}
+                    aoClicar={(nome) => navigate(`/projeto?nome=${encodeURIComponent(nome)}&${params.toString()}`)}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </>
