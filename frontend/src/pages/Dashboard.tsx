@@ -9,63 +9,71 @@ import {
   ComposicaoLinhas,
   Delta,
   GraficoMensal,
-  KPICard,
   RankingMargem,
   Skeleton,
 } from '../components/Viz'
 import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
 
-/** Central de alertas: severidade visível, respiro e "mostrar todos". */
+/** Central de alertas: uma linha de resumo; a lista completa só abre se pedirem. */
 function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string }) {
   const [expandido, setExpandido] = useState(false)
   const criticos = alertas.filter((a) => a.gravidade === 'critica').length
   const atencao = alertas.length - criticos
-  const visiveis = expandido ? alertas : alertas.slice(0, 5)
+  const resumo = [
+    criticos > 0 && `${criticos} crítico${criticos > 1 ? 's' : ''}`,
+    atencao > 0 && `${atencao} de atenção`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <div className="card mt-4">
-      <div className="card-head">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="titulo">Precisa de atenção</span>
-          {criticos > 0 && (
-            <span className="pill" style={{ '--pill': 'var(--neg)' } as React.CSSProperties}>
-              {criticos} crítico{criticos > 1 ? 's' : ''}
-            </span>
-          )}
-          {atencao > 0 && (
-            <span className="pill" style={{ '--pill': 'var(--status-warning)' } as React.CSSProperties}>
-              {atencao} atenção
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="card-corpo grid gap-2">
-        {visiveis.map((a, i) => (
-          <div
-            key={i}
-            className="rounded-lg px-3.5 py-2.5"
-            style={{
-              background: 'color-mix(in srgb, var(--surface-2) 55%, transparent)',
-              borderLeft: `3px solid ${a.gravidade === 'critica' ? 'var(--status-critical)' : 'var(--status-warning)'}`,
-            }}
-          >
-            {a.projeto ? (
-              <Link to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params}`} className="text-sm font-bold hover:underline">
-                {a.titulo} →
-              </Link>
-            ) : (
-              <span className="text-sm font-bold">{a.titulo}</span>
-            )}
-            <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              {a.detalhe}
-            </p>
-          </div>
-        ))}
-      </div>
-      {alertas.length > 5 && (
-        <button className="btn btn-ghost mx-5 mb-4 -mt-1 text-xs" onClick={() => setExpandido(!expandido)}>
-          {expandido ? 'Mostrar menos' : `Mostrar todos (${alertas.length})`}
+    <div className="card mt-4 px-5 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-full"
+          style={{ background: 'color-mix(in srgb, var(--neg) 12%, transparent)', color: 'var(--neg)' }}
+          aria-hidden
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3 2.5 20h19z" />
+            <path d="M12 9.5v5M12 17.6v.01" />
+          </svg>
+        </span>
+        <b className="text-sm">Precisa de atenção</b>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {resumo}
+        </span>
+        <button className="btn btn-ghost ml-auto px-3.5 py-1 text-xs" onClick={() => setExpandido(!expandido)}>
+          {expandido ? 'Esconder' : `Ver a lista (${alertas.length})`}
         </button>
+      </div>
+      {expandido && (
+        <div className="mt-3">
+          {alertas.map((a, i) => (
+            <div key={i} className="alerta-linha">
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span
+                  className="h-2 w-2 shrink-0 self-center rounded-full"
+                  style={{ background: a.gravidade === 'critica' ? 'var(--neg)' : 'var(--status-warning)' }}
+                  title={a.gravidade === 'critica' ? 'Crítico' : 'Atenção'}
+                />
+                {a.projeto ? (
+                  <Link
+                    to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params}`}
+                    className="truncate font-bold underline-offset-2 hover:underline"
+                  >
+                    {a.titulo}
+                  </Link>
+                ) : (
+                  <b className="truncate">{a.titulo}</b>
+                )}
+              </span>
+              <span className="hidden truncate text-xs sm:block" style={{ color: 'var(--text-muted)', maxWidth: '55%' }}>
+                {a.detalhe}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -177,25 +185,47 @@ export default function Dashboard() {
       )}
       {consolidado && consolidado.qtd_projetos > 0 && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <KPICard
-              titulo="Receita"
-              hero
-              valor={fmtBRL(consolidado.receita)}
-              sub={
-                consolidadoAnterior ? (
-                  <Delta atual={consolidado.receita} anterior={consolidadoAnterior.receita} />
-                ) : (
-                  `${consolidado.qtd_projetos} projetos`
-                )
-              }
-            />
-            <KPICard
-              titulo="Custos"
-              dica="Produção + frete + comissão + outros custos (impostos ficam no card ao lado)"
-              valor={fmtBRL(consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros)}
-              sub={
-                consolidadoAnterior && (
+          <div className="card hero-metricas overflow-hidden">
+            <div className="hero-protagonista">
+              <div className="titulo-secao">Resultado do período</div>
+              <div className="hero-valor mt-2" style={{ color: consolidado.resultado >= 0 ? 'var(--text-primary)' : 'var(--neg)' }}>
+                {fmtBRL(consolidado.resultado)}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm">
+                <span
+                  className="pill"
+                  style={
+                    {
+                      '--pill':
+                        consolidado.margem_media < 0
+                          ? 'var(--neg)'
+                          : consolidado.margem_media >= margemAlvo
+                            ? 'var(--status-good)'
+                            : 'var(--status-warning)',
+                    } as React.CSSProperties
+                  }
+                  title={`Meta de margem: ${fmtPct(margemAlvo)}`}
+                >
+                  margem {fmtPct(consolidado.margem_media)}
+                </span>
+                {consolidadoAnterior && <Delta atual={consolidado.resultado} anterior={consolidadoAnterior.resultado} />}
+                <span style={{ color: 'var(--text-muted)' }}>{consolidado.qtd_projetos} projetos de venda</span>
+              </div>
+            </div>
+            <div className="hero-sub">
+              <div className="titulo-secao">Receita</div>
+              <div className="valor mt-2">{fmtBRL(consolidado.receita)}</div>
+              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {consolidadoAnterior && <Delta atual={consolidado.receita} anterior={consolidadoAnterior.receita} />}
+              </div>
+            </div>
+            <div className="hero-sub" title="Produção + frete + comissão + outros custos (impostos ficam ao lado)">
+              <div className="titulo-secao">Custos</div>
+              <div className="valor mt-2">
+                {fmtBRL(consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros)}
+              </div>
+              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {consolidadoAnterior && (
                   <Delta
                     atual={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
                     anterior={
@@ -206,36 +236,16 @@ export default function Dashboard() {
                     }
                     invertido
                   />
-                )
-              }
-            />
-            <KPICard
-              titulo="Impostos"
-              valor={fmtBRL(consolidado.imposto)}
-              sub={
-                consolidadoAnterior && (
-                  <Delta atual={consolidado.imposto} anterior={consolidadoAnterior.imposto} invertido />
-                )
-              }
-            />
-            <KPICard
-              titulo="Resultado"
-              hero
-              valor={fmtBRL(consolidado.resultado)}
-              tom={consolidado.resultado >= 0 ? 'pos' : 'neg'}
-              sub={
-                consolidadoAnterior && (
-                  <Delta atual={consolidado.resultado} anterior={consolidadoAnterior.resultado} />
-                )
-              }
-            />
-            <KPICard
-              titulo="Margem média"
-              hero
-              valor={fmtPct(consolidado.margem_media)}
-              tom={consolidado.margem_media >= 0 ? 'pos' : 'neg'}
-              sub={`${consolidado.qtd_projetos} projetos`}
-            />
+                )}
+              </div>
+            </div>
+            <div className="hero-sub">
+              <div className="titulo-secao">Impostos</div>
+              <div className="valor mt-2">{fmtBRL(consolidado.imposto)}</div>
+              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {consolidadoAnterior && <Delta atual={consolidado.imposto} anterior={consolidadoAnterior.imposto} invertido />}
+              </div>
+            </div>
           </div>
 
           {alertas && alertas.length > 0 && <PainelAtencao alertas={alertas} params={params.toString()} />}

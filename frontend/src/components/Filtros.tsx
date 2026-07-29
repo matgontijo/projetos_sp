@@ -62,7 +62,10 @@ export function FiltrosBar() {
   ]
 
   return (
-    <div className="card mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+    <div
+      className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-b pb-3.5"
+      style={{ borderColor: 'var(--gridline)' }}
+    >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="titulo-secao mr-1">Empresas</span>
         {(empresas || []).map((e) => {
