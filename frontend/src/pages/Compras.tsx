@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api, type PedidoCompra } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { KPICard, Skeleton } from '../components/Viz'
+import { Skeleton } from '../components/Viz'
 import { fmtBRL } from '../lib/format'
 
 const SITUACOES: { valor: string; rotulo: string; cor: string; ajuda: string }[] = [
@@ -62,25 +62,37 @@ export default function Compras() {
       )}
 
       {r && (
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KPICard
-            titulo="Comprometido (30 dias)"
-            valor={fmtBRL(r.comprometido_30_dias)}
-            sub="parcelas a vencer de pedidos pendentes"
-            hero
-          />
-          <KPICard
-            titulo="Comprometido vencido"
-            valor={fmtBRL(r.comprometido_vencido)}
-            sub="pendente com vencimento passado"
-            tom={r.comprometido_vencido > 0 ? 'neg' : undefined}
-          />
-          <KPICard
-            titulo="Crédito de impostos"
-            valor={fmtBRL(r.credito_impostos)}
-            sub="ICMS + PIS + COFINS das compras"
-          />
-          <KPICard titulo="Pedidos" valor={String(r.total_pedidos)} sub="no período sincronizado" />
+        <div className="card hero-metricas mt-4 overflow-hidden">
+          <div className="hero-protagonista">
+            <div className="titulo-secao">Comprometido nos próximos 30 dias</div>
+            <div className="hero-valor mt-2">{fmtBRL(r.comprometido_30_dias)}</div>
+            <div className="mt-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+              parcelas a vencer de pedidos pendentes — saída que ainda não virou conta a pagar
+            </div>
+          </div>
+          <div className="hero-sub">
+            <div className="titulo-secao">Vencido</div>
+            <div className="valor mt-2" style={{ color: r.comprometido_vencido > 0 ? 'var(--neg)' : undefined }}>
+              {fmtBRL(r.comprometido_vencido)}
+            </div>
+            <div className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              pendente com vencimento passado
+            </div>
+          </div>
+          <div className="hero-sub">
+            <div className="titulo-secao">Crédito de impostos</div>
+            <div className="valor mt-2">{fmtBRL(r.credito_impostos)}</div>
+            <div className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              ICMS + PIS + COFINS das compras
+            </div>
+          </div>
+          <div className="hero-sub">
+            <div className="titulo-secao">Pedidos</div>
+            <div className="valor mt-2">{String(r.total_pedidos)}</div>
+            <div className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              no período sincronizado
+            </div>
+          </div>
         </div>
       )}
 

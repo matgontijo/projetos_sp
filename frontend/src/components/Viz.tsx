@@ -461,7 +461,7 @@ export function siglaEmpresa(nome: string): string {
 export function ChipsEmpresas({ empresas }: { empresas: string }) {
   const nomes = empresas.split(',').map((n) => n.trim()).filter(Boolean)
   return (
-    <span className="inline-flex flex-wrap gap-1" title={empresas}>
+    <span className="inline-flex gap-1 whitespace-nowrap" title={empresas}>
       {nomes.map((nome) => (
         <span
           key={nome}
