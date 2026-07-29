@@ -98,23 +98,26 @@ export default function Projetos() {
           Erro ao carregar o fechamento: {(error as Error).message}
         </p>
       )}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <input
-            className="input w-64"
-            placeholder="Buscar projeto ou cliente…"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-          {busca && (
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {projetos.length} de {todos.length}
-            </span>
-          )}
+      <div className="card">
+        <div className="card-head">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              className="input w-64"
+              placeholder="Buscar projeto ou cliente…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+            {busca && (
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {projetos.length} de {todos.length}
+              </span>
+            )}
+          </div>
+          <div className="acoes">
+            <LegendaSeries />
+          </div>
         </div>
-        <LegendaSeries />
-      </div>
-      <div className="card overflow-x-auto">
+        <div className="tabela-wrap">
         <table className="data">
           <thead>
             <tr>
@@ -226,6 +229,7 @@ export default function Projetos() {
             )
           })()}
         </table>
+        </div>
       </div>
     </div>
   )

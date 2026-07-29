@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../api/client'
 import { PageHeader } from '../components/Layout'
+import { siglaEmpresa } from '../components/Viz'
 import { fmtData, fmtDataHora } from '../lib/format'
 
 function hoje(): string {
@@ -78,7 +79,7 @@ export default function Sincronizar() {
                   style={{ borderColor: selecionadas.has(e.id) ? 'var(--accent)' : 'var(--baseline)' }}
                 >
                   <input type="checkbox" checked={selecionadas.has(e.id)} onChange={() => alternar(e.id)} />
-                  {e.nome}
+                  <span title={e.nome}>{siglaEmpresa(e.nome)}</span>
                 </label>
               ))}
               {empresas && empresas.length === 0 && (
@@ -148,7 +149,9 @@ export default function Sincronizar() {
           <tbody>
             {(logs || []).map((l) => (
               <tr key={l.id}>
-                <td>{empresaNome(l.empresa_id)}</td>
+                <td>
+                  <span title={empresaNome(l.empresa_id)}>{siglaEmpresa(empresaNome(l.empresa_id))}</span>
+                </td>
                 <td>{RECURSO_LABEL[l.recurso] || l.recurso}</td>
                 <td style={{ color: 'var(--text-secondary)' }}>
                   {fmtData(l.periodo_de)} – {fmtData(l.periodo_ate)}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type LinhaFechamento, type Orcamento } from '../api/client'
 import { useFiltros } from '../components/Filtros'
-import { BadgeLucro, KPICard, siglaEmpresa } from '../components/Viz'
+import { BadgeLucro, siglaEmpresa } from '../components/Viz'
 import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
 
 const GRUPO_LABEL: Record<string, string> = {
@@ -157,35 +157,64 @@ export default function ProjetoDetalhe() {
       )}
 
       {f && (
-        <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <KPICard titulo="Receita" hero valor={fmtBRL(f.receita)} sub={`${f.qtd_receber} títulos recebíveis`} />
-            <KPICard titulo="Resultado" hero valor={fmtBRL(f.resultado)} tom={f.resultado >= 0 ? 'pos' : 'neg'} />
-            <KPICard titulo="Margem" hero valor={fmtPct(f.margem)} tom={f.margem >= 0 ? 'pos' : 'neg'} />
+        <div className="card overflow-hidden">
+          <div className="hero-metricas">
+            <div className="hero-protagonista">
+              <div className="titulo-secao">Resultado do projeto</div>
+              <div className="hero-valor mt-2" style={{ color: f.resultado >= 0 ? 'var(--text-primary)' : 'var(--neg)' }}>
+                {fmtBRL(f.resultado)}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm">
+                <span
+                  className="pill"
+                  style={{ '--pill': f.margem >= 0 ? 'var(--status-good)' : 'var(--neg)' } as React.CSSProperties}
+                >
+                  margem {fmtPct(f.margem)}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {f.qtd_receber} títulos recebíveis · {f.qtd_nfe} NF-e
+                </span>
+              </div>
+            </div>
+            <div className="hero-sub">
+              <div className="titulo-secao">Receita</div>
+              <div className="valor mt-2">{fmtBRL(f.receita)}</div>
+            </div>
+            <div className="hero-sub">
+              <div className="titulo-secao">Custo total</div>
+              <div className="valor mt-2">{fmtBRL(f.custo_total)}</div>
+            </div>
+            <div
+              className="hero-sub"
+              title={
+                [
+                  f.imposto_nfe > 0 && `NF-e ${fmtBRL(f.imposto_nfe)}`,
+                  f.imposto_simples > 0 && `Simples ${fmtBRL(f.imposto_simples)}`,
+                  f.imposto_extra > 0 && `Extra ${fmtBRL(f.imposto_extra)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' + ') || `${f.qtd_nfe} NF-e`
+              }
+            >
+              <div className="titulo-secao">Impostos</div>
+              <div className="valor mt-2">{fmtBRL(f.imposto)}</div>
+            </div>
           </div>
 
-          <div className="card mt-3 grid grid-cols-2 gap-x-6 gap-y-3 px-5 py-3.5 sm:grid-cols-5">
+          <div
+            className="grid grid-cols-2 gap-x-6 gap-y-3 border-t px-5 py-3.5 sm:grid-cols-5"
+            style={{ borderColor: 'var(--gridline)' }}
+          >
             {(
               [
-                ['Produção', fmtBRL(f.producao), 'var(--serie-producao)', undefined],
-                ['Frete', fmtBRL(f.frete), 'var(--serie-frete)', undefined],
-                ['Comissão', fmtBRL(f.comissao), 'var(--serie-comissao)', undefined],
-                [
-                  'Impostos',
-                  fmtBRL(f.imposto),
-                  'var(--serie-imposto)',
-                  [
-                    f.imposto_nfe > 0 && `NF-e ${fmtBRL(f.imposto_nfe)}`,
-                    f.imposto_simples > 0 && `Simples ${fmtBRL(f.imposto_simples)}`,
-                    f.imposto_extra > 0 && `Extra ${fmtBRL(f.imposto_extra)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' + ') || `${f.qtd_nfe} NF-e`,
-                ],
-                ['Outros', fmtBRL(f.outros), 'var(--serie-outros)', undefined],
-              ] as [string, string, string, string | undefined][]
-            ).map(([rotulo, valor, cor, dica]) => (
-              <div key={rotulo} className="kpi min-w-0" title={dica}>
+                ['Produção', fmtBRL(f.producao), 'var(--serie-producao)'],
+                ['Frete', fmtBRL(f.frete), 'var(--serie-frete)'],
+                ['Comissão', fmtBRL(f.comissao), 'var(--serie-comissao)'],
+                ['Impostos', fmtBRL(f.imposto), 'var(--serie-imposto)'],
+                ['Outros', fmtBRL(f.outros), 'var(--serie-outros)'],
+              ] as [string, string, string][]
+            ).map(([rotulo, valor, cor]) => (
+              <div key={rotulo} className="kpi min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: cor }} />
                   <span className="titulo-secao">{rotulo}</span>
@@ -197,7 +226,7 @@ export default function ProjetoDetalhe() {
             ))}
           </div>
 
-          <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+          <p className="border-t px-5 py-3 text-sm" style={{ borderColor: 'var(--gridline)', color: 'var(--text-secondary)' }}>
             <b>Cálculo:</b> {fmtBRL(f.receita)} (receita) − {fmtBRL(f.producao)} (produção) − {fmtBRL(f.frete)} (frete) −{' '}
             {fmtBRL(f.comissao)} (comissão) − {fmtBRL(f.imposto)} (impostos) − {fmtBRL(f.outros)} (outros) ={' '}
             <b>{fmtBRL(f.resultado)}</b>
@@ -208,7 +237,7 @@ export default function ProjetoDetalhe() {
               </span>
             )}
           </p>
-        </>
+        </div>
       )}
 
       {f && orcamento && <OrcadoRealizado nome={nome} orcamento={orcamento} fechamento={f} />}
