@@ -75,7 +75,7 @@ export default function Sincronizar() {
                 <label
                   key={e.id}
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm"
-                  style={{ borderColor: selecionadas.has(e.id) ? 'var(--serie-producao)' : 'var(--baseline)' }}
+                  style={{ borderColor: selecionadas.has(e.id) ? 'var(--accent)' : 'var(--baseline)' }}
                 >
                   <input type="checkbox" checked={selecionadas.has(e.id)} onChange={() => alternar(e.id)} />
                   {e.nome}
@@ -162,13 +162,13 @@ export default function Sincronizar() {
                           ? 'color-mix(in srgb, var(--status-good) 15%, transparent)'
                           : l.status === 'erro'
                             ? 'color-mix(in srgb, var(--status-critical) 15%, transparent)'
-                            : 'color-mix(in srgb, var(--serie-producao) 15%, transparent)',
+                            : 'color-mix(in srgb, var(--accent) 15%, transparent)',
                       color:
                         l.status === 'concluido'
                           ? 'var(--status-good-text)'
                           : l.status === 'erro'
                             ? 'var(--neg)'
-                            : 'var(--serie-producao)',
+                            : 'var(--accent)',
                     }}
                   >
                     {l.status === 'executando' ? '⟳ executando' : l.status === 'concluido' ? '✓ concluído' : '✕ erro'}

@@ -73,8 +73,8 @@ export function FiltrosBar() {
               onClick={() => alternarEmpresa(e.id)}
               className="rounded-full border px-3 py-1 text-xs font-semibold"
               style={{
-                borderColor: ativa ? 'var(--serie-producao)' : 'var(--baseline)',
-                background: ativa ? 'color-mix(in srgb, var(--serie-producao) 12%, transparent)' : 'transparent',
+                borderColor: ativa ? 'var(--accent)' : 'var(--baseline)',
+                background: ativa ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'transparent',
                 color: ativa ? 'var(--text-primary)' : 'var(--text-muted)',
               }}
               title={e.nome}
@@ -97,7 +97,7 @@ export function FiltrosBar() {
             <button
               key={p.rotulo}
               className="chip-preset"
-              style={ativo ? { borderColor: 'var(--serie-producao)', color: 'var(--text-primary)' } : undefined}
+              style={ativo ? { borderColor: 'var(--accent)', color: 'var(--text-primary)' } : undefined}
               onClick={() => periodo(p.de, p.ate)}
             >
               {p.rotulo}
