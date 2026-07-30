@@ -14,108 +14,111 @@
   color-scheme: light;
 
   --font-body: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Archivo Variable', var(--font-body);
+  --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
 
-  --page: #f2f1ec;
+  --page: #f6f5f0;
   --surface-1: #ffffff;
-  --surface-2: #f5f4ee;
-  --text-primary: #14171a;
-  --text-secondary: #4d5450;
-  --text-muted: #7f8781;
-  --gridline: #e8e7df;
-  --baseline: #cbcac1;
-  --border-hairline: rgba(16, 22, 18, 0.09);
-  --accent: #0a7d55;
-  --accent-forte: #076247;
-  --sombra-card: 0 1px 2px rgba(18, 22, 19, 0.04), 0 14px 34px -22px rgba(18, 22, 19, 0.3);
+  --surface-2: #f1f0ea;
+  --text-primary: #172233;
+  --text-secondary: #47536b;
+  --text-muted: #8791a3;
+  --gridline: #e7e5dd;
+  --baseline: #cbc9bf;
+  --border-hairline: rgba(23, 34, 51, 0.09);
+  --accent: #1f4e79;
+  --accent-forte: #16395a;
+  --ouro: #b8860b; /* detalhe de marca (menu ativo, filetes) — nunca cor de dado */
+  --sombra-card: 0 1px 2px rgba(23, 34, 51, 0.04), 0 14px 34px -22px rgba(23, 34, 51, 0.28);
 
-  /* Sidebar: escura nos dois temas — assinatura da identidade */
-  --nav-bg: #0d1512;
-  --nav-surface: #17211c;
-  --nav-text: #e9efe9;
-  --nav-muted: #8da295;
-  --nav-hairline: rgba(233, 239, 233, 0.08);
-  --nav-accent: #2fbd88;
+  /* Sidebar: azul-marinho profundo nos dois temas, ativo em dourado */
+  --nav-bg: #0d1728;
+  --nav-surface: #172740;
+  --nav-text: #e9eef5;
+  --nav-muted: #8aa0bd;
+  --nav-hairline: rgba(233, 238, 245, 0.08);
+  --nav-accent: #d4a72c;
 
-  /* Séries categóricas (ordem fixa, validada p/ daltonismo) */
-  --serie-producao: #2a78d6;
-  --serie-frete: #1baf7a;
-  --serie-imposto: #eda100;
-  --serie-comissao: #e87ba4;
-  --serie-outros: #008300;
-  --serie-resultado: #4a3aa7;
+  /* Séries categóricas (ordem fixa, validada p/ daltonismo nos dois temas) */
+  --serie-producao: #2e5e9e;
+  --serie-frete: #12917a;
+  --serie-imposto: #b98202;
+  --serie-comissao: #b56183;
+  --serie-outros: #557a1f;
+  --serie-resultado: #7a5cc4;
 
   /* Polaridade (par divergente azul ↔ vermelho) */
-  --pos: #2a78d6;
-  --neg: #d03b3b;
+  --pos: #2e5e9e;
+  --neg: #c0392b;
 
   /* Status (reservados) */
   --status-good: #0ca30c;
   --status-good-text: #006300;
   --status-warning: #fab219;
-  --status-critical: #d03b3b;
+  --status-critical: #c0392b;
 }
 
-/* tema escuro: pelo sistema (sem escolha manual)… */
+/* tema escuro "noite marinho": pelo sistema (sem escolha manual)… */
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --page: #0a0d0b;
-    --surface-1: #131815;
-    --surface-2: #1b211d;
-    --text-primary: #eef2ef;
-    --text-secondary: #b3bcb5;
-    --text-muted: #7d857f;
-    --gridline: #232a25;
-    --baseline: #343d37;
-    --border-hairline: rgba(238, 242, 239, 0.07);
-    --accent: #2fbd88;
-    --accent-forte: #4ccb9b;
+    --page: #0b1119;
+    --surface-1: #121a25;
+    --surface-2: #1a2534;
+    --text-primary: #eaeef4;
+    --text-secondary: #b3bdcc;
+    --text-muted: #7e8a9c;
+    --gridline: #232f40;
+    --baseline: #34445c;
+    --border-hairline: rgba(234, 238, 244, 0.07);
+    --accent: #6d9fd8;
+    --accent-forte: #8ab3e4;
+    --ouro: #d4a72c;
     --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -22px rgba(0, 0, 0, 0.7);
 
-    --serie-producao: #3987e5;
-    --serie-frete: #199e70;
-    --serie-imposto: #c98500;
-    --serie-comissao: #d55181;
-    --serie-outros: #008300;
-    --serie-resultado: #9085e9;
+    --serie-producao: #5b8fd4;
+    --serie-frete: #1fa287;
+    --serie-imposto: #b5880f;
+    --serie-comissao: #c67494;
+    --serie-outros: #7ba33f;
+    --serie-resultado: #8f77d6;
 
-    --pos: #3987e5;
-    --neg: #e66767;
+    --pos: #5b8fd4;
+    --neg: #e07666;
 
     --status-good: #0ca30c;
-    --status-good-text: #2fbf2f;
+    --status-good-text: #3fbf3f;
   }
 }
 
 /* …ou escolhido no botão de tema (data-theme vence o sistema) */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0a0d0b;
-  --surface-1: #131815;
-  --surface-2: #1b211d;
-  --text-primary: #eef2ef;
-  --text-secondary: #b3bcb5;
-  --text-muted: #7d857f;
-  --gridline: #232a25;
-  --baseline: #343d37;
-  --border-hairline: rgba(238, 242, 239, 0.07);
-  --accent: #2fbd88;
-  --accent-forte: #4ccb9b;
+  --page: #0b1119;
+  --surface-1: #121a25;
+  --surface-2: #1a2534;
+  --text-primary: #eaeef4;
+  --text-secondary: #b3bdcc;
+  --text-muted: #7e8a9c;
+  --gridline: #232f40;
+  --baseline: #34445c;
+  --border-hairline: rgba(234, 238, 244, 0.07);
+  --accent: #6d9fd8;
+  --accent-forte: #8ab3e4;
+  --ouro: #d4a72c;
   --sombra-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -22px rgba(0, 0, 0, 0.7);
 
-  --serie-producao: #3987e5;
-  --serie-frete: #199e70;
-  --serie-imposto: #c98500;
-  --serie-comissao: #d55181;
-  --serie-outros: #008300;
-  --serie-resultado: #9085e9;
+  --serie-producao: #5b8fd4;
+  --serie-frete: #1fa287;
+  --serie-imposto: #b5880f;
+  --serie-comissao: #c67494;
+  --serie-outros: #7ba33f;
+  --serie-resultado: #8f77d6;
 
-  --pos: #3987e5;
-  --neg: #e66767;
+  --pos: #5b8fd4;
+  --neg: #e07666;
 
   --status-good: #0ca30c;
-  --status-good-text: #2fbf2f;
+  --status-good-text: #3fbf3f;
 }
 
 body {
@@ -226,7 +229,13 @@ h1, h2, h3,
 .kpi-valor,
 .card-head .titulo {
   font-family: var(--font-display);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+}
+/* números em serifa: SEMPRE algarismos alinhados e modernos (nada de oldstyle) */
+.kpi-valor,
+.hero-valor,
+.hero-sub .valor {
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 ::selection {
@@ -238,7 +247,7 @@ h1, h2, h3,
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border-hairline);
-  border-radius: 18px;
+  border-radius: 14px;
   /* fio de luz no topo: o card ganha relevo em vez de parecer papel chapado */
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent), var(--sombra-card);
 }
@@ -433,7 +442,7 @@ h1, h2, h3,
 }
 
 .btn {
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 0.48rem 1.05rem;
   font-size: 0.85rem;
   font-weight: 700;
