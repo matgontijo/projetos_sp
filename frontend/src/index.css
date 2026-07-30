@@ -125,6 +125,81 @@ body {
   font-size: 14px;
 }
 
+/* textura de ruído: tira a cara de "fundo chapado de template" sem chamar atenção */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"] body::after {
+  opacity: 0.045;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) body::after {
+    opacity: 0.045;
+  }
+}
+
+/* ---------- movimento ---------- */
+
+/* entrada em cascata: cada bloco da página sobe e assenta, um após o outro */
+@keyframes sobe-assenta {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+main > div > * {
+  animation: sobe-assenta 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+main > div > *:nth-child(1) { animation-delay: 0.02s; }
+main > div > *:nth-child(2) { animation-delay: 0.07s; }
+main > div > *:nth-child(3) { animation-delay: 0.12s; }
+main > div > *:nth-child(4) { animation-delay: 0.17s; }
+main > div > *:nth-child(5) { animation-delay: 0.22s; }
+main > div > *:nth-child(6) { animation-delay: 0.27s; }
+main > div > *:nth-child(n + 7) { animation-delay: 0.32s; }
+
+/* barras de gráfico crescem do chão */
+@keyframes cresce-y {
+  from { transform: scaleY(0); }
+}
+.anima-barra {
+  transform-origin: bottom;
+  animation: cresce-y 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* linhas/áreas de gráfico se desenham da esquerda p/ direita */
+@keyframes desenha-x {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+.anima-desenho {
+  animation: desenha-x 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s backwards;
+}
+
+/* barras horizontais (composição/ranking) abrem da esquerda */
+@keyframes cresce-x {
+  from { transform: scaleX(0); }
+}
+.anima-largura {
+  transform-origin: left;
+  animation: cresce-x 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* entrada avulsa (para telas fora do <main>, ex.: login) */
+.anima-sobe {
+  animation: sobe-assenta 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
 h1, h2, h3,
 .kpi-valor,
 .card-head .titulo {
@@ -142,7 +217,16 @@ h1, h2, h3,
   background: var(--surface-1);
   border: 1px solid var(--border-hairline);
   border-radius: 18px;
-  box-shadow: var(--sombra-card);
+  /* fio de luz no topo: o card ganha relevo em vez de parecer papel chapado */
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent), var(--sombra-card);
+}
+:root[data-theme="dark"] .card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), var(--sombra-card);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .card {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), var(--sombra-card);
+  }
 }
 
 /* Cabeçalho de card: um só padrão em todas as telas */
@@ -342,13 +426,17 @@ h1, h2, h3,
   opacity: 0.45;
   cursor: not-allowed;
 }
+.btn {
+  transition: background 0.12s, border-color 0.12s, transform 0.12s, box-shadow 0.12s;
+}
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 82%, #fff), var(--accent) 45%, var(--accent-forte));
   color: #fff;
-  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 16px -8px color-mix(in srgb, var(--accent) 70%, transparent);
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--accent-forte);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 22px -8px color-mix(in srgb, var(--accent) 80%, transparent);
 }
 .btn-ghost {
   background: transparent;
@@ -510,17 +598,23 @@ tr.linha-clicavel:hover td {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--nav-muted);
-  transition: background 0.12s, color 0.12s;
+  transition: background 0.12s, color 0.12s, transform 0.15s;
 }
 .sidebar-item:hover {
   background: var(--nav-surface);
   color: var(--nav-text);
+  transform: translateX(2px);
 }
 .sidebar-item-ativo {
   background: color-mix(in srgb, var(--nav-accent) 17%, transparent);
   color: var(--nav-text);
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-accent) 30%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--nav-accent) 30%, transparent),
+    0 0 18px -6px color-mix(in srgb, var(--nav-accent) 60%, transparent);
+}
+.sidebar-item-ativo:hover {
+  transform: none;
 }
 .sidebar-item-ativo svg {
   color: var(--nav-accent);

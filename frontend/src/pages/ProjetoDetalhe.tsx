@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type LinhaFechamento, type Orcamento } from '../api/client'
 import { useFiltros } from '../components/Filtros'
-import { BadgeLucro, siglaEmpresa } from '../components/Viz'
+import { BadgeLucro, siglaEmpresa, ValorContado } from '../components/Viz'
 import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
 
 const GRUPO_LABEL: Record<string, string> = {
@@ -162,7 +162,7 @@ export default function ProjetoDetalhe() {
             <div className="hero-protagonista">
               <div className="titulo-secao">Resultado do projeto</div>
               <div className="hero-valor mt-2" style={{ color: f.resultado >= 0 ? 'var(--text-primary)' : 'var(--neg)' }}>
-                {fmtBRL(f.resultado)}
+                <ValorContado valor={f.resultado} formato={fmtBRL} />
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm">
                 <span
@@ -178,11 +178,15 @@ export default function ProjetoDetalhe() {
             </div>
             <div className="hero-sub">
               <div className="titulo-secao">Receita</div>
-              <div className="valor mt-2">{fmtBRL(f.receita)}</div>
+              <div className="valor mt-2">
+                <ValorContado valor={f.receita} formato={fmtBRL} />
+              </div>
             </div>
             <div className="hero-sub">
               <div className="titulo-secao">Custo total</div>
-              <div className="valor mt-2">{fmtBRL(f.custo_total)}</div>
+              <div className="valor mt-2">
+                <ValorContado valor={f.custo_total} formato={fmtBRL} />
+              </div>
             </div>
             <div
               className="hero-sub"
@@ -197,7 +201,9 @@ export default function ProjetoDetalhe() {
               }
             >
               <div className="titulo-secao">Impostos</div>
-              <div className="valor mt-2">{fmtBRL(f.imposto)}</div>
+              <div className="valor mt-2">
+                <ValorContado valor={f.imposto} formato={fmtBRL} />
+              </div>
             </div>
           </div>
 

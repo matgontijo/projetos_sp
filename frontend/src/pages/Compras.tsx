@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api, type PedidoCompra } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { Skeleton } from '../components/Viz'
+import { Skeleton, ValorContado } from '../components/Viz'
 import { fmtBRL } from '../lib/format'
 
 const SITUACOES: { valor: string; rotulo: string; cor: string; ajuda: string }[] = [
@@ -65,7 +65,9 @@ export default function Compras() {
         <div className="card hero-metricas mt-4 overflow-hidden">
           <div className="hero-protagonista">
             <div className="titulo-secao">Comprometido nos próximos 30 dias</div>
-            <div className="hero-valor mt-2">{fmtBRL(r.comprometido_30_dias)}</div>
+            <div className="hero-valor mt-2">
+              <ValorContado valor={r.comprometido_30_dias} formato={fmtBRL} />
+            </div>
             <div className="mt-3 text-sm" style={{ color: 'var(--text-muted)' }}>
               parcelas a vencer de pedidos pendentes — saída que ainda não virou conta a pagar
             </div>
@@ -73,7 +75,7 @@ export default function Compras() {
           <div className="hero-sub">
             <div className="titulo-secao">Vencido</div>
             <div className="valor mt-2" style={{ color: r.comprometido_vencido > 0 ? 'var(--neg)' : undefined }}>
-              {fmtBRL(r.comprometido_vencido)}
+              <ValorContado valor={r.comprometido_vencido} formato={fmtBRL} />
             </div>
             <div className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
               pendente com vencimento passado
@@ -81,7 +83,9 @@ export default function Compras() {
           </div>
           <div className="hero-sub">
             <div className="titulo-secao">Crédito de impostos</div>
-            <div className="valor mt-2">{fmtBRL(r.credito_impostos)}</div>
+            <div className="valor mt-2">
+              <ValorContado valor={r.credito_impostos} formato={fmtBRL} />
+            </div>
             <div className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
               ICMS + PIS + COFINS das compras
             </div>

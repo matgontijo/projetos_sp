@@ -1,6 +1,48 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Consolidado, MesFechamento } from '../api/client'
 import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
+
+/** Número que CONTA até o valor (750ms, easing suave). Anima na 1ª carga e a cada
+    mudança de filtro; com "reduzir movimento" ativo, mostra direto o valor final. */
+export function ValorContado({
+  valor,
+  formato,
+  className,
+  style,
+}: {
+  valor: number
+  formato: (v: number) => string
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const [mostrado, setMostrado] = useState(0)
+  const anterior = useRef(0)
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      anterior.current = valor
+      setMostrado(valor)
+      return
+    }
+    const de = anterior.current
+    anterior.current = valor
+    const inicio = performance.now()
+    const duracao = 750
+    let raf = 0
+    const passo = (t: number) => {
+      const p = Math.min((t - inicio) / duracao, 1)
+      const suave = 1 - Math.pow(1 - p, 3)
+      setMostrado(de + (valor - de) * suave)
+      if (p < 1) raf = requestAnimationFrame(passo)
+    }
+    raf = requestAnimationFrame(passo)
+    return () => cancelAnimationFrame(raf)
+  }, [valor])
+  return (
+    <span className={className} style={style}>
+      {formato(mostrado)}
+    </span>
+  )
+}
 
 const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -76,17 +118,18 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
           />
         )}
 
-        {/* barras de receita (menos espaço entre elas quando há muitos meses) */}
+        {/* barras de receita: crescem do chão em cascata */}
         <div className="absolute inset-0 flex items-end" style={{ gap: denso ? 1 : 4 }}>
           {serie.map((mes, i) => (
             <div key={mes.mes} className="flex h-full flex-1 items-end justify-center" style={{ height: areaPos }}>
               <div
-                className="rounded-t-[3px] transition-all"
+                className="anima-barra rounded-t-[4px] transition-all"
                 style={{
                   width: denso ? '76%' : '58%',
                   height: Math.max((mes.receita / maxPos) * areaPos, mes.receita > 0 ? 2 : 0),
                   background: `linear-gradient(180deg, var(--serie-producao), color-mix(in srgb, var(--serie-producao) 55%, var(--surface-1)))`,
                   opacity: hover === null || hover === i ? 1 : 0.45,
+                  animationDelay: `${Math.min(i * 0.025, 0.6)}s`,
                 }}
               />
             </div>
@@ -98,13 +141,23 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
           <div className="pointer-events-none absolute left-0 right-0" style={{ top: areaPos, borderTop: '1px solid var(--baseline)' }} />
         )}
 
-        {/* linha de resultado */}
+        {/* linha de resultado: se desenha da esquerda p/ direita, com área e brilho */}
         <svg
-          className="pointer-events-none absolute inset-x-0 top-0"
+          className="anima-desenho pointer-events-none absolute inset-x-0 top-0"
           style={{ height: ALTURA, width: '100%' }}
           viewBox={`0 0 100 ${ALTURA}`}
           preserveAspectRatio="none"
         >
+          <defs>
+            <linearGradient id="grad-resultado" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--serie-resultado)" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="var(--serie-resultado)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polygon
+            points={`${serie.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')} ${xCentro(serie.length - 1)},${areaPos} ${xCentro(0)},${areaPos}`}
+            fill="url(#grad-resultado)"
+          />
           <polyline
             points={serie.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')}
             fill="none"
@@ -113,6 +166,7 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
             strokeLinejoin="round"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
+            style={{ filter: 'drop-shadow(0 1px 5px color-mix(in srgb, var(--serie-resultado) 60%, transparent))' }}
           />
         </svg>
         {/* pontos da linha (HTML p/ não distorcer): vermelho = mês negativo.
@@ -228,7 +282,10 @@ export function ComposicaoLinhas({ consolidado }: { consolidado: Consolidado }) 
             {l.rotulo}
           </span>
           <div className="h-2 rounded-full" style={{ background: 'var(--surface-2)' }}>
-            <div className="h-2 rounded-full" style={{ width: `${Math.min((l.valor / receita) * 100, 100)}%`, background: l.cor }} />
+            <div
+              className="anima-largura h-2 rounded-full"
+              style={{ width: `${Math.min((l.valor / receita) * 100, 100)}%`, background: l.cor }}
+            />
           </div>
           <span className="num text-xs font-bold">{fmtBRL(l.valor)}</span>
           <span className="num text-xs" style={{ color: 'var(--text-muted)' }}>{fmtPct(l.valor / receita)}</span>
@@ -353,10 +410,17 @@ export function BarraComposicao({
       role="img"
       aria-label={partes.map((p) => `${p.label} ${fmtBRL(p.valor)}`).join(', ')}
     >
-      {partes.map((p) => (
+      {partes.map((p, i) => (
         <div
           key={p.label}
-          style={{ width: `${(p.valor / total) * 100}%`, background: p.cor, borderRadius: 2, minWidth: 2 }}
+          className="anima-largura"
+          style={{
+            width: `${(p.valor / total) * 100}%`,
+            background: p.cor,
+            borderRadius: 2,
+            minWidth: 2,
+            animationDelay: `${i * 0.06}s`,
+          }}
           title={`${p.label}: ${fmtBRL(p.valor)} (${fmtPct(p.valor / receita)} da receita)`}
         />
       ))}
@@ -399,7 +463,7 @@ export function RankingMargem({
 
   return (
     <div className="grid gap-1.5" role="list">
-      {itens.map((i) => {
+      {itens.map((i, idx) => {
         const positivo = i.margem >= 0
         const largura = (Math.abs(i.margem) / maxAbs) * 100
         return (
@@ -426,12 +490,14 @@ export function RankingMargem({
                 />
               )}
               <div
-                className="absolute inset-y-0.5 rounded-sm"
+                className="anima-largura absolute inset-y-0.5 rounded-sm"
                 style={{
                   background: corDe(i.margem),
                   left: positivo ? '50%' : `${50 - largura / 2}%`,
                   width: `${largura / 2}%`,
                   minWidth: 2,
+                  transformOrigin: positivo ? 'left' : 'right',
+                  animationDelay: `${Math.min(idx * 0.035, 0.5)}s`,
                 }}
               />
             </div>
