@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, type Simulacao } from '../api/client'
 import { PageHeader } from '../components/Layout'
+import { ValorContado } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 export default function Simulador() {
@@ -116,8 +117,8 @@ export default function Simulador() {
                   )}
                 </div>
                 <div className="titulo-secao mt-3">Preço mínimo p/ {Number(margem)}% de margem</div>
-                <div className="mt-1 text-3xl font-extrabold tracking-tight" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {c.preco_minimo ? fmtBRL(c.preco_minimo) : '—'}
+                <div className="mt-1 text-3xl font-extrabold tracking-tight" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-display)' }}>
+                  {c.preco_minimo ? <ValorContado valor={c.preco_minimo} formato={fmtBRL} /> : '—'}
                 </div>
                 <p className="help mt-1">
                   Imposto estimado: {fmtPct(c.aliquota)} da venda ({c.origem_aliquota})

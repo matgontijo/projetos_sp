@@ -98,8 +98,18 @@ export default function OrcamentosVenda() {
       {usuario?.papel === 'admin' && resumo.data && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <KPICard titulo="Orçamentos no mês" valor={String(resumo.data.orcamentos_mes)} sub={fmtBRL(resumo.data.total_mes)} />
-          <KPICard titulo="Ticket médio" valor={fmtBRL(resumo.data.ticket_medio)} />
-          <KPICard titulo="Margem média" valor={fmtPct(resumo.data.margem_media)} />
+          <KPICard
+            titulo="Ticket médio"
+            valor={fmtBRL(resumo.data.ticket_medio)}
+            numero={resumo.data.ticket_medio}
+            formato={fmtBRL}
+          />
+          <KPICard
+            titulo="Margem média"
+            valor={fmtPct(resumo.data.margem_media)}
+            numero={resumo.data.margem_media}
+            formato={fmtPct}
+          />
           <KPICard
             titulo="Aprovados / enviados"
             valor={`${resumo.data.por_status.aprovado || 0} / ${resumo.data.por_status.enviado || 0}`}
@@ -272,9 +282,9 @@ export default function OrcamentosVenda() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-3">
-                  <KPICard titulo="Preço unitário" valor={fmtBRL(d.preco_unitario)} />
+                  <KPICard titulo="Preço unitário" valor={fmtBRL(d.preco_unitario)} numero={d.preco_unitario} formato={fmtBRL} />
                   <KPICard titulo="Quantidade" valor={d.quantidade.toLocaleString('pt-BR')} />
-                  <KPICard titulo="Total" valor={fmtBRL(d.total)} />
+                  <KPICard titulo="Total" valor={fmtBRL(d.total)} numero={d.total} formato={fmtBRL} />
                 </div>
 
                 {snap && (

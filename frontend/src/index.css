@@ -200,6 +200,28 @@ main > div > *:nth-child(n + 7) { animation-delay: 0.32s; }
   animation: sobe-assenta 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
+/* respiração p/ estados "acontecendo agora" (ex.: sincronização executando) */
+@keyframes pulsa {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.pulsa {
+  animation: pulsa 1.3s ease-in-out infinite;
+}
+
+/* linhas de tabela tambem entram em cascata curta (so as primeiras escalonam) */
+table.data tbody tr,
+table.tabela tbody tr {
+  animation: sobe-assenta 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+table.data tbody tr:nth-child(1), table.tabela tbody tr:nth-child(1) { animation-delay: 0.05s; }
+table.data tbody tr:nth-child(2), table.tabela tbody tr:nth-child(2) { animation-delay: 0.09s; }
+table.data tbody tr:nth-child(3), table.tabela tbody tr:nth-child(3) { animation-delay: 0.13s; }
+table.data tbody tr:nth-child(4), table.tabela tbody tr:nth-child(4) { animation-delay: 0.17s; }
+table.data tbody tr:nth-child(5), table.tabela tbody tr:nth-child(5) { animation-delay: 0.21s; }
+table.data tbody tr:nth-child(6), table.tabela tbody tr:nth-child(6) { animation-delay: 0.25s; }
+table.data tbody tr:nth-child(n + 7), table.tabela tbody tr:nth-child(n + 7) { animation-delay: 0.28s; }
+
 h1, h2, h3,
 .kpi-valor,
 .card-head .titulo {
