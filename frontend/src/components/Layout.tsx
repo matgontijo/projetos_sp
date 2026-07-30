@@ -1,19 +1,24 @@
 import type { ReactNode } from 'react'
 
-/** Marca do app: brasão esmeralda + nome. Desenhada p/ fundo escuro (sidebar/login). */
+/** Marca do app: monograma serifado dourado sobre azul-marinho (banco privado). */
 export function Marca() {
   return (
     <div className="flex items-center gap-2.5">
       <span
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
-        style={{ background: 'linear-gradient(135deg, #2fbd88, #0a7d55)', boxShadow: '0 6px 16px -8px rgba(47, 189, 136, 0.8)' }}
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+        style={{
+          background: 'linear-gradient(150deg, #1f4e79, #0d1728 80%)',
+          border: '1px solid rgba(212, 167, 44, 0.55)',
+          boxShadow: '0 6px 16px -8px rgba(13, 23, 40, 0.9)',
+        }}
         aria-hidden
       >
-        {/* cofre/diamante: valor guardado */}
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#08130e" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 4h12l4 6-10 10L2 10z" />
-          <path d="M2 10h20M12 20 8.5 10l2-6M12 20l3.5-10-2-6" />
-        </svg>
+        <span
+          className="text-[19px] font-black leading-none"
+          style={{ fontFamily: 'var(--font-display)', color: '#d4a72c', transform: 'translateY(-1px)' }}
+        >
+          F
+        </span>
       </span>
       <div className="leading-tight">
         <div className="text-[15px] font-extrabold tracking-tight" style={{ color: 'var(--nav-text)', fontFamily: 'var(--font-display)' }}>

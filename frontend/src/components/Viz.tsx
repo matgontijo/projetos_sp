@@ -177,6 +177,7 @@ export function GraficoMensal({
   // y em pixels da linha de resultado (positivo acima do zero, negativo abaixo)
   const yResultado = (v: number) =>
     v >= 0 ? areaPos * (1 - v / maxPos) : areaPos + (maxNeg > 0 ? (-v / maxNeg) * areaNeg : 0)
+  const yReceita = (v: number) => areaPos * (1 - Math.max(v, 0) / maxPos)
   const xCentro = (i: number) => ((i + 0.5) / n) * 100
 
   const m = hover !== null ? visivel[hover] : null
@@ -266,23 +267,47 @@ export function GraficoMensal({
           />
         )}
 
-        {/* barras de receita: crescem do chão em cascata */}
-        <div className="absolute inset-0 flex items-end" style={{ gap: denso ? 1 : 4 }}>
-          {visivel.map((mes, i) => (
-            <div key={mes.mes} className="flex h-full flex-1 items-end justify-center" style={{ height: areaPos }}>
-              <div
-                className="anima-barra rounded-t-[4px] transition-all"
-                style={{
-                  width: denso ? '76%' : '58%',
-                  height: Math.max((mes.receita / maxPos) * areaPos, mes.receita > 0 ? 2 : 0),
-                  background: `linear-gradient(180deg, var(--serie-producao), color-mix(in srgb, var(--serie-producao) 55%, var(--surface-1)))`,
-                  opacity: hover === null || hover === i ? 1 : 0.45,
-                  animationDelay: `${Math.min(i * 0.025, 0.6)}s`,
-                }}
-              />
-            </div>
-          ))}
-        </div>
+        {/* área de receita (azul-marinho): se desenha da esquerda p/ direita */}
+        <svg
+          className="anima-desenho pointer-events-none absolute inset-x-0 top-0"
+          style={{ height: ALTURA, width: '100%' }}
+          viewBox={`0 0 100 ${ALTURA}`}
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="grad-receita" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--serie-producao)" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="var(--serie-producao)" stopOpacity="0.03" />
+            </linearGradient>
+          </defs>
+          <polygon
+            points={`${visivel.map((mes, i) => `${xCentro(i)},${yReceita(mes.receita)}`).join(' ')} ${xCentro(n - 1)},${areaPos} ${xCentro(0)},${areaPos}`}
+            fill="url(#grad-receita)"
+          />
+          <polyline
+            points={visivel.map((mes, i) => `${xCentro(i)},${yReceita(mes.receita)}`).join(' ')}
+            fill="none"
+            stroke="var(--serie-producao)"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {/* ponto da receita no mês sob o mouse */}
+        {hover !== null && (
+          <div
+            className="pointer-events-none absolute rounded-full"
+            style={{
+              left: `calc(${xCentro(hover)}% - 4px)`,
+              top: yReceita(visivel[hover].receita) - 4,
+              width: 8,
+              height: 8,
+              background: 'var(--serie-producao)',
+              border: '2px solid var(--surface-1)',
+            }}
+          />
+        )}
 
         {/* linha do zero (quando há meses negativos) */}
         {areaNeg > 0 && (
@@ -398,7 +423,7 @@ export function GraficoMensal({
       </div>
       <div className="mt-2 flex flex-wrap gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--serie-producao)' }} /> Receita (barras)
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--serie-producao)' }} /> Receita (área)
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 rounded" style={{ background: 'var(--serie-resultado)' }} /> Resultado (linha

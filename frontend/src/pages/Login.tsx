@@ -43,7 +43,7 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
       >
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(560px 420px at 20% -10%, rgba(47, 189, 136, 0.22), transparent 70%)' }}
+          style={{ background: 'radial-gradient(560px 420px at 20% -10%, rgba(212, 167, 44, 0.16), transparent 70%)' }}
         />
         <Marca />
         <div className="relative">
@@ -64,7 +64,7 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
               className="anima-barra w-6 rounded-t-md"
               style={{
                 height: h,
-                background: `rgba(47, 189, 136, ${0.14 + i * 0.05})`,
+                background: `rgba(212, 167, 44, ${0.12 + i * 0.05})`,
                 animationDelay: `${0.25 + i * 0.06}s`,
               }}
             />
