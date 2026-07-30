@@ -92,7 +92,7 @@ function periodoAnterior(de?: string, ate?: string): { de: string; ate: string }
 }
 
 export default function Dashboard() {
-  const { empresaIds, de, ate, params } = useFiltros()
+  const { empresaIds, de, ate, params, setMany } = useFiltros()
   const navigate = useNavigate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['fechamento', empresaIds, de, ate],
@@ -267,7 +267,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="card-corpo">
-                <GraficoMensal serie={serie} />
+                <GraficoMensal serie={serie} aoFiltrarPeriodo={(novoDe, novoAte) => setMany({ de: novoDe, ate: novoAte })} />
               </div>
             </div>
           )}

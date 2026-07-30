@@ -68,16 +68,103 @@ export function Delta({ atual, anterior, invertido = false }: { atual: number; a
   )
 }
 
-/** Evolução mensal: barras de receita + LINHA de resultado, tooltip vivo e escala. */
-export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
+/** Evolução mensal INTERATIVA: arraste p/ selecionar um período (amplia), role p/
+    zoom no cursor, arraste ampliado p/ deslizar, duplo clique restaura — e dá para
+    aplicar o recorte visível ao filtro da página inteira. */
+export function GraficoMensal({
+  serie,
+  aoFiltrarPeriodo,
+}: {
+  serie: MesFechamento[]
+  aoFiltrarPeriodo?: (de: string, ate: string) => void
+}) {
   const [hover, setHover] = useState<number | null>(null)
-  if (!serie.length) return null
-  const maxPos = Math.max(...serie.map((m) => Math.max(m.receita, m.resultado, 0)), 1)
-  const maxNeg = Math.max(...serie.map((m) => Math.max(0, -m.resultado)), 0)
+  const [janela, setJanela] = useState<[number, number] | null>(null)
+  const [selecao, setSelecao] = useState<[number, number] | null>(null) // frações 0–1 do brush
+  const [arrastando, setArrastando] = useState(false)
+  const areaRef = useRef<HTMLDivElement>(null)
+  const gesto = useRef<{ tipo: 'brush' | 'pan'; x0: number; moveu: boolean; janela0: [number, number] } | null>(null)
+
+  const total = serie.length
+  const [i0, i1] = janela ?? [0, Math.max(total - 1, 0)]
+  const visivel = serie.slice(i0, i1 + 1)
+  const n = visivel.length
+
+  // limites da janela p/ os handlers (recalculados a cada render)
+  const fracaoDe = (clientX: number) => {
+    const r = areaRef.current?.getBoundingClientRect()
+    if (!r || r.width === 0) return 0
+    return Math.min(Math.max((clientX - r.left) / r.width, 0), 1)
+  }
+
+  const aplicarZoom = (foco: number, fator: number) => {
+    const span = i1 - i0 + 1
+    const novoSpan = Math.min(Math.max(Math.round(span * fator), 3), total)
+    if (novoSpan >= total) {
+      setJanela(null)
+      return
+    }
+    const centro = i0 + foco * span
+    const novoI0 = Math.min(Math.max(Math.round(centro - foco * novoSpan), 0), total - novoSpan)
+    setJanela([novoI0, novoI0 + novoSpan - 1])
+  }
+
+  // roda do mouse = zoom no cursor (listener manual: React registra wheel como passivo)
+  useEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    const aoRolar = (e: WheelEvent) => {
+      e.preventDefault()
+      aplicarZoom(fracaoDe(e.clientX), e.deltaY > 0 ? 1.3 : 0.75)
+    }
+    el.addEventListener('wheel', aoRolar, { passive: false })
+    return () => el.removeEventListener('wheel', aoRolar)
+  })
+
+  const aoPressionar = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    ;(e.target as HTMLElement).closest('[data-area-grafico]')?.setPointerCapture?.(e.pointerId)
+    gesto.current = { tipo: janela ? 'pan' : 'brush', x0: e.clientX, moveu: false, janela0: [i0, i1] }
+    setArrastando(true)
+  }
+
+  const aoMover = (e: React.PointerEvent) => {
+    const g = gesto.current
+    if (!g) return
+    if (Math.abs(e.clientX - g.x0) > 4) g.moveu = true
+    if (!g.moveu) return
+    if (g.tipo === 'brush') {
+      setSelecao([fracaoDe(g.x0), fracaoDe(e.clientX)])
+    } else {
+      const r = areaRef.current?.getBoundingClientRect()
+      if (!r || r.width === 0) return
+      const span = g.janela0[1] - g.janela0[0] + 1
+      const deltaMeses = Math.round(((g.x0 - e.clientX) / r.width) * span)
+      const novoI0 = Math.min(Math.max(g.janela0[0] + deltaMeses, 0), total - span)
+      setJanela([novoI0, novoI0 + span - 1])
+    }
+  }
+
+  const aoSoltar = () => {
+    const g = gesto.current
+    gesto.current = null
+    setArrastando(false)
+    if (g?.tipo === 'brush' && g.moveu && selecao) {
+      const [fa, fb] = [Math.min(selecao[0], selecao[1]), Math.max(selecao[0], selecao[1])]
+      const a = i0 + Math.floor(fa * n)
+      const b = i0 + Math.min(Math.ceil(fb * n) - 1, n - 1)
+      if (b - a >= 1) setJanela([Math.max(a, 0), Math.min(b, total - 1)])
+    }
+    setSelecao(null)
+  }
+
+  if (!total) return null
+
+  const maxPos = Math.max(...visivel.map((m) => Math.max(m.receita, m.resultado, 0)), 1)
+  const maxNeg = Math.max(...visivel.map((m) => Math.max(0, -m.resultado)), 0)
   const ALTURA = 210
   const areaPos = maxNeg > 0 ? ALTURA * (maxPos / (maxPos + maxNeg)) : ALTURA
   const areaNeg = ALTURA - areaPos
-  const n = serie.length
   // com muitos meses os rótulos colidem: mostra no máximo ~16, sempre incluindo o mais recente
   const denso = n > 28
   const passoRotulo = Math.max(1, Math.ceil(n / 16))
@@ -92,10 +179,48 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
     v >= 0 ? areaPos * (1 - v / maxPos) : areaPos + (maxNeg > 0 ? (-v / maxNeg) * areaNeg : 0)
   const xCentro = (i: number) => ((i + 0.5) / n) * 100
 
-  const m = hover !== null ? serie[hover] : null
+  const m = hover !== null ? visivel[hover] : null
+
+  const ultimoDia = (mes: string) => {
+    const [a, mm] = mes.split('-').map(Number)
+    return `${mes}-${String(new Date(a, mm, 0).getDate()).padStart(2, '0')}`
+  }
 
   return (
     <div className="relative" onMouseLeave={() => setHover(null)}>
+      {/* barra de controles do zoom */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          {janela
+            ? `${rotulo(visivel[0].mes)} – ${rotulo(visivel[n - 1].mes)} · ${n} meses (arraste para deslizar)`
+            : 'Arraste para ampliar um período · role o mouse para zoom'}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <button className="chip-preset px-2.5" title="Menos zoom" aria-label="Menos zoom" onClick={() => aplicarZoom(0.5, 1.6)}>
+            −
+          </button>
+          <button className="chip-preset px-2.5" title="Mais zoom" aria-label="Mais zoom" onClick={() => aplicarZoom(0.5, 0.6)}>
+            +
+          </button>
+          {janela && (
+            <>
+              <button className="chip-preset" onClick={() => setJanela(null)}>
+                Tudo
+              </button>
+              {aoFiltrarPeriodo && (
+                <button
+                  className="chip-preset"
+                  style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                  title="Aplica estes meses como filtro de período da página inteira"
+                  onClick={() => aoFiltrarPeriodo(`${visivel[0].mes}-01`, ultimoDia(visivel[n - 1].mes))}
+                >
+                  Usar como filtro
+                </button>
+              )}
+            </>
+          )}
+        </span>
+      </div>
       {/* escala de referência */}
       {[1, 0.5].map((fracao) => (
         <div
@@ -109,7 +234,17 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
         </div>
       ))}
 
-      <div className="relative" style={{ height: ALTURA }}>
+      <div
+        ref={areaRef}
+        data-area-grafico
+        className="relative select-none"
+        style={{ height: ALTURA, cursor: arrastando ? (janela ? 'grabbing' : 'crosshair') : janela ? 'grab' : 'crosshair', touchAction: 'pan-y' }}
+        onPointerDown={aoPressionar}
+        onPointerMove={aoMover}
+        onPointerUp={aoSoltar}
+        onPointerCancel={aoSoltar}
+        onDoubleClick={() => setJanela(null)}
+      >
         {/* wash da coluna sob o mouse */}
         {hover !== null && (
           <div
@@ -118,9 +253,22 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
           />
         )}
 
+        {/* seleção do arrasto (brush) */}
+        {selecao && (
+          <div
+            className="pointer-events-none absolute inset-y-0 z-10 rounded-md"
+            style={{
+              left: `${Math.min(selecao[0], selecao[1]) * 100}%`,
+              width: `${Math.abs(selecao[1] - selecao[0]) * 100}%`,
+              background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--accent) 55%, transparent)',
+            }}
+          />
+        )}
+
         {/* barras de receita: crescem do chão em cascata */}
         <div className="absolute inset-0 flex items-end" style={{ gap: denso ? 1 : 4 }}>
-          {serie.map((mes, i) => (
+          {visivel.map((mes, i) => (
             <div key={mes.mes} className="flex h-full flex-1 items-end justify-center" style={{ height: areaPos }}>
               <div
                 className="anima-barra rounded-t-[4px] transition-all"
@@ -155,11 +303,11 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
             </linearGradient>
           </defs>
           <polygon
-            points={`${serie.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')} ${xCentro(serie.length - 1)},${areaPos} ${xCentro(0)},${areaPos}`}
+            points={`${visivel.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')} ${xCentro(n - 1)},${areaPos} ${xCentro(0)},${areaPos}`}
             fill="url(#grad-resultado)"
           />
           <polyline
-            points={serie.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')}
+            points={visivel.map((mes, i) => `${xCentro(i)},${yResultado(mes.resultado)}`).join(' ')}
             fill="none"
             stroke="var(--serie-resultado)"
             strokeWidth="2.5"
@@ -172,7 +320,7 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
         {/* pontos da linha (HTML p/ não distorcer): vermelho = mês negativo.
             Quando denso, só desenha o ponto nos meses de prejuízo e no mês sob o mouse
             — a linha já mostra a tendência; pontos demais viram ruído. */}
-        {serie.map((mes, i) => {
+        {visivel.map((mes, i) => {
           const negativo = mes.resultado < 0
           if (denso && !negativo && hover !== i) return null
           const raio = hover === i ? 5 : denso ? 3 : 4
@@ -194,7 +342,7 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
 
         {/* zonas de hover por mês */}
         <div className="absolute inset-0 flex">
-          {serie.map((mes, i) => (
+          {visivel.map((mes, i) => (
             <div key={mes.mes} className="h-full flex-1" onMouseEnter={() => setHover(i)} />
           ))}
         </div>
@@ -236,7 +384,7 @@ export function GraficoMensal({ serie }: { serie: MesFechamento[] }) {
       </div>
 
       <div className="mt-1 flex border-t pt-1" style={{ borderColor: 'var(--baseline)', gap: denso ? 1 : 4 }}>
-        {serie.map((mes, i) => (
+        {visivel.map((mes, i) => (
           <div
             key={mes.mes}
             className="flex-1 whitespace-nowrap text-center text-[10px] font-semibold"
