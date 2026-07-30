@@ -158,7 +158,7 @@ export default function Sincronizar() {
                 </td>
                 <td>
                   <span
-                    className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${l.status !== 'concluido' && l.status !== 'erro' ? 'pulsa' : ''}`}
                     style={{
                       background:
                         l.status === 'concluido'

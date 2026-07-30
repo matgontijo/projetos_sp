@@ -213,12 +213,12 @@ export default function ProjetoDetalhe() {
           >
             {(
               [
-                ['Produção', fmtBRL(f.producao), 'var(--serie-producao)'],
-                ['Frete', fmtBRL(f.frete), 'var(--serie-frete)'],
-                ['Comissão', fmtBRL(f.comissao), 'var(--serie-comissao)'],
-                ['Impostos', fmtBRL(f.imposto), 'var(--serie-imposto)'],
-                ['Outros', fmtBRL(f.outros), 'var(--serie-outros)'],
-              ] as [string, string, string][]
+                ['Produção', f.producao, 'var(--serie-producao)'],
+                ['Frete', f.frete, 'var(--serie-frete)'],
+                ['Comissão', f.comissao, 'var(--serie-comissao)'],
+                ['Impostos', f.imposto, 'var(--serie-imposto)'],
+                ['Outros', f.outros, 'var(--serie-outros)'],
+              ] as [string, number, string][]
             ).map(([rotulo, valor, cor]) => (
               <div key={rotulo} className="kpi min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -226,7 +226,7 @@ export default function ProjetoDetalhe() {
                   <span className="titulo-secao">{rotulo}</span>
                 </div>
                 <div className="kpi-valor mt-1" style={{ fontSize: 'clamp(12px, 9cqw, 19px)' }}>
-                  {valor}
+                  <ValorContado valor={valor} formato={fmtBRL} />
                 </div>
               </div>
             ))}

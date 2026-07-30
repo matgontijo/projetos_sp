@@ -329,6 +329,8 @@ export const SERIES = [
 export function KPICard({
   titulo,
   valor,
+  numero,
+  formato,
   sub,
   tom,
   dica,
@@ -336,6 +338,8 @@ export function KPICard({
 }: {
   titulo: string
   valor: string
+  numero?: number // com `formato`, o valor CONTA até o número (anima)
+  formato?: (v: number) => string
   sub?: ReactNode
   tom?: 'pos' | 'neg'
   dica?: string
@@ -353,7 +357,7 @@ export function KPICard({
         className="kpi-valor mt-1.5"
         style={{ color: tom === 'neg' ? 'var(--neg)' : tom === 'pos' ? 'var(--status-good-text)' : 'var(--text-primary)' }}
       >
-        {valor}
+        {numero !== undefined && formato ? <ValorContado valor={numero} formato={formato} /> : valor}
       </div>
       {sub && (
         <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>

@@ -242,12 +242,20 @@ export default function Precificacao() {
       {pedido && (
         <>
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
-            <KPICard titulo="Custo do pedido" valor={fmtBRL(pedido.custo_total)} />
-            <KPICard titulo="Impostos" valor={fmtBRL(pedido.imposto_total)} />
-            <KPICard titulo="Total à vista" valor={fmtBRL(pedido.total_a_vista)} hero={!aPrazo} />
+            <KPICard titulo="Custo do pedido" valor={fmtBRL(pedido.custo_total)} numero={pedido.custo_total} formato={fmtBRL} />
+            <KPICard titulo="Impostos" valor={fmtBRL(pedido.imposto_total)} numero={pedido.imposto_total} formato={fmtBRL} />
+            <KPICard
+              titulo="Total à vista"
+              valor={fmtBRL(pedido.total_a_vista)}
+              numero={pedido.total_a_vista}
+              formato={fmtBRL}
+              hero={!aPrazo}
+            />
             <KPICard
               titulo={aPrazo ? `Total a ${condicao} dias` : 'Total a prazo (30d)'}
               valor={fmtBRL(pedido.total_a_prazo)}
+              numero={pedido.total_a_prazo}
+              formato={fmtBRL}
               hero={aPrazo}
             />
             <KPICard titulo={`Itens no pedido`} valor={String(linhasValidas.length)} sub={`${pedido.itens.reduce((s, i) => s + i.quantidade, 0).toLocaleString('pt-BR')} un`} />

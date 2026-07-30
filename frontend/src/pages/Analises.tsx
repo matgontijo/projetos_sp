@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { Skeleton } from '../components/Viz'
+import { Skeleton, ValorContado } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 export default function Analises() {
@@ -188,21 +188,27 @@ function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="card px-4 py-3">
             <div className="titulo-secao">A receber em aberto</div>
-            <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(t.receber_aberto)}</div>
+            <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <ValorContado valor={t.receber_aberto} formato={fmtBRL} />
+            </div>
           </div>
           <div className="card px-4 py-3">
             <div className="titulo-secao">A receber ATRASADO</div>
             <div className="mt-1 text-xl font-extrabold" style={{ color: t.receber_atrasado > 0 ? 'var(--neg)' : undefined, fontVariantNumeric: 'tabular-nums' }}>
-              {fmtBRL(t.receber_atrasado)}
+              <ValorContado valor={t.receber_atrasado} formato={fmtBRL} />
             </div>
           </div>
           <div className="card px-4 py-3">
             <div className="titulo-secao">A pagar em aberto</div>
-            <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(t.pagar_aberto)}</div>
+            <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <ValorContado valor={t.pagar_aberto} formato={fmtBRL} />
+            </div>
           </div>
           <div className="card px-4 py-3">
             <div className="titulo-secao">A pagar atrasado</div>
-            <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtBRL(t.pagar_atrasado)}</div>
+            <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <ValorContado valor={t.pagar_atrasado} formato={fmtBRL} />
+            </div>
           </div>
         </div>
       )}
