@@ -11,6 +11,7 @@ import {
   GraficoMensal,
   RankingMargem,
   Skeleton,
+  ValorContado,
 } from '../components/Viz'
 import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
 
@@ -189,7 +190,7 @@ export default function Dashboard() {
             <div className="hero-protagonista">
               <div className="titulo-secao">Resultado do período</div>
               <div className="hero-valor mt-2" style={{ color: consolidado.resultado >= 0 ? 'var(--text-primary)' : 'var(--neg)' }}>
-                {fmtBRL(consolidado.resultado)}
+                <ValorContado valor={consolidado.resultado} formato={fmtBRL} />
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm">
                 <span
@@ -214,7 +215,9 @@ export default function Dashboard() {
             </div>
             <div className="hero-sub">
               <div className="titulo-secao">Receita</div>
-              <div className="valor mt-2">{fmtBRL(consolidado.receita)}</div>
+              <div className="valor mt-2">
+                <ValorContado valor={consolidado.receita} formato={fmtBRL} />
+              </div>
               <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {consolidadoAnterior && <Delta atual={consolidado.receita} anterior={consolidadoAnterior.receita} />}
               </div>
@@ -222,7 +225,10 @@ export default function Dashboard() {
             <div className="hero-sub" title="Produção + frete + comissão + outros custos (impostos ficam ao lado)">
               <div className="titulo-secao">Custos</div>
               <div className="valor mt-2">
-                {fmtBRL(consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros)}
+                <ValorContado
+                  valor={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
+                  formato={fmtBRL}
+                />
               </div>
               <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {consolidadoAnterior && (
@@ -241,7 +247,9 @@ export default function Dashboard() {
             </div>
             <div className="hero-sub">
               <div className="titulo-secao">Impostos</div>
-              <div className="valor mt-2">{fmtBRL(consolidado.imposto)}</div>
+              <div className="valor mt-2">
+                <ValorContado valor={consolidado.imposto} formato={fmtBRL} />
+              </div>
               <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {consolidadoAnterior && <Delta atual={consolidado.imposto} anterior={consolidadoAnterior.imposto} invertido />}
               </div>

@@ -47,10 +47,13 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
         />
         <Marca />
         <div className="relative">
-          <h1 className="max-w-md text-4xl font-extrabold leading-tight" style={{ color: 'var(--nav-text)' }}>
+          <h1 className="anima-sobe max-w-md text-4xl font-extrabold leading-tight" style={{ color: 'var(--nav-text)' }}>
             Cada projeto fechado, cada real explicado.
           </h1>
-          <p className="mt-4 max-w-sm text-sm leading-relaxed" style={{ color: 'var(--nav-muted)' }}>
+          <p
+            className="anima-sobe mt-4 max-w-sm text-sm leading-relaxed"
+            style={{ color: 'var(--nav-muted)', animationDelay: '0.12s' }}
+          >
             Receita, custos, impostos e margem por projeto — direto da Omie, com as duas empresas consolidadas.
           </p>
         </div>
@@ -58,8 +61,12 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
           {[34, 52, 40, 66, 48, 80, 58, 92, 70, 108].map((h, i) => (
             <span
               key={i}
-              className="w-6 rounded-t-md"
-              style={{ height: h, background: `rgba(47, 189, 136, ${0.14 + i * 0.05})` }}
+              className="anima-barra w-6 rounded-t-md"
+              style={{
+                height: h,
+                background: `rgba(47, 189, 136, ${0.14 + i * 0.05})`,
+                animationDelay: `${0.25 + i * 0.06}s`,
+              }}
             />
           ))}
         </div>
@@ -67,7 +74,7 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
 
       {/* Formulário */}
       <div className="grid flex-1 place-items-center px-4 py-10">
-        <div className="w-full max-w-sm">
+        <div className="anima-sobe w-full max-w-sm" style={{ animationDelay: '0.08s' }}>
           <div className="mb-6 lg:hidden">
             <div className="inline-block rounded-2xl p-3" style={{ background: 'var(--nav-bg)' }}>
               <Marca />
