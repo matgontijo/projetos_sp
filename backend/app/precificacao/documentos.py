@@ -35,13 +35,15 @@ def _moeda4(valor: float) -> str:
     inteiro, decimal = f"{abs(valor):,.4f}".split(".")
     return f"{'-' if valor < 0 else ''}{inteiro.replace(',', '.')},{decimal}"
 
-# paleta da proposta (impressao amigavel)
-MARINHO = (15, 27, 51)
-AZUL = (37, 99, 235)
-ARDOSIA = (152, 168, 198)  # texto sobre o marinho
-CINZA = (112, 118, 130)
-TINTA = (18, 21, 27)
-FIO = (228, 231, 236)  # hairlines
+# paleta da marca (preto e branco), a mesma do app e do relatorio
+from ..marca import (  # noqa: E402
+    CINZA,
+    CLARO as ARDOSIA,  # texto sobre o preto
+    FIO,
+    PRETO,
+    TINTA,
+    desenhar_logotipo,
+)
 AMBAR_FUNDO = (255, 244, 219)
 AMBAR_TEXTO = (140, 89, 8)
 
@@ -86,20 +88,18 @@ class _PropostaBase(FPDF):
 
     def header(self):
         util = self.w - self.l_margin - self.r_margin
-        self.set_fill_color(*MARINHO)
+        self.set_fill_color(*PRETO)
         self.rect(0, 0, self.w, 30, style="F")
-        # marca a esquerda
-        self.set_xy(self.l_margin, 8)
-        self.set_font("ManropeX", "", 17)
-        self.set_text_color(255, 255, 255)
-        self.cell(util - 72, 9, _txt(_marca(self.empresa_nome)))
-        # chip do documento a direita
+        # logotipo do grupo a esquerda
+        desenhar_logotipo(self, self.l_margin, 7, tamanho=16)
+        # chip do documento a direita (contorno branco: o preto ja e o fundo)
         chip_txt = f"PROPOSTA Nº {self.numero}"
         self.set_font("ManropeX", "", 8.5)
         w_chip = self.get_string_width(chip_txt) + 10
         x_chip = self.w - self.r_margin - w_chip
-        self.set_fill_color(*AZUL)
-        self.rect(x_chip, 8.2, w_chip, 8.6, style="F", round_corners=True, corner_radius=4.3)
+        self.set_draw_color(255, 255, 255)
+        self.set_line_width(0.3)
+        self.rect(x_chip, 8.2, w_chip, 8.6, style="D", round_corners=True, corner_radius=4.3)
         self.set_xy(x_chip, 8.2)
         self.set_text_color(255, 255, 255)
         self.cell(w_chip, 8.6, _txt(chip_txt), align="C")
@@ -122,7 +122,7 @@ class _PropostaBase(FPDF):
         self.set_font("Manrope", "", 6.5)
         self.set_text_color(*CINZA)
         gerado = _agora_br().strftime("%d/%m/%Y %H:%M")
-        self.cell(util - 40, 4, _txt(f"{_marca(self.empresa_nome)} — proposta gerada em {gerado}"))
+        self.cell(util - 40, 4, _txt(f"Grupo JPDV · {_marca(self.empresa_nome)} — proposta gerada em {gerado}"))
         self.cell(40, 4, _txt(f"Página {self.page_no()}"), align="R")
 
 
@@ -148,9 +148,9 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
     pdf.multi_cell(util, 8.5, _txt(orc.cliente or "Cliente"), align="L", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
 
-    # ---- metricas editoriais: sem caixa; tick azul, rotulos e valores em baselines unicas ----
+    # ---- metricas editoriais: sem caixa; tick preto, rotulos e valores em baselines unicas ----
     y0 = pdf.get_y()
-    pdf.set_fill_color(*AZUL)
+    pdf.set_fill_color(*PRETO)
     pdf.rect(pdf.l_margin, y0, 10, 1.5, style="F")
     X_FATOS = pdf.l_margin + 90
     LARG_FATO = 30.67  # 3 colunas terminam rentes a margem direita
@@ -168,7 +168,7 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
     # linha de valores: os menores descem 1,3mm para dividir a BASELINE com o numero-heroi
     pdf.set_xy(pdf.l_margin, y0 + 10)
     pdf.set_font("ManropeX", "", 23)
-    pdf.set_text_color(*AZUL)
+    pdf.set_text_color(*PRETO)
     pdf.cell(76, 11, _txt(f"R$ {_moeda_pt(total_doc)}"))
     pdf.set_font("Manrope", "B", 10.5)
     pdf.set_text_color(*TINTA)
@@ -200,7 +200,7 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
     for _, titulo, largura, alinh in colunas:
         pdf.micro(titulo, largura, alinh=alinh)
     pdf.ln(5.5)
-    pdf.set_draw_color(*MARINHO)
+    pdf.set_draw_color(*PRETO)
     pdf.set_line_width(0.45)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.set_draw_color(*FIO)
@@ -230,7 +230,7 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
     pdf.micro("Total", 24, alinh="R", altura=10)
     pdf.set_xy(pdf.l_margin + 124, y_tot)
     pdf.set_font("ManropeX", "", 13.5)
-    pdf.set_text_color(*AZUL)
+    pdf.set_text_color(*PRETO)
     pdf.cell(util - 124, 10, _txt(f"R$ {_moeda_pt(total_doc)}"), align="R")
     pdf.set_y(y_tot + 10 + 7)
 
@@ -265,7 +265,7 @@ def proposta_pdf(orc, itens: list, empresa_nome: str) -> bytes:
         pdf.add_page()
     y0 = pdf.get_y()
     responsavel = orc.criado_por or "nosso time comercial"
-    pdf.set_fill_color(*MARINHO)
+    pdf.set_fill_color(*PRETO)
     pdf.rect(pdf.l_margin, y0, util, ALTURA_CTA, style="F", round_corners=True, corner_radius=3)
     pdf.set_xy(pdf.l_margin + 7, y0 + 4.5)
     pdf.micro("Próximo passo", cor=(255, 255, 255))
