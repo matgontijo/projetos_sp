@@ -1,32 +1,28 @@
 import type { ReactNode } from 'react'
 
-/** Marca do app: monograma serifado dourado sobre azul-marinho (banco privado). */
+/** O logotipo GRUPO JPDV. `tamanho` é a altura do "JPDV" em px; o resto acompanha. */
+export function Logotipo({ tamanho = 26 }: { tamanho?: number }) {
+  return (
+    <span className="marca" style={{ fontSize: tamanho }} role="img" aria-label="Grupo JPDV">
+      <span className="grupo" aria-hidden>
+        Grupo
+      </span>
+      <span className="jpdv" aria-hidden>
+        JPDV
+      </span>
+    </span>
+  )
+}
+
+/** Marca do app: o logotipo + o nome do sistema. Desenhada p/ a faixa preta. */
 export function Marca() {
   return (
-    <div className="flex items-center gap-2.5">
-      <span
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-        style={{
-          background: 'linear-gradient(150deg, #1f4e79, #0d1728 80%)',
-          border: '1px solid rgba(212, 167, 44, 0.55)',
-          boxShadow: '0 6px 16px -8px rgba(13, 23, 40, 0.9)',
-        }}
-        aria-hidden
-      >
-        <span
-          className="text-[19px] font-black leading-none"
-          style={{ fontFamily: 'var(--font-display)', color: '#d4a72c', transform: 'translateY(-1px)' }}
-        >
-          F
-        </span>
+    <div>
+      <span style={{ color: 'var(--nav-text)' }}>
+        <Logotipo />
       </span>
-      <div className="leading-tight">
-        <div className="text-[15px] font-extrabold tracking-tight" style={{ color: 'var(--nav-text)', fontFamily: 'var(--font-display)' }}>
-          Fechamento
-        </div>
-        <div className="text-[11px] font-semibold" style={{ color: 'var(--nav-muted)' }}>
-          de projetos · Omie
-        </div>
+      <div className="mt-1.5 text-[11px] font-semibold leading-tight" style={{ color: 'var(--nav-muted)' }}>
+        Fechamento de projetos · Omie
       </div>
     </div>
   )
