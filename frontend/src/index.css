@@ -604,6 +604,56 @@ tr.linha-clicavel:hover td {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-1)) !important;
 }
 
+/* ---------- tabela com colunas fixas (lista de projetos) ----------
+   São 15 colunas: ao rolar para ver Resultado e Margem, perder de vista QUAL
+   projeto é a linha torna a tabela inútil. As três primeiras (seleção, projeto
+   e conferência) acompanham o scroll horizontal. Os offsets de `left` dependem
+   das larguras fixas declaradas abaixo — mexer numa exige mexer na outra. */
+.tabela-fixa th:nth-child(-n + 3),
+.tabela-fixa td:nth-child(-n + 3) {
+  position: sticky;
+  background: var(--surface-1);
+  z-index: 2;
+}
+.tabela-fixa th:nth-child(-n + 3) {
+  z-index: 4; /* o cabeçalho passa por cima das células ao rolar */
+}
+/* min-width E max-width juntos: só `width` é uma sugestão em tabela de layout
+   automático, e uma largura menor que o offset de `left` da coluna seguinte abre
+   uma fresta por onde o conteúdo rolando aparece. */
+.tabela-fixa th:nth-child(1),
+.tabela-fixa td:nth-child(1) {
+  left: 0;
+  min-width: 3.1rem;
+  max-width: 3.1rem;
+}
+.tabela-fixa th:nth-child(2),
+.tabela-fixa td:nth-child(2) {
+  left: 3.1rem;
+  min-width: 13rem;
+  max-width: 13rem;
+}
+.tabela-fixa th:nth-child(3),
+.tabela-fixa td:nth-child(3) {
+  left: 16.1rem;
+  min-width: 4.6rem;
+  max-width: 4.6rem;
+  /* fio à direita: marca onde acaba a parte congelada */
+  box-shadow: 1px 0 0 var(--gridline);
+}
+/* o número do projeto pode ser enorme ("BR25_211_18.B6/BR25_211_18.B7/…") —
+   corta com reticências e mantém o inteiro no title */
+.tabela-fixa td:nth-child(2) .projeto-nome {
+  display: block;
+  max-width: 11.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabela-fixa tr.linha-selecionada td {
+  background: color-mix(in srgb, var(--accent) 11%, var(--surface-1)) !important;
+}
+
 /* ---------- navegação lateral (sempre escura) ---------- */
 
 .nav-secao {

@@ -143,6 +143,7 @@ export default function Projetos() {
   const queryClient = useQueryClient()
   const { data: eu } = useQuery({ queryKey: ['eu'], queryFn: api.eu })
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [ultimoClique, setUltimoClique] = useState<number | null>(null)
   const [resultadoLote, setResultadoLote] = useState<ResultadoLote | null>(null)
 
   const darOks = useMutation({
@@ -158,13 +159,27 @@ export default function Projetos() {
     setOrdem((o) => ({ campo, desc: o.campo === campo ? !o.desc : true }))
   }
 
-  function alternarSelecao(nome: string) {
+  /** Clique marca um; shift+clique marca o intervalo desde o último — conferir
+   *  centenas de projetos um clique por vez não é trabalho, é castigo. */
+  function alternarSelecao(indice: number, comShift: boolean) {
+    const nome = projetos[indice].projeto
     setSelecionados((atual) => {
       const novo = new Set(atual)
-      if (novo.has(nome)) novo.delete(nome)
-      else novo.add(nome)
+      if (comShift && ultimoClique !== null && ultimoClique < projetos.length) {
+        const [inicio, fim] = ultimoClique < indice ? [ultimoClique, indice] : [indice, ultimoClique]
+        const marcando = !novo.has(nome)
+        for (let i = inicio; i <= fim; i++) {
+          if (marcando) novo.add(projetos[i].projeto)
+          else novo.delete(projetos[i].projeto)
+        }
+      } else if (novo.has(nome)) {
+        novo.delete(nome)
+      } else {
+        novo.add(nome)
+      }
       return novo
     })
+    setUltimoClique(indice)
   }
 
   const todos = data?.projetos || []
@@ -384,24 +399,22 @@ export default function Projetos() {
           </div>
         </div>
         <div className="tabela-wrap">
-        <table className="data">
+        <table className="data tabela-fixa">
           <thead>
             <tr>
-              <th style={{ width: 32 }}>
+              <th>
                 <input
                   type="checkbox"
                   className="align-middle"
                   style={{ accentColor: 'var(--accent)' }}
                   checked={todosMarcados}
                   onChange={marcarTodos}
-                  aria-label="Selecionar todos os projetos visíveis"
-                  title="Selecionar todos os visíveis"
+                  aria-label="Selecionar todos os projetos da lista"
+                  title={`Marcar os ${projetos.length} projetos desta lista (dica: shift+clique seleciona um intervalo)`}
                 />
               </th>
               <Th campo="projeto" numerica={false}>Projeto</Th>
-              <th style={{ width: 64 }} title="Dupla conferência: 0/2 sem ok, 1/2 conferido, 2/2 conferido e aprovado">
-                Conf.
-              </th>
+              <th title="Dupla conferência: 0/2 sem ok, 1/2 conferido, 2/2 conferido e aprovado">Conf.</th>
               <th>Empresas</th>
               <th>Cliente</th>
               <Th campo="receita">Receita</Th>
@@ -434,12 +447,11 @@ export default function Projetos() {
                 </td>
               </tr>
             )}
-            {projetos.map((p) => (
+            {projetos.map((p, indice) => (
               <tr
                 key={p.projeto}
-                className="linha-clicavel"
+                className={`linha-clicavel${selecionados.has(p.projeto) ? ' linha-selecionada' : ''}`}
                 onClick={() => abrir(p)}
-                style={selecionados.has(p.projeto) ? { background: 'color-mix(in srgb, var(--accent) 8%, transparent)' } : undefined}
               >
                 <td onClick={(e) => e.stopPropagation()}>
                   <input
@@ -447,15 +459,18 @@ export default function Projetos() {
                     className="align-middle"
                     style={{ accentColor: 'var(--accent)' }}
                     checked={selecionados.has(p.projeto)}
-                    onChange={() => alternarSelecao(p.projeto)}
+                    // onClick (e não onChange) porque só o evento de mouse traz shiftKey
+                    onClick={(e) => alternarSelecao(indice, e.shiftKey)}
+                    onChange={() => {}}
                     aria-label={`Selecionar ${p.projeto}`}
                   />
                 </td>
-                <td className="whitespace-nowrap">
+                <td>
                   <Link
                     to={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`}
-                    className="font-semibold underline-offset-2 hover:underline"
+                    className="projeto-nome font-semibold underline-offset-2 hover:underline"
                     style={{ color: 'var(--accent)' }}
+                    title={p.projeto}
                   >
                     {p.projeto}
                   </Link>
