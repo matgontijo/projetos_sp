@@ -10,6 +10,7 @@ import {
   type UsuarioLogado,
 } from './api/client'
 import { ICONES, Marca } from './components/Layout'
+import Ajuda from './pages/Ajuda'
 import Analises from './pages/Analises'
 import CadastroPrecificacao from './pages/CadastroPrecificacao'
 import Compras from './pages/Compras'
@@ -133,6 +134,12 @@ const SECOES: SecaoMenu[] = [
       { to: '/sincronizar', label: 'Buscar dados', icone: ICONES.buscar },
       { to: '/empresas', label: 'Empresas', icone: ICONES.empresas },
     ],
+  },
+  // o guia é para todo mundo, inclusive quem só usa a precificação
+  {
+    titulo: 'Ajuda',
+    papeis: ['admin', 'financeiro', 'leitura', 'comercial'],
+    itens: [{ to: '/ajuda', label: 'Como usar', icone: ICONES.ajuda }],
   },
 ]
 
@@ -312,6 +319,8 @@ export default function App() {
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 py-5 md:px-8 md:py-6">
           <Routes>
             <Route path="/" element={<Navigate to={inicio} replace />} />
+            {/* guia de uso: liberado para qualquer papel */}
+            <Route path="/ajuda" element={<Ajuda />} />
             {/* custeio: invisível para o comercial (o servidor também bloqueia com 403) */}
             {!ehComercial && (
               <>
