@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, type UsuarioLogado } from '../api/client'
-import { Marca } from '../components/Layout'
+import { Logotipo, Marca } from '../components/Layout'
 
 export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario: UsuarioLogado) => void }) {
   const { data: setupInfo } = useQuery({ queryKey: ['precisa-setup'], queryFn: api.precisaSetup })
@@ -43,9 +43,11 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
       >
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(560px 420px at 20% -10%, rgba(212, 167, 44, 0.16), transparent 70%)' }}
+          style={{ background: 'radial-gradient(560px 420px at 20% -10%, rgba(255, 255, 255, 0.09), transparent 70%)' }}
         />
-        <Marca />
+        <span style={{ color: 'var(--nav-text)' }}>
+          <Logotipo tamanho={44} />
+        </span>
         <div className="relative">
           <h1 className="anima-sobe max-w-md text-4xl font-extrabold leading-tight" style={{ color: 'var(--nav-text)' }}>
             Cada projeto fechado, cada real explicado.
@@ -64,7 +66,7 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
               className="anima-barra w-6 rounded-t-md"
               style={{
                 height: h,
-                background: `rgba(212, 167, 44, ${0.12 + i * 0.05})`,
+                background: `rgba(245, 245, 243, ${0.1 + i * 0.045})`,
                 animationDelay: `${0.25 + i * 0.06}s`,
               }}
             />
