@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { api, usuarioLogado, type TesteConexao, type UsuarioLogado } from '../api/client'
+import {
+  api,
+  usuarioLogado,
+  type Empresa,
+  type ImpostoEmpresa,
+  type TesteConexao,
+  type UsuarioLogado,
+} from '../api/client'
 import { PageHeader } from '../components/Layout'
 
 const GRUPOS = [
@@ -20,11 +27,41 @@ interface FormEmpresa {
   app_key: string
   app_secret: string
   regime: 'nota' | 'simples'
-  aliquota_extra: string
+  impostos: ImpostoEmpresa[]
+  fonte_imposto: 'nfe' | 'aliquota'
 }
 
 const FORM_VAZIO: FormEmpresa = {
-  nome: '', cnpj: '', app_key: '', app_secret: '', regime: 'nota', aliquota_extra: '',
+  nome: '', cnpj: '', app_key: '', app_secret: '', regime: 'nota', impostos: [], fonte_imposto: 'nfe',
+}
+
+/** A tabela que a contabilidade manda no Lucro Presumido — 19,05% da venda. */
+const TABELA_PRESUMIDO: ImpostoEmpresa[] = [
+  { nome: 'PIS', aliquota: 0.65 },
+  { nome: 'COFINS', aliquota: 3 },
+  { nome: 'ICMS', aliquota: 12 },
+  { nome: 'CSLL', aliquota: 1.2 },
+  { nome: 'IRPJ', aliquota: 1.08 },
+  { nome: 'Add. IRPJ', aliquota: 1.12 },
+]
+
+/** Só o que NÃO aparece na nota fiscal (o resto vem da NF-e). */
+const FORA_DA_NOTA: ImpostoEmpresa[] = [
+  { nome: 'CSLL', aliquota: 1.2 },
+  { nome: 'IRPJ', aliquota: 1.08 },
+  { nome: 'Add. IRPJ', aliquota: 1.12 },
+]
+
+const somaImpostos = (itens: ImpostoEmpresa[]) => itens.reduce((s, i) => s + (Number(i.aliquota) || 0), 0)
+const pct = (v: number) => `${v.toFixed(2).replace('.', ',')}%`
+
+/** Empresa antiga tinha um % único; vira a primeira linha da tabela. */
+function impostosDaEmpresa(e: Empresa): ImpostoEmpresa[] {
+  if (e.impostos?.length) return e.impostos
+  if (e.aliquota_extra > 0) {
+    return [{ nome: e.regime === 'simples' ? 'Simples Nacional' : 'Imposto sobre a receita', aliquota: e.aliquota_extra }]
+  }
+  return []
 }
 
 export default function Empresas() {
@@ -38,11 +75,17 @@ export default function Empresas() {
 
   const salvar = useMutation({
     mutationFn: async (f: FormEmpresa) => {
+      const impostos = f.impostos
+        .filter((i) => i.nome.trim())
+        .map((i) => ({ nome: i.nome.trim(), aliquota: Number(i.aliquota) || 0 }))
       const payload: Record<string, unknown> = {
         nome: f.nome,
         cnpj: f.cnpj,
         regime: f.regime,
-        aliquota_extra: f.aliquota_extra === '' ? 0 : Number(f.aliquota_extra),
+        impostos,
+        fonte_imposto: f.fonte_imposto,
+        // campo antigo segue espelhando o total, para nada ficar inconsistente
+        aliquota_extra: somaImpostos(impostos),
       }
       if (f.app_key) payload.app_key = f.app_key
       if (f.app_secret) payload.app_secret = f.app_secret
@@ -112,16 +155,29 @@ export default function Empresas() {
                     >
                       {e.regime === 'simples' ? 'Simples Nacional' : 'Lucro Presumido / Real'}
                     </span>
-                    {e.aliquota_extra > 0 && (
+                    {somaImpostos(impostosDaEmpresa(e)) > 0 && (
                       <span
                         className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         style={{ background: 'color-mix(in srgb, var(--serie-imposto) 15%, transparent)', color: 'var(--text-secondary)' }}
+                        title={impostosDaEmpresa(e)
+                          .map((i) => `${i.nome} ${pct(Number(i.aliquota))}`)
+                          .join(' · ')}
                       >
-                        {e.regime === 'simples' ? '' : '+'}
-                        {String(e.aliquota_extra).replace('.', ',')}% de imposto s/ receita
+                        {e.regime === 'nota' && e.fonte_imposto === 'nfe' ? '+' : ''}
+                        {pct(somaImpostos(impostosDaEmpresa(e)))} s/ receita
+                        {impostosDaEmpresa(e).length > 1 && ` · ${impostosDaEmpresa(e).length} impostos`}
                       </span>
                     )}
-                    {e.regime === 'simples' && !(e.aliquota_extra > 0) && (
+                    {e.regime === 'nota' && e.fonte_imposto === 'aliquota' && (
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+                        title="A NF-e não entra no cálculo: o imposto sai só desta tabela"
+                      >
+                        calculado pela tabela
+                      </span>
+                    )}
+                    {e.regime === 'simples' && !(somaImpostos(impostosDaEmpresa(e)) > 0) && (
                       <span
                         className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                         style={{ background: 'color-mix(in srgb, var(--neg) 12%, transparent)', color: 'var(--neg)' }}
@@ -150,7 +206,8 @@ export default function Empresas() {
                         app_key: '',
                         app_secret: '',
                         regime: e.regime,
-                        aliquota_extra: e.aliquota_extra ? String(e.aliquota_extra) : '',
+                        impostos: impostosDaEmpresa(e),
+                        fonte_imposto: e.fonte_imposto || 'nfe',
                       })
                     }
                   >
@@ -256,24 +313,106 @@ export default function Empresas() {
                   <option value="simples">Simples Nacional (alíquota fixa sobre a receita)</option>
                 </select>
               </label>
-              <label className="text-sm">
-                {form.regime === 'simples' ? 'Alíquota do Simples sobre a receita (%)' : 'Imposto extra sobre a receita (%)'}
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  className="input mt-1 w-full"
-                  placeholder="0"
-                  value={form.aliquota_extra}
-                  onChange={(ev) => setForm({ ...form, aliquota_extra: ev.target.value })}
-                />
-                <span className="help mt-1 block">
+              {form.regime === 'nota' && (
+                <label className="text-sm">
+                  De onde vem o imposto do projeto?
+                  <select
+                    className="input mt-1 w-full"
+                    value={form.fonte_imposto}
+                    onChange={(ev) => setForm({ ...form, fonte_imposto: ev.target.value as 'nfe' | 'aliquota' })}
+                  >
+                    <option value="nfe">Das notas fiscais + os % abaixo (padrão)</option>
+                    <option value="aliquota">Só pelos % abaixo, sobre a receita (igual à planilha)</option>
+                  </select>
+                  <span className="help mt-1 block">
+                    {form.fonte_imposto === 'nfe'
+                      ? 'O ICMS, PIS e COFINS saem das notas emitidas; abaixo você cadastra só o que não aparece na nota (IRPJ, CSLL…).'
+                      : 'A nota fiscal não entra no cálculo — o imposto do projeto é a soma dos % abaixo sobre a receita.'}
+                  </span>
+                </label>
+              )}
+
+              <div className="text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{form.regime === 'simples' ? 'Alíquota do Simples sobre a receita' : 'Impostos sobre a receita'}</span>
+                  {form.impostos.length > 0 && (
+                    <span className="pill" style={{ '--pill': 'var(--serie-imposto)' } as React.CSSProperties}>
+                      total {pct(somaImpostos(form.impostos))} da receita
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-1.5 grid gap-1.5">
+                  {form.impostos.map((imp, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        className="input min-w-0 flex-1"
+                        placeholder="ex.: ICMS"
+                        aria-label={`Nome do imposto ${i + 1}`}
+                        value={imp.nome}
+                        onChange={(ev) => {
+                          const impostos = [...form.impostos]
+                          impostos[i] = { ...imp, nome: ev.target.value }
+                          setForm({ ...form, impostos })
+                        }}
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        className="input w-24"
+                        aria-label={`Alíquota do imposto ${i + 1} em %`}
+                        value={imp.aliquota}
+                        onChange={(ev) => {
+                          const impostos = [...form.impostos]
+                          impostos[i] = { ...imp, aliquota: ev.target.value === '' ? 0 : Number(ev.target.value) }
+                          setForm({ ...form, impostos })
+                        }}
+                      />
+                      <span style={{ color: 'var(--text-muted)' }}>%</span>
+                      <button
+                        className="btn btn-perigo px-2.5 py-1"
+                        title={`Remover ${imp.nome || 'imposto'}`}
+                        onClick={() => setForm({ ...form, impostos: form.impostos.filter((_, j) => j !== i) })}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    className="btn btn-ghost text-xs"
+                    onClick={() => setForm({ ...form, impostos: [...form.impostos, { nome: '', aliquota: 0 }] })}
+                  >
+                    + Adicionar imposto
+                  </button>
+                  {form.regime === 'nota' && (
+                    <button
+                      className="btn btn-ghost text-xs"
+                      title="Preenche a tabela e você ajusta o que for diferente"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          impostos: form.fonte_imposto === 'aliquota' ? [...TABELA_PRESUMIDO] : [...FORA_DA_NOTA],
+                        })
+                      }
+                    >
+                      {form.fonte_imposto === 'aliquota'
+                        ? 'Usar tabela do Presumido (19,05%)'
+                        : 'Usar IRPJ/CSLL do Presumido (3,40%)'}
+                    </button>
+                  )}
+                </div>
+
+                <span className="help mt-1.5 block">
                   {form.regime === 'simples'
-                    ? 'É esta alíquota que o app aplica sobre a receita dos projetos desta empresa (ex.: 10,5). Sem ela, o imposto do Simples fica em R$ 0.'
-                    : 'Para impostos que não aparecem na nota fiscal, como IRPJ/CSLL do Lucro Presumido (na planilha de vocês isso é ~3,4% da venda). Deixe 0 se não souber — dá para ajustar depois.'}
+                    ? 'É esta alíquota que o app aplica sobre a receita dos projetos desta empresa (ex.: Simples Nacional 10,5). Sem ela, o imposto fica em R$ 0.'
+                    : 'Uma linha por imposto, como na planilha da contabilidade. A soma é o que o app aplica sobre a receita dos projetos.'}
                 </span>
-              </label>
+              </div>
             </div>
             {salvar.isError && (
               <p className="mt-2 text-sm" style={{ color: 'var(--neg)' }}>

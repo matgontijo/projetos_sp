@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 # fuso: TIMESTAMPTZ no Postgres, DATETIME no SQLite).
 _COLUNAS_ADITIVAS = [
     ("empresa", "aliquota_extra", "NUMERIC(6,3)", "0"),
+    # Impostos itemizados por empresa (PIS, COFINS, ICMS, CSLL, IRPJ...)
+    ("empresa", "impostos", {"postgresql": "JSONB", "sqlite": "JSON"}, None),
+    ("empresa", "fonte_imposto", "VARCHAR(10)", "'nfe'"),
+    ("orcamento", "resultado_previsto", "NUMERIC(15,2)", None),
     ("titulo", "codigo_vendedor", "BIGINT", None),
     ("orcamento_venda", "cliente_cnpj", "VARCHAR(20)", "''"),
     # Dupla conferencia (dois ok por projeto). As administradoras ja existentes

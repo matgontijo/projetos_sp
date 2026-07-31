@@ -22,17 +22,37 @@ router = APIRouter(prefix="/api", tags=["extras"])
 
 class OrcamentoIn(BaseModel):
     nome: str = Field(min_length=1)
+    # o que a proposta projetava de LUCRO (pode ser negativo em projeto-isca)
+    resultado_previsto: float | None = None
+    # legado: telas antigas ainda podem mandar os dois
     receita_prevista: float | None = Field(default=None, ge=0)
     custo_previsto: float | None = Field(default=None, ge=0)
+
+
+def _projetado(row: models.Orcamento) -> float | None:
+    """Resultado projetado: o campo direto ou, nos registros antigos, receita − custo."""
+    if row.resultado_previsto is not None:
+        return float(row.resultado_previsto)
+    if row.receita_prevista is not None and row.custo_previsto is not None:
+        return float(row.receita_prevista) - float(row.custo_previsto)
+    return None
 
 
 @router.get("/orcamentos")
 def obter_orcamento(nome: str = Query(min_length=1), db: Session = Depends(get_db)):
     row = db.get(models.Orcamento, chave_projeto(nome))
     if not row:
-        return {"nome": nome, "receita_prevista": None, "custo_previsto": None, "atualizado_por": "", "atualizado_em": None}
+        return {
+            "nome": nome,
+            "resultado_previsto": None,
+            "receita_prevista": None,
+            "custo_previsto": None,
+            "atualizado_por": "",
+            "atualizado_em": None,
+        }
     return {
         "nome": row.nome_exibicao or nome,
+        "resultado_previsto": _projetado(row),
         "receita_prevista": float(row.receita_prevista) if row.receita_prevista is not None else None,
         "custo_previsto": float(row.custo_previsto) if row.custo_previsto is not None else None,
         "atualizado_por": row.atualizado_por,
@@ -52,11 +72,17 @@ def salvar_orcamento(
         row = models.Orcamento(chave_projeto=chave)
         db.add(row)
     row.nome_exibicao = payload.nome
-    row.receita_prevista = payload.receita_prevista
-    row.custo_previsto = payload.custo_previsto
+    row.resultado_previsto = payload.resultado_previsto
+    if payload.receita_prevista is not None or payload.custo_previsto is not None:
+        row.receita_prevista = payload.receita_prevista
+        row.custo_previsto = payload.custo_previsto
+    elif payload.resultado_previsto is not None:
+        # a tela agora pede so o resultado: os campos antigos nao valem mais
+        row.receita_prevista = None
+        row.custo_previsto = None
     row.atualizado_por = usuario.nome
     db.commit()
-    cache.invalidar()  # alertas de orcamento estourado dependem disto
+    cache.invalidar()  # os alertas de projeto abaixo do projetado dependem disto
     return obter_orcamento(payload.nome, db)
 
 

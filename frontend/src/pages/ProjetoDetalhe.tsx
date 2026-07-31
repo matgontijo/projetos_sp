@@ -163,6 +163,15 @@ export default function ProjetoDetalhe() {
   const f = data?.fechamento
   const receber = (data?.titulos || []).filter((t) => t.tipo === 'receber')
   const pagar = (data?.titulos || []).filter((t) => t.tipo === 'pagar')
+  // saldo do rodapé: só o que ENTRA no fechamento (cancelado/excluído fica fora)
+  const totalReceber = somaValidos(receber, (t) => t.valor_documento, (t) => t.cancelado || t.excluido)
+  const totalPagar = somaValidos(pagar, (t) => t.valor_documento, (t) => t.cancelado || t.excluido)
+  const nfesValidas = (data?.nfes || []).filter((n) => !n.cancelada && !n.excluida)
+  const totalNfe = {
+    fora: (data?.nfes || []).length - nfesValidas.length,
+    valor: nfesValidas.reduce((s, n) => s + n.v_nf, 0),
+    imposto: nfesValidas.reduce((s, n) => s + n.imposto_total, 0),
+  }
   const [aba, setAba] = useState<'receber' | 'pagar' | 'nfe' | 'ajustes' | 'comentarios'>('receber')
   const abas = [
     { id: 'receber' as const, rotulo: `Recebimentos (${receber.length})` },
@@ -453,6 +462,20 @@ export default function ProjetoDetalhe() {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={5}>
+                Total recebido/a receber
+                {totalReceber.fora > 0 && (
+                  <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                    ({totalReceber.fora} fora do fechamento)
+                  </span>
+                )}
+              </td>
+              <td className="num">{fmtBRL(totalReceber.total)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       </Secao>
       )}
@@ -526,6 +549,20 @@ export default function ProjetoDetalhe() {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={5}>
+                Total pago/a pagar
+                {totalPagar.fora > 0 && (
+                  <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                    ({totalPagar.fora} fora do fechamento)
+                  </span>
+                )}
+              </td>
+              <td className="num">{fmtBRL(totalPagar.total)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       </Secao>
       )}
@@ -602,6 +639,22 @@ export default function ProjetoDetalhe() {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4}>
+                Total das notas
+                {totalNfe.fora > 0 && (
+                  <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                    ({totalNfe.fora} fora do fechamento)
+                  </span>
+                )}
+              </td>
+              <td className="num">{fmtBRL(totalNfe.valor)}</td>
+              <td colSpan={5}></td>
+              <td className="num">{fmtBRL(totalNfe.imposto)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       </Secao>
       )}
@@ -736,19 +789,26 @@ export default function ProjetoDetalhe() {
   )
 }
 
+/** Soma o que entra no fechamento e conta quantos ficaram de fora (rodapé das tabelas). */
+function somaValidos<T>(itens: T[], valor: (i: T) => number, fora: (i: T) => boolean) {
+  let total = 0
+  let descartados = 0
+  for (const item of itens) {
+    if (fora(item)) descartados++
+    else total += valor(item)
+  }
+  return { total, fora: descartados }
+}
+
+/** Projetado × realizado: a proposta prometia TANTO de lucro — deu quanto? */
 function OrcadoRealizado({ nome, orcamento, fechamento }: { nome: string; orcamento: Orcamento; fechamento: LinhaFechamento }) {
   const queryClient = useQueryClient()
-  const [receita, setReceita] = useState(orcamento.receita_prevista?.toString() ?? '')
-  const [custo, setCusto] = useState(orcamento.custo_previsto?.toString() ?? '')
-  const [editando, setEditando] = useState(orcamento.receita_prevista === null && orcamento.custo_previsto === null)
+  const [projetado, setProjetado] = useState(orcamento.resultado_previsto?.toString() ?? '')
+  const [editando, setEditando] = useState(orcamento.resultado_previsto === null)
 
   const salvar = useMutation({
     mutationFn: () =>
-      api.salvarOrcamento({
-        nome,
-        receita_prevista: receita === '' ? null : Number(receita),
-        custo_previsto: custo === '' ? null : Number(custo),
-      }),
+      api.salvarOrcamento({ nome, resultado_previsto: projetado === '' ? null : Number(projetado) }),
     onSuccess: () => {
       setEditando(false)
       queryClient.invalidateQueries({ queryKey: ['orcamento', nome] })
@@ -756,63 +816,58 @@ function OrcadoRealizado({ nome, orcamento, fechamento }: { nome: string; orcame
     },
   })
 
-  const desvio = (previsto: number | null, realizado: number) =>
-    previsto === null || previsto === 0 ? null : realizado - previsto
-
-  const dCusto = desvio(orcamento.custo_previsto, fechamento.custo_total)
-  const dReceita = desvio(orcamento.receita_prevista, fechamento.receita)
+  const previsto = orcamento.resultado_previsto
+  const desvio = previsto === null ? null : fechamento.resultado - previsto
 
   return (
     <div className="card mt-4 px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-bold">Orçado × Realizado</h3>
+        <h3 className="text-sm font-bold">Resultado projetado × realizado</h3>
         {!editando && (
           <button className="btn btn-ghost text-xs" onClick={() => setEditando(true)}>
-            Editar orçamento
+            {previsto === null ? 'Informar projetado' : 'Editar projetado'}
           </button>
         )}
       </div>
       {editando ? (
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="text-sm">
-            Receita prevista (R$)
-            <input type="number" min="0" className="input mt-1 block w-40" value={receita} onChange={(e) => setReceita(e.target.value)} />
-          </label>
-          <label className="text-sm">
-            Custo previsto (R$)
-            <input type="number" min="0" className="input mt-1 block w-40" value={custo} onChange={(e) => setCusto(e.target.value)} />
+            Resultado projetado (R$)
+            <input
+              type="number"
+              className="input mt-1 block w-48"
+              placeholder="ex.: 54129,11"
+              value={projetado}
+              onChange={(e) => setProjetado(e.target.value)}
+            />
           </label>
           <button className="btn btn-primary" disabled={salvar.isPending} onClick={() => salvar.mutate()}>
             {salvar.isPending ? 'Salvando…' : 'Salvar'}
           </button>
-          <p className="help w-full">O previsto vem da proposta/pedido; o app compara sozinho com o realizado e avisa quando estourar.</p>
+          <p className="help w-full">
+            O lucro que a proposta prometia para este projeto. O app compara sozinho com o realizado e avisa quando
+            render menos.
+          </p>
         </div>
       ) : (
-        <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <span className="titulo-secao">Receita</span>
-            <p className="mt-0.5">
-              Prevista {orcamento.receita_prevista !== null ? fmtBRL(orcamento.receita_prevista) : '—'} · realizada{' '}
-              <b>{fmtBRL(fechamento.receita)}</b>
-              {dReceita !== null && (
-                <b style={{ color: dReceita >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
-                  {' '}({dReceita >= 0 ? '+' : ''}{fmtBRL(dReceita)})
-                </b>
-              )}
-            </p>
-          </div>
-          <div>
-            <span className="titulo-secao">Custo total</span>
-            <p className="mt-0.5">
-              Previsto {orcamento.custo_previsto !== null ? fmtBRL(orcamento.custo_previsto) : '—'} · realizado{' '}
-              <b>{fmtBRL(fechamento.custo_total)}</b>
-              {dCusto !== null && (
-                <b style={{ color: dCusto <= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
-                  {' '}({dCusto >= 0 ? '+' : ''}{fmtBRL(dCusto)}{dCusto > 0 ? ' ESTOURO' : ''})
-                </b>
-              )}
-            </p>
-          </div>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-7 gap-y-2 text-sm">
+          <span>
+            <span className="titulo-secao mr-1.5">Projetado</span>
+            <b>{previsto !== null ? fmtBRL(previsto) : '—'}</b>
+          </span>
+          <span>
+            <span className="titulo-secao mr-1.5">Realizado</span>
+            <b style={{ color: fechamento.resultado >= 0 ? undefined : 'var(--neg)' }}>{fmtBRL(fechamento.resultado)}</b>
+          </span>
+          {desvio !== null && (
+            <span
+              className="pill"
+              style={{ '--pill': desvio >= 0 ? 'var(--status-good)' : 'var(--neg)' } as React.CSSProperties}
+            >
+              {desvio >= 0 ? '+' : '−'}
+              {fmtBRL(Math.abs(desvio))} {desvio >= 0 ? 'acima do projetado' : 'abaixo do projetado'}
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -155,6 +155,23 @@ def grupos_por_categoria(db: Session, empresa_ids: list[int]) -> dict[tuple[int,
     return {(r.empresa_id, r.codigo_categoria): r.grupo for r in rows}
 
 
+def aliquota_da_empresa(empresa: models.Empresa) -> float:
+    """Fracao de imposto sobre a receita vinda do CADASTRO da empresa.
+
+    Soma as linhas itemizadas (PIS, COFINS, ICMS, CSLL, IRPJ...); sem linhas, cai
+    no campo unico legado `aliquota_extra`. Nunca ha valor default/hardcoded.
+    """
+    itens = empresa.impostos or []
+    if itens:
+        return sum(_f(item.get("aliquota")) for item in itens if isinstance(item, dict)) / 100.0
+    return _f(empresa.aliquota_extra) / 100.0
+
+
+def nfe_entra_no_imposto(empresa: models.Empresa | None) -> bool:
+    """Quem calcula TUDO por aliquota (igual a planilha) nao soma a NF-e — duplicaria."""
+    return empresa is None or (empresa.fonte_imposto or "nfe") != "aliquota"
+
+
 def imposto_da_nfe(nfe: models.NFe) -> float:
     return (
         _f(nfe.v_icms)
@@ -280,14 +297,16 @@ def fechar_projetos(
         if titulo.codigo_cliente_fornecedor:
             ln._clientes[(titulo.empresa_id, titulo.codigo_cliente_fornecedor)] += 1
         empresa = ctx.empresas.get(titulo.empresa_id)
-        if empresa and _f(empresa.aliquota_extra) > 0:
-            parcela = valor * _f(empresa.aliquota_extra) / 100.0
-            if empresa.regime == "simples":
-                # Simples: a aliquota do cadastro E o imposto da empresa (sem calculo automatico)
-                ln.imposto_simples += parcela
-            else:
-                # impostos fora da NF-e (ex.: IRPJ/CSLL do Presumido), % sobre a receita
-                ln.imposto_extra += parcela
+        if empresa:
+            parcela = valor * aliquota_da_empresa(empresa)
+            if parcela:
+                if empresa.regime == "simples":
+                    # Simples: a aliquota do cadastro E o imposto da empresa (sem calculo automatico)
+                    ln.imposto_simples += parcela
+                else:
+                    # Presumido: os impostos cadastrados (IRPJ/CSLL, ou a tabela inteira
+                    # quando a empresa calcula tudo por aliquota), % sobre a receita
+                    ln.imposto_extra += parcela
 
     # --- Contas a Pagar: custos por grupo ---
     for titulo in ctx.titulos:
@@ -339,7 +358,8 @@ def fechar_projetos(
                 imposto = imposto_da_nfe(nfe)
         else:
             imposto = imposto_da_nfe(nfe)
-        ln.imposto_nfe += imposto
+        if nfe_entra_no_imposto(ctx.empresas.get(nfe.empresa_id)):
+            ln.imposto_nfe += imposto
         ln.qtd_nfe += 1
 
     # --- Nome do cliente principal ---
@@ -403,9 +423,10 @@ def serie_mensal(
             valor = _f(titulo.valor_documento)
             ln["receita"] += valor
             empresa = ctx.empresas.get(titulo.empresa_id)
-            if empresa and _f(empresa.aliquota_extra) > 0:
-                # Simples: aliquota do cadastro; Presumido: % extra fora da NF-e
-                ln["imposto"] += valor * _f(empresa.aliquota_extra) / 100.0
+            if empresa:
+                # impostos cadastrados na empresa (Simples: a aliquota; Presumido:
+                # IRPJ/CSLL fora da nota, ou a tabela inteira se ela e a fonte)
+                ln["imposto"] += valor * aliquota_da_empresa(empresa)
         else:
             grupo_override = ctx.ajustes.get("titulo", titulo.id, "grupo")
             for grupo, valor in _parcelas_do_titulo(titulo, ctx.grupos, grupo_override):
@@ -420,6 +441,8 @@ def serie_mensal(
             continue
         mes = mes_de(nfe.d_emi)
         if not mes:
+            continue
+        if not nfe_entra_no_imposto(ctx.empresas.get(nfe.empresa_id)):
             continue
         override = ctx.ajustes.get("nfe", nfe.id, "valor_imposto")
         try:
