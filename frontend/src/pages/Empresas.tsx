@@ -380,6 +380,9 @@ const PAPEIS_OPCOES = [
   { valor: 'leitura', label: 'Leitura — só consulta e simulador' },
 ]
 
+// Dupla conferência: só quem escreve no custeio pode ser aprovador
+const PAPEIS_APROVADOR = new Set(['admin', 'financeiro'])
+
 function Equipe() {
   const queryClient = useQueryClient()
   const eu = usuarioLogado()
@@ -399,8 +402,13 @@ function Equipe() {
     onError: (e) => setErro((e as Error).message),
   })
   const atualizar = useMutation({
-    mutationFn: ({ id, dados }: { id: number; dados: Partial<{ papel: string; ativo: boolean; senha: string }> }) =>
-      api.atualizarUsuario(id, dados),
+    mutationFn: ({
+      id,
+      dados,
+    }: {
+      id: number
+      dados: Partial<{ papel: string; ativo: boolean; senha: string; pode_aprovar: boolean }>
+    }) => api.atualizarUsuario(id, dados),
     onSuccess: () => {
       setErro('')
       invalidar()
@@ -476,12 +484,38 @@ function Equipe() {
               aria-label={`Tipo de acesso de ${u.nome}`}
               value={u.papel}
               disabled={u.id === eu?.id}
-              onChange={(e) => atualizar.mutate({ id: u.id, dados: { papel: e.target.value } })}
+              onChange={(e) =>
+                atualizar.mutate({
+                  id: u.id,
+                  // quem deixa de escrever no custeio deixa de ser aprovador junto,
+                  // senão o servidor recusa a combinação
+                  dados: PAPEIS_APROVADOR.has(e.target.value)
+                    ? { papel: e.target.value }
+                    : { papel: e.target.value, pode_aprovar: false },
+                })
+              }
             >
               {PAPEIS_OPCOES.map((p) => (
                 <option key={p.valor} value={p.valor}>{p.label.split(' — ')[0]}</option>
               ))}
             </select>
+            <label
+              className="flex items-center gap-1.5 text-xs"
+              title={
+                PAPEIS_APROVADOR.has(u.papel)
+                  ? 'Marque para esta pessoa poder dar o 2º ok (aprovação) da conferência dos projetos'
+                  : 'Só admin ou financeiro podem aprovar — este acesso não escreve no custeio'
+              }
+              style={{ color: 'var(--text-muted)', opacity: PAPEIS_APROVADOR.has(u.papel) ? 1 : 0.45 }}
+            >
+              <input
+                type="checkbox"
+                checked={u.pode_aprovar}
+                disabled={!PAPEIS_APROVADOR.has(u.papel)}
+                onChange={(e) => atualizar.mutate({ id: u.id, dados: { pode_aprovar: e.target.checked } })}
+              />
+              aprova (2º ok)
+            </label>
             <button className="btn btn-ghost px-2 py-0.5 text-xs" onClick={() => redefinirSenha(u)}>
               Redefinir senha
             </button>

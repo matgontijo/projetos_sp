@@ -1,4 +1,4 @@
-"""Orcado x Realizado, aprovacao de fechamento e comentarios — por projeto (chave BR)."""
+"""Orcado x Realizado, dupla conferencia e comentarios — por projeto (chave BR)."""
 
 from datetime import date
 
@@ -8,8 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import cache, models
-from ..auth import usuario_logado
+from ..auth import exigir_admin, guarda_custeio, usuario_logado
 from ..db import get_db
+from ..services import conferencia
 from ..services.calculo import chave_projeto, fechar_projetos
 from .projetos import _empresa_ids
 
@@ -59,7 +60,7 @@ def salvar_orcamento(
     return obter_orcamento(payload.nome, db)
 
 
-# ---------- Fechamento aprovado ----------
+# ---------- Dupla conferencia (dois ok por projeto) ----------
 
 
 class AprovacaoIn(BaseModel):
@@ -73,25 +74,33 @@ class AprovacaoIn(BaseModel):
 def aprovar(
     payload: AprovacaoIn,
     db: Session = Depends(get_db),
-    usuario: models.Usuario = Depends(usuario_logado),
+    usuario: models.Usuario = Depends(guarda_custeio),
 ):
+    """Da o proximo ok do projeto: 1o = conferencia, 2o = aprovacao (outra pessoa)."""
     ids = _empresa_ids(db, payload.empresa_ids)
     fechamento = fechar_projetos(db, ids, payload.de, payload.ate)
     chave = chave_projeto(payload.nome)
     linha = next((p for p in fechamento["projetos"] if chave_projeto(p["projeto"]) == chave), None)
     if not linha:
         raise HTTPException(status_code=404, detail="Projeto sem fechamento no período/empresas informados")
-    row = models.FechamentoAprovado(
-        chave_projeto=chave,
-        nome=linha["projeto"],
-        periodo_de=payload.de,
-        periodo_ate=payload.ate,
-        dados=linha,
-        usuario=usuario.nome,
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+    try:
+        row = conferencia.registrar(db, usuario, payload.nome, linha, payload.de, payload.ate)
+    except conferencia.ConferenciaInvalida as erro:
+        raise HTTPException(status_code=erro.status, detail=erro.mensagem) from erro
+    return _aprovacao_out(row)
+
+
+@router.delete("/aprovacoes/{ok_id}")
+def desfazer_aprovacao(
+    ok_id: int,
+    db: Session = Depends(get_db),
+    admin: models.Usuario = Depends(exigir_admin),
+):
+    """Desfaz um ok — so admin. A linha fica no historico, marcada como desfeita."""
+    try:
+        row = conferencia.revogar(db, admin, ok_id)
+    except conferencia.ConferenciaInvalida as erro:
+        raise HTTPException(status_code=erro.status, detail=erro.mensagem) from erro
     return _aprovacao_out(row)
 
 
@@ -99,22 +108,22 @@ def _aprovacao_out(row: models.FechamentoAprovado) -> dict:
     return {
         "id": row.id,
         "nome": row.nome,
+        "nivel": row.nivel,
+        "rotulo": conferencia.ROTULO_NIVEL.get(row.nivel, ""),
         "periodo_de": row.periodo_de.isoformat() if row.periodo_de else None,
         "periodo_ate": row.periodo_ate.isoformat() if row.periodo_ate else None,
         "dados": row.dados,
         "usuario": row.usuario,
         "criado_em": row.criado_em.isoformat(),
+        "revogado_em": row.revogado_em.isoformat() if row.revogado_em else None,
+        "revogado_por": row.revogado_por,
     }
 
 
 @router.get("/aprovacoes")
 def listar_aprovacoes(nome: str = Query(min_length=1), db: Session = Depends(get_db)):
-    rows = db.scalars(
-        select(models.FechamentoAprovado)
-        .where(models.FechamentoAprovado.chave_projeto == chave_projeto(nome))
-        .order_by(models.FechamentoAprovado.id.desc())
-    ).all()
-    return [_aprovacao_out(r) for r in rows]
+    """Historico completo do projeto, do mais recente ao mais antigo (inclui desfeitos)."""
+    return [_aprovacao_out(r) for r in conferencia.historico(db, nome)]
 
 
 # ---------- Comentarios ----------

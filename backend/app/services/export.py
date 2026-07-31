@@ -23,6 +23,56 @@ COLUNAS = [
     ("margem", "Margem (%)"),
 ]
 
+# Dupla conferencia — colunas de texto, sempre DEPOIS das numericas (o formato
+# de moeda/percentual do Excel e aplicado por posicao nas 12 primeiras).
+COLUNAS_CONFERENCIA = [
+    "Conferência",
+    "1º ok (conferiu)",
+    "Conferido em",
+    "2º ok (aprovou)",
+    "Aprovado em",
+    "Mudou após conferência",
+]
+
+_STATUS_LEGIVEL = {
+    "pendente": "Pendente",
+    "conferido": "Conferido (falta aprovar)",
+    "aprovado": "Conferido e aprovado",
+}
+
+
+def _data_hora_pt(iso: str | None) -> str:
+    if not iso:
+        return ""
+    try:
+        return datetime.fromisoformat(iso).strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return str(iso)
+
+
+def _valores_conferencia(linha: dict) -> list[str]:
+    conf = linha.get("conferencia") or {}
+    return [
+        _STATUS_LEGIVEL.get(conf.get("status", ""), "Pendente"),
+        conf.get("conferido_por") or "",
+        _data_hora_pt(conf.get("conferido_em")),
+        conf.get("aprovado_por") or "",
+        _data_hora_pt(conf.get("aprovado_em")),
+        "Sim" if conf.get("divergente") else "",
+    ]
+
+
+def _conf_curto(linha: dict) -> str:
+    """Marca compacta do PDF: '-', '1/2', '2/2' — com '!' se mudou depois do ok.
+
+    Sem travessao nem simbolo de alerta: o PDF usa fontes core (Latin-1) e eles
+    virariam '?'.
+    """
+    conf = linha.get("conferencia") or {}
+    oks = int(conf.get("oks") or 0)
+    marca = f"{oks}/2" if oks else "-"
+    return f"{marca} !" if conf.get("divergente") else marca
+
 
 def _valor_pt_br(campo: str, valor) -> str:
     if campo == "margem":
@@ -35,9 +85,11 @@ def _valor_pt_br(campo: str, valor) -> str:
 def fechamento_csv(projetos: list[dict], consolidado: dict) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
-    writer.writerow([titulo for _, titulo in COLUNAS])
+    writer.writerow([titulo for _, titulo in COLUNAS] + COLUNAS_CONFERENCIA)
     for linha in projetos:
-        writer.writerow([_valor_pt_br(campo, linha.get(campo, "")) for campo, _ in COLUNAS])
+        writer.writerow(
+            [_valor_pt_br(campo, linha.get(campo, "")) for campo, _ in COLUNAS] + _valores_conferencia(linha)
+        )
     writer.writerow([])
     writer.writerow(
         ["TOTAL", "", ""]
@@ -45,6 +97,8 @@ def fechamento_csv(projetos: list[dict], consolidado: dict) -> str:
             _valor_pt_br(campo, consolidado.get("margem_media" if campo == "margem" else campo, 0))
             for campo, _ in COLUNAS[3:]
         ]
+        + [f"{consolidado.get('qtd_pendentes', 0)} pendente(s)"]
+        + [""] * (len(COLUNAS_CONFERENCIA) - 1)
     )
     return buffer.getvalue()
 
@@ -88,6 +142,7 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
         ("outros", "Outros", 17, "R"),
         ("resultado", "Resultado", 25, "R"),
         ("margem", "Margem", 14, "R"),
+        ("_conf", "Conf.", 13, "C"),  # dupla conferencia: -, 1/2, 2/2 (! = mudou depois)
     ]
 
     def cabecalho():
@@ -111,6 +166,10 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
         negativo = linha.get("resultado", 0) < 0
         for campo, _, largura, alinh in colunas:
             valor = linha.get(campo, "")
+            if campo == "_conf":
+                pdf.set_text_color(30, 30, 30)
+                pdf.cell(largura, 6, _pdf_txt(_conf_curto(linha)), border="B", align=alinh, fill=preenche)
+                continue
             if campo == "margem":
                 texto = f"{valor * 100:.1f}%".replace(".", ",")
             elif isinstance(valor, (int, float)):
@@ -142,6 +201,7 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
         "outros": consolidado.get("outros", 0),
         "resultado": consolidado.get("resultado", 0),
         "margem": consolidado.get("margem_media", 0),
+        "_conf": f"{consolidado.get('qtd_aprovados', 0)}/{len(projetos)}",
     }
     for campo, _, largura, alinh in colunas:
         valor = totais.get(campo, "")
@@ -155,7 +215,14 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
     pdf.ln()
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, _pdf_txt("Valores em R$. Margem = resultado / receita. Somente projetos de venda (numeração BR)."))
+    pdf.cell(
+        0,
+        5,
+        _pdf_txt(
+            "Valores em R$. Margem = resultado / receita. Somente projetos de venda (numeração BR). "
+            "Conf. = dupla conferência (1/2 conferido, 2/2 aprovado; ! = números mudaram depois do ok)."
+        ),
+    )
 
     return bytes(pdf.output())
 
@@ -164,7 +231,7 @@ def fechamento_xlsx(projetos: list[dict], consolidado: dict) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Fechamento"
-    ws.append([titulo for _, titulo in COLUNAS])
+    ws.append([titulo for _, titulo in COLUNAS] + COLUNAS_CONFERENCIA)
     for cell in ws[1]:
         cell.font = Font(bold=True)
 
@@ -175,10 +242,14 @@ def fechamento_xlsx(projetos: list[dict], consolidado: dict) -> bytes:
                 linha.get(campo, "") if campo in ("empresas", "projeto", "cliente") else float(linha.get(campo, 0))
                 for campo, _ in COLUNAS
             ]
+            + _valores_conferencia(linha)
         )
-    total_row = ["TOTAL", "", ""] + [
-        float(consolidado.get("margem_media" if campo == "margem" else campo, 0)) for campo, _ in COLUNAS[3:]
-    ]
+    total_row = (
+        ["TOTAL", "", ""]
+        + [float(consolidado.get("margem_media" if campo == "margem" else campo, 0)) for campo, _ in COLUNAS[3:]]
+        + [f"{consolidado.get('qtd_pendentes', 0)} pendente(s)"]
+        + [""] * (len(COLUNAS_CONFERENCIA) - 1)
+    )
     ws.append(total_row)
     for cell in ws[ws.max_row]:
         cell.font = Font(bold=True)
@@ -188,7 +259,8 @@ def fechamento_xlsx(projetos: list[dict], consolidado: dict) -> bytes:
             cell.number_format = formato_moeda
         row[11].number_format = "0.00%"
 
-    for idx, largura in enumerate([24, 18, 28, 16, 16, 14, 15, 16, 14, 16, 16, 12], start=1):
+    larguras = [24, 18, 28, 16, 16, 14, 15, 16, 14, 16, 16, 12, 24, 20, 18, 20, 18, 22]
+    for idx, largura in enumerate(larguras, start=1):
         ws.column_dimensions[ws.cell(row=1, column=idx).column_letter].width = largura
 
     out = io.BytesIO()

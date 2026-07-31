@@ -12,6 +12,7 @@ Margem % = Resultado ÷ Receita
 - **Simples Nacional**: por empresa, dá para ligar o modo Simples — o imposto é a alíquota configurada no cadastro aplicada sobre a receita da empresa. Desligado por padrão.
 - **Tributos em Contas a Pagar** (gerados pela Omie): classificados como grupo "Imposto" — aparecem no detalhe mas **não somam no custo**, para não duplicar com a NF-e.
 - **Ajustes manuais auditáveis**: reclassificar um custo, corrigir um imposto, mover ou excluir um lançamento — sempre registrando quem, quando e por quê. O cache nunca é alterado.
+- **Dupla conferência (dois ok)**: cada projeto só fecha com **dois ok de pessoas diferentes** — o 1º ok (conferência) qualquer pessoa que escreva no custeio pode dar; o 2º ok (aprovação) é de quem estiver marcado como aprovador em **Empresas → Equipe**, e nunca de quem deu o 1º. Cada ok congela os números conferidos: se um ajuste mudar o resultado depois, o projeto passa a exibir "⚠ mudou depois do ok" sem perder os ok nem o histórico. Desfazer é privilégio de admin e não apaga nada.
 - **Exportação** do fechamento em CSV e Excel (pt-BR).
 
 ## Stack
@@ -27,7 +28,7 @@ O frontend **nunca** fala com a Omie — só com o backend. `app_key`/`app_secre
 
 **Integração 100% leitura**: o app só usa métodos `Listar*` da Omie — nunca grava, altera ou cancela nada lá (há um teste automatizado que garante isso: `tests/test_somente_leitura.py`).
 
-**Login e papéis**: todo acesso exige conta (senha com scrypt, sessões revogáveis no banco). No primeiro acesso o app pede a criação da conta da administradora; depois ela cadastra a equipe em Empresas → Equipe. Papéis: `admin` (tudo + usuários), `financeiro` (opera tudo) e `leitura` (só consulta e simulador — o servidor bloqueia qualquer escrita). Toda ação auditável (ajustes, classificações, aprovações, comentários) é assinada com o nome da conta logada.
+**Login e papéis**: todo acesso exige conta (senha com scrypt, sessões revogáveis no banco). No primeiro acesso o app pede a criação da conta da administradora; depois ela cadastra a equipe em Empresas → Equipe. Papéis: `admin` (tudo + usuários), `financeiro` (opera tudo) e `leitura` (só consulta e simulador — o servidor bloqueia qualquer escrita). Além do papel, cada conta de `admin`/`financeiro` pode ser marcada como **aprovadora** — é ela que dá o 2º ok da dupla conferência. Toda ação auditável (ajustes, classificações, os dois ok, comentários) é assinada com o nome da conta logada.
 
 ## Onde obter app_key / app_secret
 
@@ -90,7 +91,8 @@ Migrações (alternativa ao create-all automático): `.venv\Scripts\python -m al
 2. **Sincronizar** → escolha empresas + período de emissão → o app pagina TODAS as páginas da Omie (100 registros/página, com throttle, retry/backoff e tratamento do bloqueio HTTP 425) e grava no cache.
 3. **Empresas → Mapear categorias** → diga qual categoria do Contas a Pagar é Produção, Frete, Imposto ou Outros (categorias com nome de tributo já vêm pré-sugeridas como Imposto).
 4. **Dashboard / Projetos** → KPIs, composição da receita, ranking de margem e a lista completa; clique num projeto para ver o cálculo aberto, títulos e NF-e.
-5. **Exportar** CSV/Excel na tela Projetos.
+5. **Conferir** → no detalhe do projeto, dê o **1º ok**; outra pessoa, marcada como aprovadora, dá o **2º ok**. O Dashboard mostra quanto falta conferir e a lista de Projetos tem a coluna `Conf.` (1/2, 2/2) com filtro de pendentes.
+6. **Exportar** CSV/Excel na tela Projetos — os arquivos trazem o status da conferência, quem conferiu e quando.
 
 ### Como a NF-e vira imposto do projeto
 

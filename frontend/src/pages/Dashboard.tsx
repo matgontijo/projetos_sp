@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, type Alerta } from '../api/client'
+import { api, type Alerta, type Consolidado } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import {
@@ -76,6 +76,44 @@ function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string 
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Quanto falta conferir no período — cada número abre a lista já filtrada. */
+function PainelConferencia({ consolidado, params }: { consolidado: Consolidado; params: string }) {
+  const itens = [
+    { id: 'pendente', valor: consolidado.qtd_pendentes, rotulo: 'sem nenhum ok', cor: 'var(--text-muted)' },
+    { id: 'conferido', valor: consolidado.qtd_conferidos, rotulo: 'falta o 2º ok', cor: 'var(--status-warning)' },
+    { id: 'aprovado', valor: consolidado.qtd_aprovados, rotulo: 'conferidos', cor: 'var(--status-good)' },
+    { id: 'divergente', valor: consolidado.qtd_divergentes, rotulo: 'mudou depois do ok', cor: 'var(--neg)' },
+  ].filter((i) => i.valor > 0)
+  if (!itens.length) return null
+
+  const falta = consolidado.qtd_pendentes + consolidado.qtd_conferidos
+  return (
+    <div className="card mt-4 px-5 py-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <b className="text-sm">Conferência</b>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {falta === 0
+            ? 'Todos os projetos do período têm os dois ok.'
+            : `${falta} de ${consolidado.qtd_projetos} projetos ainda precisam de ok.`}
+        </span>
+        <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
+          {itens.map((i) => (
+            <Link
+              key={i.id}
+              to={`/projetos?${params}${params ? '&' : ''}conf=${i.id}`}
+              className="text-sm underline-offset-2 hover:underline"
+              title={`Ver os projetos: ${i.rotulo}`}
+            >
+              <b style={{ color: i.cor }}>{i.valor}</b>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>{i.rotulo}</span>
+            </Link>
+          ))}
+        </span>
+      </div>
     </div>
   )
 }
@@ -255,6 +293,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          <PainelConferencia consolidado={consolidado} params={params.toString()} />
 
           {alertas && alertas.length > 0 && <PainelAtencao alertas={alertas} params={params.toString()} />}
 
