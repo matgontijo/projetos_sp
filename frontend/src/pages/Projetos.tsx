@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, baixarArquivo, type LinhaFechamento } from '../api/client'
+import { api, baixarArquivo, type LinhaFechamento, type ResultadoLote } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import { BadgeMeta, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
@@ -18,6 +18,17 @@ const FILTROS_CONFERENCIA = [
   { id: 'divergente', rotulo: 'Mudou depois do ok' },
 ] as const
 type FiltroConferencia = (typeof FILTROS_CONFERENCIA)[number]['id']
+
+/** Agrupa as recusas por motivo — 200 linhas iguais não ajudam ninguém. */
+function agruparMotivos(recusados: { projeto: string; motivo: string }[]) {
+  const mapa = new Map<string, string[]>()
+  for (const r of recusados) {
+    const lista = mapa.get(r.motivo) || []
+    lista.push(r.projeto)
+    mapa.set(r.motivo, lista)
+  }
+  return [...mapa.entries()].map(([motivo, projetos]) => ({ motivo, projetos }))
+}
 
 /** Selo compacto do status de conferência na lista. */
 function SeloConferencia({ p }: { p: LinhaFechamento }) {
@@ -100,8 +111,32 @@ export default function Projetos() {
   const setFiltroConf = (id: FiltroConferencia) => set('conf', id === 'todos' ? '' : id)
   const [ordem, setOrdem] = useState<{ campo: CampoOrdenavel; desc: boolean }>({ campo: 'receita', desc: true })
 
+  // --- Conferência em massa ---
+  const queryClient = useQueryClient()
+  const { data: eu } = useQuery({ queryKey: ['eu'], queryFn: api.eu })
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [resultadoLote, setResultadoLote] = useState<ResultadoLote | null>(null)
+
+  const darOks = useMutation({
+    mutationFn: (nomes: string[]) => api.aprovarLote({ nomes, empresa_ids: empresaIds, de, ate }),
+    onSuccess: (r) => {
+      setResultadoLote(r)
+      setSelecionados(new Set())
+      queryClient.invalidateQueries({ queryKey: ['fechamento'] })
+    },
+  })
+
   function ordenarPor(campo: CampoOrdenavel) {
     setOrdem((o) => ({ campo, desc: o.campo === campo ? !o.desc : true }))
+  }
+
+  function alternarSelecao(nome: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(nome)) novo.delete(nome)
+      else novo.add(nome)
+      return novo
+    })
   }
 
   const todos = data?.projetos || []
@@ -122,6 +157,19 @@ export default function Projetos() {
     const cmp = typeof va === 'string' ? String(va).localeCompare(String(vb)) : Number(va) - Number(vb)
     return ordem.desc ? -cmp : cmp
   })
+
+  // a seleção só vale para o que está à vista: mudar o filtro não pode deixar
+  // projetos escondidos entrando no lote sem a pessoa ver
+  const selecaoVisivel = projetos.filter((p) => selecionados.has(p.projeto))
+  const nomesSelecionados = selecaoVisivel.map((p) => p.projeto)
+  const todosMarcados = projetos.length > 0 && selecaoVisivel.length === projetos.length
+  const receberiam1o = selecaoVisivel.filter((p) => p.conferencia?.status === 'pendente').length
+  const receberiam2o = selecaoVisivel.filter((p) => p.conferencia?.status === 'conferido').length
+  const jaAprovados = selecaoVisivel.length - receberiam1o - receberiam2o
+
+  function marcarTodos() {
+    setSelecionados(todosMarcados ? new Set() : new Set(projetos.map((p) => p.projeto)))
+  }
 
   const Th = ({ campo, children, numerica = true }: { campo: CampoOrdenavel; children: React.ReactNode; numerica?: boolean }) => (
     <th
@@ -154,6 +202,107 @@ export default function Projetos() {
           Erro ao carregar o fechamento: {(error as Error).message}
         </p>
       )}
+      {data && data.consolidado.qtd_projetos > 0 && (
+        <div className="card mb-4 px-5 py-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <b className="text-sm">Conferência do período</b>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <b>{data.consolidado.qtd_aprovados}</b> de {data.consolidado.qtd_projetos} com os dois ok
+              {data.consolidado.qtd_conferidos > 0 && ` · ${data.consolidado.qtd_conferidos} esperando o 2º`}
+              {data.consolidado.qtd_divergentes > 0 && (
+                <span style={{ color: 'var(--neg)' }}> · {data.consolidado.qtd_divergentes} mudaram depois do ok</span>
+              )}
+            </span>
+            <div
+              className="flex h-2 min-w-40 flex-1 overflow-hidden rounded-full"
+              style={{ background: 'var(--surface-2)' }}
+              title={`${data.consolidado.qtd_aprovados} conferidos e aprovados · ${data.consolidado.qtd_conferidos} com um ok · ${data.consolidado.qtd_pendentes} sem nenhum`}
+            >
+              <div
+                style={{
+                  width: `${(data.consolidado.qtd_aprovados / data.consolidado.qtd_projetos) * 100}%`,
+                  background: 'var(--status-good)',
+                }}
+              />
+              <div
+                style={{
+                  width: `${(data.consolidado.qtd_conferidos / data.consolidado.qtd_projetos) * 100}%`,
+                  background: 'var(--status-warning)',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resultadoLote && (
+        <div className="card mb-4 px-5 py-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <b className="text-sm" style={{ color: 'var(--status-good-text)' }}>
+              ✓ {resultadoLote.aplicados.length} ok registrado{resultadoLote.aplicados.length === 1 ? '' : 's'}
+              {resultadoLote.aplicados.length > 0 &&
+                ` (${resultadoLote.aplicados.filter((a) => a.nivel === 1).length} conferência, ${resultadoLote.aplicados.filter((a) => a.nivel === 2).length} aprovação)`}
+            </b>
+            <button className="btn btn-ghost ml-auto px-3 py-1 text-xs" onClick={() => setResultadoLote(null)}>
+              Fechar
+            </button>
+          </div>
+          {resultadoLote.recusados.length > 0 && (
+            <div className="mt-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <b>{resultadoLote.recusados.length} não deu para registrar:</b>
+              <ul className="mt-1 space-y-0.5">
+                {agruparMotivos(resultadoLote.recusados).map(({ motivo, projetos: nomes }) => (
+                  <li key={motivo}>
+                    <span style={{ color: 'var(--text-muted)' }}>{nomes.length}×</span> {motivo}
+                    <span className="ml-1" style={{ color: 'var(--text-muted)' }}>
+                      ({nomes.slice(0, 4).join(', ')}
+                      {nomes.length > 4 ? `, +${nomes.length - 4}` : ''})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selecaoVisivel.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2">
+          <div
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-full px-5 py-3 shadow-lg"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-hairline)' }}
+          >
+            <b className="text-sm">{selecaoVisivel.length} selecionado{selecaoVisivel.length === 1 ? '' : 's'}</b>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {receberiam1o > 0 && `${receberiam1o} recebe o 1º ok`}
+              {receberiam1o > 0 && receberiam2o > 0 && ' · '}
+              {receberiam2o > 0 && `${receberiam2o} recebe o 2º ok`}
+              {jaAprovados > 0 && `${receberiam1o || receberiam2o ? ' · ' : ''}${jaAprovados} já fechado${jaAprovados === 1 ? '' : 's'}`}
+            </span>
+            <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setSelecionados(new Set())}>
+              Limpar
+            </button>
+            <button
+              className="btn btn-primary text-xs"
+              disabled={darOks.isPending || receberiam1o + receberiam2o === 0}
+              title={
+                receberiam1o + receberiam2o === 0
+                  ? 'Os selecionados já têm os dois ok'
+                  : `Assina o próximo ok de cada um como ${eu?.nome || 'você'}`
+              }
+              onClick={() => darOks.mutate(nomesSelecionados)}
+            >
+              {darOks.isPending ? 'Registrando…' : `Dar o ok em ${receberiam1o + receberiam2o}`}
+            </button>
+          </div>
+          {darOks.error && (
+            <p className="mt-2 text-center text-xs font-semibold" style={{ color: 'var(--status-critical)' }}>
+              {(darOks.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="card">
         <div className="card-head">
           <div className="flex flex-wrap items-center gap-3">
@@ -198,7 +347,17 @@ export default function Projetos() {
         <table className="data">
           <thead>
             <tr>
+              <th style={{ width: 34 }}>
+                <input
+                  type="checkbox"
+                  checked={todosMarcados}
+                  onChange={marcarTodos}
+                  aria-label="Selecionar todos os projetos visíveis"
+                  title="Selecionar todos os visíveis"
+                />
+              </th>
               <Th campo="projeto" numerica={false}>Projeto</Th>
+              <th title="Dupla conferência: 1/2 conferido, 2/2 conferido e aprovado">Conf.</th>
               <th>Empresas</th>
               <th>Cliente</th>
               <Th campo="receita">Receita</Th>
@@ -211,21 +370,20 @@ export default function Projetos() {
               <Th campo="margem">Margem</Th>
               <th style={{ minWidth: 140 }}>Composição</th>
               <th>Status</th>
-              <th title="Dupla conferência: 1/2 conferido, 2/2 conferido e aprovado">Conf.</th>
             </tr>
           </thead>
           <tbody>
             {isLoading &&
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <tr key={i}>
-                  <td colSpan={14}>
+                  <td colSpan={15}>
                     <Skeleton altura={18} />
                   </td>
                 </tr>
               ))}
             {!isLoading && !error && projetos.length === 0 && (
               <tr>
-                <td colSpan={14} style={{ color: 'var(--text-muted)' }}>
+                <td colSpan={15} style={{ color: 'var(--text-muted)' }}>
                   {filtroConf === 'todos'
                     ? 'Nenhum projeto no período. Sincronize os dados na aba "Sincronizar".'
                     : 'Nenhum projeto neste filtro de conferência.'}
@@ -233,7 +391,20 @@ export default function Projetos() {
               </tr>
             )}
             {projetos.map((p) => (
-              <tr key={p.projeto} className="linha-clicavel" onClick={() => abrir(p)}>
+              <tr
+                key={p.projeto}
+                className="linha-clicavel"
+                onClick={() => abrir(p)}
+                style={selecionados.has(p.projeto) ? { background: 'color-mix(in srgb, var(--accent) 8%, transparent)' } : undefined}
+              >
+                <td onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selecionados.has(p.projeto)}
+                    onChange={() => alternarSelecao(p.projeto)}
+                    aria-label={`Selecionar ${p.projeto}`}
+                  />
+                </td>
                 <td className="whitespace-nowrap">
                   <Link
                     to={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`}
@@ -242,6 +413,25 @@ export default function Projetos() {
                   >
                     {p.projeto}
                   </Link>
+                </td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5">
+                    <SeloConferencia p={p} />
+                    {p.conferencia && p.conferencia.status !== 'aprovado' && (
+                      <button
+                        className="btn btn-ghost px-2 py-0.5 text-xs"
+                        disabled={darOks.isPending}
+                        title={
+                          p.conferencia.status === 'pendente'
+                            ? `Dar o 1º ok (conferi) — assina como ${eu?.nome || 'você'}`
+                            : `Dar o 2º ok (aprovar) — conferido por ${p.conferencia.conferido_por}`
+                        }
+                        onClick={() => darOks.mutate([p.projeto])}
+                      >
+                        + ok
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <ChipsEmpresas empresas={p.empresas} />
@@ -276,9 +466,6 @@ export default function Projetos() {
                 <td>
                   <BadgeMeta margem={p.margem} receita={p.receita} alvo={margemAlvo} />
                 </td>
-                <td>
-                  <SeloConferencia p={p} />
-                </td>
               </tr>
             ))}
           </tbody>
@@ -292,7 +479,11 @@ export default function Projetos() {
             return (
               <tfoot>
                 <tr style={{ fontWeight: 700, borderTop: '2px solid var(--baseline)' }}>
+                  <td></td>
                   <td title="Soma das linhas exibidas">Total</td>
+                  <td className="text-xs" style={{ color: 'var(--text-muted)' }} title="Projetos com os dois ok">
+                    {linhas.filter((p) => p.conferencia?.status === 'aprovado').length}/{linhas.length}
+                  </td>
                   <td colSpan={2} className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {linhas.length} projetos
                   </td>
@@ -307,9 +498,6 @@ export default function Projetos() {
                   </td>
                   <td className="num">{fmtPct(receita > 0 ? resultado / receita : 0)}</td>
                   <td colSpan={2}></td>
-                  <td className="text-xs" style={{ color: 'var(--text-muted)' }} title="Projetos com os dois ok">
-                    {linhas.filter((p) => p.conferencia?.status === 'aprovado').length}/{linhas.length}
-                  </td>
                 </tr>
               </tfoot>
             )

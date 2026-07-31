@@ -91,7 +91,7 @@ Migrações (alternativa ao create-all automático): `.venv\Scripts\python -m al
 2. **Sincronizar** → escolha empresas + período de emissão → o app pagina TODAS as páginas da Omie (100 registros/página, com throttle, retry/backoff e tratamento do bloqueio HTTP 425) e grava no cache.
 3. **Empresas → Mapear categorias** → diga qual categoria do Contas a Pagar é Produção, Frete, Imposto ou Outros (categorias com nome de tributo já vêm pré-sugeridas como Imposto).
 4. **Dashboard / Projetos** → KPIs, composição da receita, ranking de margem e a lista completa; clique num projeto para ver o cálculo aberto, títulos e NF-e.
-5. **Conferir** → no detalhe do projeto, dê o **1º ok**; outra pessoa, marcada como aprovadora, dá o **2º ok**. O Dashboard mostra quanto falta conferir e a lista de Projetos tem a coluna `Conf.` (1/2, 2/2) com filtro de pendentes.
+5. **Conferir** → na lista de Projetos, a coluna `Conf.` (1/2, 2/2) fica logo ao lado do número do projeto: dê o ok direto na linha com **+ ok**, ou **marque vários e dê o ok em massa** (filtre por "Pendentes" e use o seletor do cabeçalho para pegar todos de uma vez). Um projeto recusado não derruba o lote — o app diz quantos passaram e o motivo de cada um que sobrou. O Dashboard mostra a barra de progresso do período.
 6. **Exportar** CSV/Excel na tela Projetos — os arquivos trazem o status da conferência, quem conferiu e quando.
 
 ### Como a NF-e vira imposto do projeto

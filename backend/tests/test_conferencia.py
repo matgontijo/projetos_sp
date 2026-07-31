@@ -5,7 +5,14 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app import cache, models
-from app.routers.extras import AprovacaoIn, aprovar, desfazer_aprovacao, listar_aprovacoes
+from app.routers.extras import (
+    AprovacaoIn,
+    LoteIn,
+    aprovar,
+    aprovar_lote,
+    desfazer_aprovacao,
+    listar_aprovacoes,
+)
 from app.routers.projetos import fechamento as rota_fechamento
 from app.services import conferencia
 from tests.conftest import criar_projeto, criar_titulo
@@ -273,6 +280,58 @@ def test_rota_desfazer_marca_e_some_do_status(db: Session, projeto_faturado, mar
     historico = listar_aprovacoes(projeto_faturado, db)
     assert len(historico) == 2  # nada foi apagado
     assert conferencia.status_do_projeto(db, projeto_faturado, 5000.0)["status"] == "conferido"
+
+
+@pytest.fixture()
+def tres_projetos(db: Session, empresa: models.Empresa):
+    """Três projetos de venda faturados — o cenário do ok em massa."""
+    for i, nome in enumerate(["BR26_001", "BR26_002", "BR26_003"], start=1):
+        criar_projeto(db, empresa, i, nome)
+        criar_titulo(db, empresa, "receber", 100 + i, 1000.0 * i, projeto=i)
+    cache.invalidar()
+    return ["BR26_001", "BR26_002", "BR26_003"]
+
+
+def test_lote_confere_varios_de_uma_vez(db: Session, tres_projetos, maria):
+    resultado = aprovar_lote(LoteIn(nomes=tres_projetos), db, maria)
+
+    assert len(resultado["aplicados"]) == 3
+    assert resultado["recusados"] == []
+    assert {a["nivel"] for a in resultado["aplicados"]} == {1}
+    for nome in tres_projetos:
+        assert conferencia.status_do_projeto(db, nome, None)["status"] == "conferido"
+
+
+def test_lote_nao_derruba_tudo_por_causa_de_um(db: Session, tres_projetos, maria, joao):
+    """O que dá para conferir é conferido; o resto volta com o motivo."""
+    aprovar(AprovacaoIn(nome="BR26_001"), db, maria)  # já tem o 1º ok da Maria
+
+    resultado = aprovar_lote(LoteIn(nomes=[*tres_projetos, "BR99_999"]), db, maria)
+
+    aplicados = {a["projeto"] for a in resultado["aplicados"]}
+    assert aplicados == {"BR26_002", "BR26_003"}  # os que ainda não tinham ok
+    recusados = {r["projeto"]: r["motivo"] for r in resultado["recusados"]}
+    assert "BR99_999" in recusados  # não existe no fechamento
+    assert "1º ok" in recusados["BR26_001"]  # ela mesma conferiu, não pode aprovar
+
+
+def test_lote_do_aprovador_fecha_os_projetos(db: Session, tres_projetos, maria, joao):
+    aprovar_lote(LoteIn(nomes=tres_projetos), db, maria)  # 1º ok em todos
+    resultado = aprovar_lote(LoteIn(nomes=tres_projetos), db, joao)  # 2º ok em todos
+
+    assert {a["nivel"] for a in resultado["aplicados"]} == {2}
+    for nome in tres_projetos:
+        assert conferencia.status_do_projeto(db, nome, None)["status"] == "aprovado"
+
+
+def test_lote_de_quem_nao_aprova_recusa_todos_com_motivo(db: Session, tres_projetos, maria):
+    aprovar_lote(LoteIn(nomes=tres_projetos), db, maria)
+    outra = criar_usuario(db, "Ana")  # não é aprovadora
+
+    resultado = aprovar_lote(LoteIn(nomes=tres_projetos), db, outra)
+    assert resultado["aplicados"] == []
+    assert len(resultado["recusados"]) == 3
+    assert all("aprovador" in r["motivo"] for r in resultado["recusados"])
 
 
 def test_fechamento_leva_o_status_de_conferencia(db: Session, projeto_faturado, maria):
