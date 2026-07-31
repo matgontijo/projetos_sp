@@ -567,6 +567,17 @@ table.tabela tbody tr:last-child td {
   border-bottom: none;
 }
 
+/* rodapé de saldo: fecha a tabela com o total do que entra no fechamento */
+table.data tfoot td,
+table.tabela tfoot td {
+  padding: 0.7rem;
+  border-top: 2px solid var(--baseline);
+  border-bottom: none;
+  background: var(--surface-2);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .vazio {
   display: grid;
   place-items: center;

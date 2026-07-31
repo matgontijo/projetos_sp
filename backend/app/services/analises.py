@@ -12,6 +12,7 @@ from .calculo import (
     _Contexto,
     _cancelado,
     _f,
+    aliquota_da_empresa,
     chave_projeto,
     e_projeto_de_venda,
     fechar_projetos,
@@ -202,11 +203,27 @@ def gerar_alertas(
             }
         )
 
-    # orcamento estourado
+    # projeto rendendo menos do que a proposta projetava
     orcamentos = {o.chave_projeto: o for o in db.scalars(select(models.Orcamento)).all()}
     for p in projetos:
         orc = orcamentos.get(chave_projeto(p["projeto"]))
-        if orc and orc.custo_previsto is not None and p["custo_total"] > _f(orc.custo_previsto) > 0:
+        if not orc:
+            continue
+        if orc.resultado_previsto is not None and p["resultado"] < _f(orc.resultado_previsto):
+            faltou = _f(orc.resultado_previsto) - p["resultado"]
+            alertas.append(
+                {
+                    "gravidade": "atencao",
+                    "titulo": f"{p['projeto']} rendeu menos do que o projetado",
+                    "detalhe": (
+                        f"Projetado {_brl(_f(orc.resultado_previsto))}, "
+                        f"realizado {_brl(p['resultado'])} (−{_brl(faltou)})."
+                    ),
+                    "projeto": p["projeto"],
+                }
+            )
+        elif orc.custo_previsto is not None and p["custo_total"] > _f(orc.custo_previsto) > 0:
+            # orcamentos antigos (guardavam receita/custo previstos, nao o resultado)
             estouro = p["custo_total"] - _f(orc.custo_previsto)
             alertas.append(
                 {
@@ -248,13 +265,23 @@ def gerar_alertas(
 # ---------- Simulador de preco / comparador de empresas ----------
 
 
+def _nomes_dos_impostos(empresa: models.Empresa) -> str:
+    itens = [i for i in (empresa.impostos or []) if isinstance(i, dict) and i.get("nome")]
+    return ", ".join(str(i["nome"]) for i in itens)
+
+
 def _aliquota_da_empresa(db: Session, empresa: models.Empresa) -> dict:
     """Fracao de imposto sobre a venda para simulacao, com a origem explicada."""
-    extra = _f(empresa.aliquota_extra) / 100.0
+    cadastrada = aliquota_da_empresa(empresa)
+    nomes = _nomes_dos_impostos(empresa)
     if empresa.regime == "simples":
-        if extra > 0:
-            return {"aliquota": extra, "origem": f"{extra * 100:.1f}% do Simples configurado no cadastro"}
+        if cadastrada > 0:
+            return {"aliquota": cadastrada, "origem": f"{cadastrada * 100:.2f}% do Simples configurado no cadastro"}
         return {"aliquota": 0.0, "origem": "Simples sem alíquota configurada — informe na tela Empresas"}
+    if (empresa.fonte_imposto or "nfe") == "aliquota":
+        # a empresa calcula tudo por aliquota (igual a planilha): a soma E o imposto
+        detalhe = f" ({nomes})" if nomes else ""
+        return {"aliquota": cadastrada, "origem": f"{cadastrada * 100:.2f}% cadastrados na empresa{detalhe}"}
     # Presumido/Real: taxa efetiva observada nos ultimos 12 meses de vendas BR
     hoje = date.today()
     fechamento = fechar_projetos(db, [empresa.id], hoje - timedelta(days=365), hoje)
@@ -263,9 +290,9 @@ def _aliquota_da_empresa(db: Session, empresa: models.Empresa) -> dict:
     if receita > 0:
         return {
             "aliquota": imposto / receita,
-            "origem": f"observado nos últimos 12 meses ({imposto / receita * 100:.1f}% da venda, já inclui o % extra)",
+            "origem": f"observado nos últimos 12 meses ({imposto / receita * 100:.1f}% da venda, já inclui os % cadastrados)",
         }
-    return {"aliquota": extra, "origem": "sem histórico — usando só o % extra configurado"}
+    return {"aliquota": cadastrada, "origem": "sem histórico — usando só os % cadastrados na empresa"}
 
 
 def simular_preco(

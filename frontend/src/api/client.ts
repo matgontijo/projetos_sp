@@ -1,11 +1,20 @@
 // Cliente tipado do backend. O frontend NUNCA fala com a Omie diretamente.
 
+/** Uma linha da tabela de impostos da empresa (PIS 0,65%, CSLL 1,20%…). */
+export interface ImpostoEmpresa {
+  nome: string
+  aliquota: number // pontos percentuais sobre a receita
+}
+
 export interface Empresa {
   id: number
   nome: string
   cnpj: string
   regime: 'nota' | 'simples'
-  aliquota_extra: number
+  aliquota_extra: number // campo antigo (valor único); só vale sem `impostos`
+  impostos: ImpostoEmpresa[]
+  /** 'nfe' = impostos da nota + estas linhas · 'aliquota' = só estas linhas */
+  fonte_imposto: 'nfe' | 'aliquota'
   ativa: boolean
   criado_em: string
 }
@@ -238,7 +247,9 @@ export interface Simulacao {
 
 export interface Orcamento {
   nome: string
-  receita_prevista: number | null
+  /** O lucro que a proposta projetava — é o que a tela pede e compara. */
+  resultado_previsto: number | null
+  receita_prevista: number | null // legado (orçamentos antigos)
   custo_previsto: number | null
   atualizado_por: string
   atualizado_em: string | null
@@ -607,7 +618,7 @@ export const api = {
 
   // Orçado × Realizado, aprovações e comentários
   obterOrcamento: (nome: string) => request<Orcamento>(`/api/orcamentos${qs({ nome })}`),
-  salvarOrcamento: (dados: { nome: string; receita_prevista: number | null; custo_previsto: number | null }) =>
+  salvarOrcamento: (dados: { nome: string; resultado_previsto: number | null }) =>
     request<Orcamento>('/api/orcamentos', { method: 'PUT', body: JSON.stringify(dados) }),
   /** Dá o próximo ok do projeto — o servidor decide se é o 1º (conferência) ou o 2º (aprovação). */
   aprovar: (dados: { nome: string; empresa_ids?: string; de?: string; ate?: string }) =>

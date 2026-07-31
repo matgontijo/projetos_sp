@@ -15,6 +15,13 @@ REGIMES = {"nota", "simples"}
 ANEXOS = {None, "I", "II", "III", "IV", "V"}
 
 
+def _linhas_de_imposto(itens: list[schemas.ImpostoItem] | None) -> list[dict] | None:
+    """Normaliza a tabela de impostos da empresa (descarta linhas em branco)."""
+    if itens is None:
+        return None
+    return [{"nome": i.nome.strip(), "aliquota": float(i.aliquota)} for i in itens if i.nome.strip()]
+
+
 def _get_empresa(db: Session, empresa_id: int) -> models.Empresa:
     empresa = db.get(models.Empresa, empresa_id)
     if not empresa:
@@ -76,6 +83,8 @@ def criar(payload: schemas.EmpresaCreate, db: Session = Depends(get_db)):
         regime=payload.regime,
         simples_anexo=payload.simples_anexo,
         aliquota_extra=payload.aliquota_extra,
+        impostos=_linhas_de_imposto(payload.impostos),
+        fonte_imposto=payload.fonte_imposto if payload.fonte_imposto in schemas.FONTES_IMPOSTO else "nfe",
     )
     db.add(empresa)
     db.commit()
@@ -119,6 +128,12 @@ def atualizar(empresa_id: int, payload: schemas.EmpresaUpdate, db: Session = Dep
         empresa.simples_anexo = anexo
     if payload.aliquota_extra is not None:
         empresa.aliquota_extra = payload.aliquota_extra
+    if payload.impostos is not None:
+        empresa.impostos = _linhas_de_imposto(payload.impostos)
+    if payload.fonte_imposto is not None:
+        if payload.fonte_imposto not in schemas.FONTES_IMPOSTO:
+            raise HTTPException(status_code=422, detail="Fonte do imposto deve ser 'nfe' ou 'aliquota'")
+        empresa.fonte_imposto = payload.fonte_imposto
     if payload.ativa is not None:
         empresa.ativa = payload.ativa
     db.commit()

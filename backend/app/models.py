@@ -39,7 +39,17 @@ class Empresa(Base):
     simples_anexo: Mapped[str | None] = mapped_column(String(3), nullable=True)  # informativo
     # % sobre a receita, em pontos percentuais (10.5 = 10,5%). No Simples e A aliquota
     # da empresa; no Presumido e o ADICIONAL fora da NF-e (ex.: IRPJ/CSLL ~3,4%).
+    # Campo legado: so vale quando `impostos` esta vazio.
     aliquota_extra: Mapped[float] = mapped_column(Numeric(6, 3), default=0)
+    # Impostos sobre a receita ITEMIZADOS, como na planilha das donas:
+    # [{"nome": "CSLL", "aliquota": 1.2}, {"nome": "IRPJ", "aliquota": 1.08}, ...]
+    # (aliquota em pontos percentuais). Havendo linhas, a SOMA delas e a aliquota.
+    impostos: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
+    # De onde vem o imposto do projeto:
+    #   'nfe'      -> tributos destacados na NF-e + as linhas acima (padrao do Presumido)
+    #   'aliquota' -> SO as linhas acima, sobre a receita (a NF-e nao entra; e o
+    #                 jeito da planilha, que calcula PIS/COFINS/ICMS por aliquota)
+    fonte_imposto: Mapped[str] = mapped_column(String(10), default="nfe")
     ativa: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     atualizado_em: Mapped[datetime] = mapped_column(
@@ -258,6 +268,9 @@ class Orcamento(Base):
 
     chave_projeto: Mapped[str] = mapped_column(String(80), primary_key=True)
     nome_exibicao: Mapped[str] = mapped_column(String(120), default="")
+    # O que a proposta prometia de LUCRO — e o numero que as donas acompanham.
+    resultado_previsto: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+    # Legado (a tela pedia os dois): ainda lidos p/ derivar o projetado dos antigos.
     receita_prevista: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
     custo_previsto: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
     atualizado_por: Mapped[str] = mapped_column(String(80), default="")
