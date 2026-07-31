@@ -90,6 +90,41 @@ def aprovar(
     return _aprovacao_out(row)
 
 
+class LoteIn(BaseModel):
+    nomes: list[str] = Field(min_length=1, max_length=1000)
+    empresa_ids: str | None = None
+    de: date | None = None
+    ate: date | None = None
+
+
+@router.post("/aprovacoes/lote")
+def aprovar_lote(
+    payload: LoteIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(guarda_custeio),
+):
+    """Da o proximo ok de varios projetos de uma vez.
+
+    Recusa individual nao derruba o lote — devolve o que foi aplicado e o que
+    sobrou, com o motivo de cada um.
+    """
+    ids = _empresa_ids(db, payload.empresa_ids)
+    fechamento = fechar_projetos(db, ids, payload.de, payload.ate)
+    por_chave = {chave_projeto(p["projeto"]): p for p in fechamento["projetos"]}
+
+    linhas: dict[str, dict] = {}
+    recusados: list[dict] = []
+    for nome in payload.nomes:
+        linha = por_chave.get(chave_projeto(nome))
+        if linha is None:
+            recusados.append({"projeto": nome, "motivo": "Sem fechamento no período/empresas selecionados"})
+        else:
+            linhas[nome] = linha
+
+    aplicados, recusados_regra = conferencia.registrar_lote(db, usuario, linhas, payload.de, payload.ate)
+    return {"aplicados": aplicados, "recusados": recusados + recusados_regra}
+
+
 @router.delete("/aprovacoes/{ok_id}")
 def desfazer_aprovacao(
     ok_id: int,

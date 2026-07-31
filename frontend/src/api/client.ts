@@ -259,6 +259,12 @@ export interface Aprovacao {
   revogado_por: string
 }
 
+/** Resultado do ok em massa: o que passou e o que sobrou, com o motivo de cada um. */
+export interface ResultadoLote {
+  aplicados: { projeto: string; nivel: 1 | 2; rotulo: string }[]
+  recusados: { projeto: string; motivo: string }[]
+}
+
 export interface Comentario {
   id: number
   texto: string
@@ -606,6 +612,9 @@ export const api = {
   /** Dá o próximo ok do projeto — o servidor decide se é o 1º (conferência) ou o 2º (aprovação). */
   aprovar: (dados: { nome: string; empresa_ids?: string; de?: string; ate?: string }) =>
     request<Aprovacao>('/api/aprovacoes', { method: 'POST', body: JSON.stringify(dados) }),
+  /** Dá o próximo ok de vários projetos de uma vez; recusa individual não derruba o lote. */
+  aprovarLote: (dados: { nomes: string[]; empresa_ids?: string; de?: string; ate?: string }) =>
+    request<ResultadoLote>('/api/aprovacoes/lote', { method: 'POST', body: JSON.stringify(dados) }),
   desfazerAprovacao: (id: number) => request<Aprovacao>(`/api/aprovacoes/${id}`, { method: 'DELETE' }),
   listarAprovacoes: (nome: string) => request<Aprovacao[]>(`/api/aprovacoes${qs({ nome })}`),
   listarComentarios: (nome: string) => request<Comentario[]>(`/api/comentarios${qs({ nome })}`),

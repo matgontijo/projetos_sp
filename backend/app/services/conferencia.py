@@ -141,6 +141,49 @@ def status_do_projeto(db: Session, nome: str, resultado_atual: float | None) -> 
     return bloco_status(_oks_vigentes(db, [chave]).get(chave, {}), resultado_atual)
 
 
+def _proximo_nivel(oks: dict[int, models.FechamentoAprovado], usuario: models.Usuario) -> int:
+    """Qual ok esta pessoa pode dar agora — ou por que nao pode.
+
+    Regra unica, usada tanto no ok avulso quanto no lote.
+    """
+    if NIVEL_APROVACAO in oks:
+        raise ConferenciaInvalida("Este projeto já tem os dois ok — está conferido e aprovado.")
+
+    conferido = oks.get(NIVEL_CONFERENCIA)
+    if conferido is None:
+        return NIVEL_CONFERENCIA
+
+    # "voce mesmo conferiu" vem ANTES de "voce nao e aprovador": quando as duas
+    # sao verdade, a primeira e a que explica a situacao real e o que fazer.
+    if _mesma_pessoa(conferido, usuario):
+        raise ConferenciaInvalida(
+            "Você deu o 1º ok neste projeto — o 2º tem de ser de outra pessoa. "
+            "Cadastre quem vai aprovar em Empresas → Equipe e marque a conta como aprovadora."
+        )
+    if not usuario.pode_aprovar:
+        raise ConferenciaInvalida(
+            "O 2º ok é de quem está marcado como aprovador no cadastro. "
+            "Peça a uma administradora para marcar a sua conta em Empresas → Equipe.",
+            status=403,
+        )
+    return NIVEL_APROVACAO
+
+
+def _novo_ok(
+    usuario: models.Usuario, chave: str, nome: str, nivel: int, linha: dict, de: date | None, ate: date | None
+) -> models.FechamentoAprovado:
+    return models.FechamentoAprovado(
+        chave_projeto=chave,
+        nome=linha.get("projeto") or nome,
+        nivel=nivel,
+        periodo_de=de,
+        periodo_ate=ate,
+        dados=linha,
+        usuario=usuario.nome,
+        usuario_id=usuario.id,
+    )
+
+
 def registrar(
     db: Session,
     usuario: models.Usuario,
@@ -152,40 +195,46 @@ def registrar(
     """Da o proximo ok do projeto — o nivel sai do estado atual, nao do cliente."""
     chave = chave_projeto(nome)
     oks = _oks_vigentes(db, [chave]).get(chave, {})
+    nivel = _proximo_nivel(oks, usuario)
 
-    if NIVEL_APROVACAO in oks:
-        raise ConferenciaInvalida("Este projeto já tem os dois ok — está conferido e aprovado.")
-
-    conferido = oks.get(NIVEL_CONFERENCIA)
-    if conferido is None:
-        nivel = NIVEL_CONFERENCIA
-    else:
-        nivel = NIVEL_APROVACAO
-        if not usuario.pode_aprovar:
-            raise ConferenciaInvalida(
-                "O 2º ok é de quem está marcado como aprovador no cadastro. "
-                "Peça a uma administradora para marcar a sua conta em Empresas → Equipe.",
-                status=403,
-            )
-        if _mesma_pessoa(conferido, usuario):
-            raise ConferenciaInvalida(
-                f"Você já deu o 1º ok neste projeto — o 2º tem de ser de outra pessoa."
-            )
-
-    row = models.FechamentoAprovado(
-        chave_projeto=chave,
-        nome=linha.get("projeto") or nome,
-        nivel=nivel,
-        periodo_de=de,
-        periodo_ate=ate,
-        dados=linha,
-        usuario=usuario.nome,
-        usuario_id=usuario.id,
-    )
+    row = _novo_ok(usuario, chave, nome, nivel, linha, de, ate)
     db.add(row)
     db.commit()
     db.refresh(row)
     return row
+
+
+def registrar_lote(
+    db: Session,
+    usuario: models.Usuario,
+    linhas_por_nome: dict[str, dict],
+    de: date | None,
+    ate: date | None,
+) -> tuple[list[dict], list[dict]]:
+    """Da o proximo ok de VARIOS projetos de uma vez — (aplicados, recusados).
+
+    Um projeto recusado (ja aprovado, ou aguardando outra pessoa) nao derruba os
+    demais: a pessoa que confere em massa quer o que der para conferir, e a lista
+    do que sobrou. Um unico commit no fim.
+    """
+    chaves = {nome: chave_projeto(nome) for nome in linhas_por_nome}
+    vigentes = _oks_vigentes(db, list(set(chaves.values())))
+
+    aplicados: list[dict] = []
+    recusados: list[dict] = []
+    for nome, linha in linhas_por_nome.items():
+        chave = chaves[nome]
+        try:
+            nivel = _proximo_nivel(vigentes.get(chave, {}), usuario)
+        except ConferenciaInvalida as erro:
+            recusados.append({"projeto": nome, "motivo": erro.mensagem})
+            continue
+        db.add(_novo_ok(usuario, chave, nome, nivel, linha, de, ate))
+        aplicados.append({"projeto": nome, "nivel": nivel, "rotulo": ROTULO_NIVEL[nivel]})
+
+    if aplicados:
+        db.commit()
+    return aplicados, recusados
 
 
 def revogar(db: Session, admin: models.Usuario, ok_id: int) -> models.FechamentoAprovado:
