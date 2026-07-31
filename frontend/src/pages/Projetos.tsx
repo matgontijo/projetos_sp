@@ -30,38 +30,66 @@ function agruparMotivos(recusados: { projeto: string; motivo: string }[]) {
   return [...mapa.entries()].map(([motivo, projetos]) => ({ motivo, projetos }))
 }
 
-/** Selo compacto do status de conferência na lista. */
-function SeloConferencia({ p }: { p: LinhaFechamento }) {
+/** Célula de conferência: um controle só, que MOSTRA o estado e DÁ o próximo ok.
+ *
+ * Selo + botão separados inchavam a coluna e quebravam a altura da linha; aqui a
+ * borda tracejada é o que diz "ainda falta ok, dá para clicar". */
+function CelulaConferencia({
+  p,
+  ocupado,
+  onOk,
+  euNome,
+}: {
+  p: LinhaFechamento
+  ocupado: boolean
+  onOk: () => void
+  euNome: string
+}) {
   const conf = p.conferencia
   if (!conf) return null
-  const base = 'rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap'
-  if (conf.status === 'pendente') {
+
+  const cor = conf.divergente
+    ? { fundo: 'color-mix(in srgb, var(--status-warning) 22%, transparent)', texto: 'var(--text-primary)' }
+    : conf.status === 'aprovado'
+      ? { fundo: 'color-mix(in srgb, var(--status-good) 15%, transparent)', texto: 'var(--status-good-text)' }
+      : conf.status === 'conferido'
+        ? { fundo: 'color-mix(in srgb, var(--status-warning) 18%, transparent)', texto: 'var(--text-primary)' }
+        : { fundo: 'var(--surface-2)', texto: 'var(--text-muted)' }
+
+  const marca = `${conf.divergente ? '⚠ ' : ''}${conf.oks}/2`
+  const base = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold leading-tight'
+
+  if (conf.status === 'aprovado') {
     return (
-      <span className={base} style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} title="Ninguém conferiu ainda">
-        —
+      <span
+        className={base}
+        style={{ background: cor.fundo, color: cor.texto }}
+        title={`Conferido por ${conf.conferido_por} · aprovado por ${conf.aprovado_por}${conf.divergente ? '. Atenção: os números mudaram depois do ok.' : ''}`}
+      >
+        {marca}
       </span>
     )
   }
-  const aprovado = conf.status === 'aprovado'
-  const titulo = aprovado
-    ? `Conferido por ${conf.conferido_por} · aprovado por ${conf.aprovado_por}`
-    : `Conferido por ${conf.conferido_por} — falta o 2º ok`
+
   return (
-    <span
-      className={base}
-      title={conf.divergente ? `${titulo}. Atenção: os números mudaram depois do ok.` : titulo}
+    <button
+      className={`${base} transition hover:brightness-125 disabled:opacity-50`}
+      disabled={ocupado}
       style={{
-        background: conf.divergente
-          ? 'color-mix(in srgb, var(--status-warning) 22%, transparent)'
-          : aprovado
-            ? 'color-mix(in srgb, var(--status-good) 15%, transparent)'
-            : 'color-mix(in srgb, var(--status-warning) 18%, transparent)',
-        color: aprovado && !conf.divergente ? 'var(--status-good-text)' : 'var(--text-primary)',
+        background: cor.fundo,
+        color: cor.texto,
+        border: '1px dashed color-mix(in srgb, var(--text-muted) 45%, transparent)',
       }}
+      title={
+        conf.status === 'pendente'
+          ? `Clique para dar o 1º ok (conferi) — assina como ${euNome}`
+          : `Conferido por ${conf.conferido_por}. Clique para dar o 2º ok (aprovar).`
+      }
+      onClick={onOk}
     >
-      {conf.divergente ? '⚠ ' : ''}
-      {conf.oks}/2
-    </span>
+      {marca}
+      <span aria-hidden style={{ opacity: 0.65 }}>+</span>
+    </button>
   )
 }
 
@@ -214,8 +242,8 @@ export default function Projetos() {
               )}
             </span>
             <div
-              className="flex h-2 min-w-40 flex-1 overflow-hidden rounded-full"
-              style={{ background: 'var(--surface-2)' }}
+              className="flex h-1.5 w-40 shrink-0 overflow-hidden rounded-full"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-hairline)' }}
               title={`${data.consolidado.qtd_aprovados} conferidos e aprovados · ${data.consolidado.qtd_conferidos} com um ok · ${data.consolidado.qtd_pendentes} sem nenhum`}
             >
               <div
@@ -231,6 +259,18 @@ export default function Projetos() {
                 }}
               />
             </div>
+            <span className="text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+              {Math.round((data.consolidado.qtd_aprovados / data.consolidado.qtd_projetos) * 100)}%
+            </span>
+            {data.consolidado.qtd_pendentes > 0 && (
+              <button
+                className="btn btn-ghost ml-auto px-3 py-1 text-xs"
+                onClick={() => setFiltroConf('pendente')}
+                title="Filtra a lista nos que ainda não têm nenhum ok"
+              >
+                Ver os {data.consolidado.qtd_pendentes} pendentes
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -347,9 +387,11 @@ export default function Projetos() {
         <table className="data">
           <thead>
             <tr>
-              <th style={{ width: 34 }}>
+              <th style={{ width: 32 }}>
                 <input
                   type="checkbox"
+                  className="align-middle"
+                  style={{ accentColor: 'var(--accent)' }}
                   checked={todosMarcados}
                   onChange={marcarTodos}
                   aria-label="Selecionar todos os projetos visíveis"
@@ -357,7 +399,9 @@ export default function Projetos() {
                 />
               </th>
               <Th campo="projeto" numerica={false}>Projeto</Th>
-              <th title="Dupla conferência: 1/2 conferido, 2/2 conferido e aprovado">Conf.</th>
+              <th style={{ width: 64 }} title="Dupla conferência: 0/2 sem ok, 1/2 conferido, 2/2 conferido e aprovado">
+                Conf.
+              </th>
               <th>Empresas</th>
               <th>Cliente</th>
               <Th campo="receita">Receita</Th>
@@ -400,6 +444,8 @@ export default function Projetos() {
                 <td onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
+                    className="align-middle"
+                    style={{ accentColor: 'var(--accent)' }}
                     checked={selecionados.has(p.projeto)}
                     onChange={() => alternarSelecao(p.projeto)}
                     aria-label={`Selecionar ${p.projeto}`}
@@ -414,24 +460,13 @@ export default function Projetos() {
                     {p.projeto}
                   </Link>
                 </td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-1.5">
-                    <SeloConferencia p={p} />
-                    {p.conferencia && p.conferencia.status !== 'aprovado' && (
-                      <button
-                        className="btn btn-ghost px-2 py-0.5 text-xs"
-                        disabled={darOks.isPending}
-                        title={
-                          p.conferencia.status === 'pendente'
-                            ? `Dar o 1º ok (conferi) — assina como ${eu?.nome || 'você'}`
-                            : `Dar o 2º ok (aprovar) — conferido por ${p.conferencia.conferido_por}`
-                        }
-                        onClick={() => darOks.mutate([p.projeto])}
-                      >
-                        + ok
-                      </button>
-                    )}
-                  </div>
+                <td className="whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <CelulaConferencia
+                    p={p}
+                    ocupado={darOks.isPending}
+                    euNome={eu?.nome || 'você'}
+                    onOk={() => darOks.mutate([p.projeto])}
+                  />
                 </td>
                 <td>
                   <ChipsEmpresas empresas={p.empresas} />
