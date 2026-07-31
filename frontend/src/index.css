@@ -794,6 +794,40 @@ tr.linha-clicavel:hover td {
   }
 }
 
+/* ---------- impressão (o guia "Como usar" vira apostila) ---------- */
+
+@media print {
+  /* menu, botões e índice não fazem sentido no papel */
+  aside,
+  header,
+  .nao-imprimir {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+  body::after {
+    display: none; /* textura de ruído */
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+    break-inside: avoid;
+  }
+  .guia section {
+    break-inside: avoid;
+  }
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
 /* ---------- mobile ---------- */
 
 @media (max-width: 767px) {
