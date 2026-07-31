@@ -1,8 +1,9 @@
 """Exportacao do fechamento em CSV (pt-BR, ';'), Excel (openpyxl) e PDF (fpdf2).
 
 O PDF segue a mesma linguagem editorial da proposta comercial: Manrope embutida
-(nada de fonte core, que so aguenta Latin-1 e come acento), faixa marinho no
-topo, fios finos no lugar de grades pesadas e o resultado como heroi da pagina.
+(nada de fonte core, que so aguenta Latin-1 e come acento), faixa preta com o
+logotipo do grupo no topo, fios finos no lugar de grades pesadas e o resultado
+como heroi da pagina.
 """
 
 import csv
@@ -25,16 +26,23 @@ def _agora_br() -> datetime:
     return datetime.now(TZ_BR)
 
 
-# paleta (impressao amigavel), espelhando a da proposta
-MARINHO = (15, 27, 51)
-AZUL = (37, 99, 235)
-ARDOSIA = (152, 168, 198)
-CINZA = (112, 118, 130)
-TINTA = (18, 21, 27)
-FIO = (228, 231, 236)
-ZEBRA = (248, 249, 251)
-VERDE = (14, 122, 62)
-VERMELHO = (183, 42, 42)
+# paleta da marca (preto e branco), a mesma da proposta e do app
+from ..marca import (  # noqa: E402  (paleta antes das constantes que a usam)
+    CINZA,
+    CINZA_XL,
+    CLARO,
+    FIO,
+    FIO_XL,
+    NOME,
+    PRETO,
+    PRETO_XL,
+    TINTA,
+    VERDE,
+    VERMELHO,
+    ZEBRA,
+    ZEBRA_XL,
+    desenhar_logotipo,
+)
 
 COLUNAS = [
     ("empresas", "Empresas"),
@@ -182,21 +190,32 @@ class _RelatorioBase(FPDF):
 
     def header(self):
         util = self.w - self.l_margin - self.r_margin
-        self.set_fill_color(*MARINHO)
-        self.rect(0, 0, self.w, 24, style="F")
-        self.set_xy(self.l_margin, 6)
-        self.set_font("ManropeX", "", 15)
+        self.set_fill_color(*PRETO)
+        self.rect(0, 0, self.w, 26, style="F")
+
+        # logotipo do grupo a esquerda
+        largura_marca = desenhar_logotipo(self, self.l_margin, 6.5, tamanho=15)
+
+        # titulo do documento, logo depois da marca (separado por um fio vertical)
+        x_titulo = self.l_margin + largura_marca + 8
+        self.set_draw_color(*CINZA)
+        self.set_line_width(0.2)
+        self.line(x_titulo - 4, 7, x_titulo - 4, 19)
+        self.set_xy(x_titulo, 8)
+        self.set_font("ManropeX", "", 12)
         self.set_text_color(255, 255, 255)
-        self.cell(util - 90, 8, "Fechamento de Projetos")
+        self.cell(util - largura_marca - 98, 6, "Fechamento de Projetos")
+        self.set_xy(x_titulo, 14.5)
+        self.set_font("Manrope", "", 6.8)
+        self.set_text_color(*CLARO)
+        self.cell(util - largura_marca - 98, 4, "Receita − Produção − Frete − Comissão − Impostos − Outros = Resultado")
+
         if self.subtitulo:
+            self.set_xy(self.w - self.r_margin - 90, 10)
             self.set_font("Manrope", "B", 8)
-            self.set_text_color(*ARDOSIA)
-            self.cell(90, 8, self.subtitulo, align="R")
-        self.set_xy(self.l_margin, 14.5)
-        self.set_font("Manrope", "", 7)
-        self.set_text_color(*ARDOSIA)
-        self.cell(util, 4, "Receita − Produção − Frete − Comissão − Impostos − Outros = Resultado")
-        self.set_y(31)
+            self.set_text_color(*CLARO)
+            self.cell(90, 6, self.subtitulo, align="R")
+        self.set_y(33)
 
     def footer(self):
         util = self.w - self.l_margin - self.r_margin
@@ -210,7 +229,8 @@ class _RelatorioBase(FPDF):
         self.cell(
             util - 40,
             4,
-            f"Somente projetos de venda (numeração BR) · gerado em {_agora_br().strftime('%d/%m/%Y %H:%M')}",
+            f"Grupo JPDV · somente projetos de venda (numeração BR) · "
+            f"gerado em {_agora_br().strftime('%d/%m/%Y %H:%M')}",
         )
         self.cell(40, 4, f"Página {self.page_no()} de {{nb}}", align="R")
 
@@ -227,8 +247,8 @@ def _encurtar(pdf: FPDF, texto: str, largura: float) -> str:
 
 
 def _kpi(pdf: FPDF, x: float, y: float, largura: float, rotulo: str, valor: str, destaque: bool = False) -> None:
-    """Métrica editorial: tick azul, rótulo em caixa alta, valor grande."""
-    pdf.set_fill_color(*AZUL)
+    """Métrica editorial: tick preto, rótulo em caixa alta, valor grande."""
+    pdf.set_fill_color(*PRETO)
     pdf.rect(x, y, 8, 1.3, style="F")
     pdf.set_xy(x, y + 3)
     pdf.set_font("ManropeX", "", 6.4)
@@ -245,7 +265,7 @@ def _kpi(pdf: FPDF, x: float, y: float, largura: float, rotulo: str, valor: str,
 def _cabecalho_tabela(pdf: FPDF) -> None:
     pdf.set_font("ManropeX", "", 6.6)
     pdf.set_text_color(*CINZA)
-    pdf.set_draw_color(*MARINHO)
+    pdf.set_draw_color(*PRETO)
     pdf.set_line_width(0.35)
     pdf.set_char_spacing(0.4)
     for _, titulo, largura, alinh in _COLUNAS_PDF:
@@ -333,7 +353,7 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
     if pdf.get_y() > limite_y - 8:
         pdf.add_page()
         _cabecalho_tabela(pdf)
-    pdf.set_draw_color(*MARINHO)
+    pdf.set_draw_color(*PRETO)
     pdf.set_line_width(0.35)
     totais = {
         "projeto": f"TOTAL · {len(projetos)} projeto(s)",
@@ -383,13 +403,13 @@ def fechamento_pdf(projetos: list[dict], consolidado: dict, subtitulo: str = "")
 
 _MOEDA_XL = 'R$ #,##0.00;[Red]-R$ #,##0.00'  # negativo em vermelho, como no Excel BR
 _PCT_XL = "0.0%"
-_AZUL_XL = "0F1B33"  # mesmo marinho do PDF
-_ZEBRA_XL = "F7F8FA"
-_FIO_XL = Side(style="thin", color="E4E7EC")
+_MARCA_XL = PRETO_XL  # cabeçalhos e faixas de total, no preto da marca
+_ZEBRA_XL = ZEBRA_XL
+_FIO_XL = Side(style="thin", color=FIO_XL)
 
 
 def _estilizar_cabecalho(ws, colunas: int) -> None:
-    fundo = PatternFill("solid", fgColor=_AZUL_XL)
+    fundo = PatternFill("solid", fgColor=_MARCA_XL)
     for coluna in range(1, colunas + 1):
         cell = ws.cell(row=1, column=coluna)
         cell.font = Font(bold=True, color="FFFFFF", size=10)
@@ -405,6 +425,8 @@ def fechamento_xlsx(projetos: list[dict], consolidado: dict) -> bytes:
     nada — e a aba Resumo responde "como foi o periodo" sem rolar a tabela.
     """
     wb = Workbook()
+    wb.properties.creator = f"{NOME} · Fechamento de Projetos"
+    wb.properties.title = "Fechamento de projetos"
     ws = wb.active
     ws.title = "Fechamento"
 
@@ -435,7 +457,7 @@ def fechamento_xlsx(projetos: list[dict], consolidado: dict) -> bytes:
     )
     for cell in ws[ws.max_row]:
         cell.font = Font(bold=True, size=10)
-        cell.border = Border(top=Side(style="medium", color=_AZUL_XL))
+        cell.border = Border(top=Side(style="medium", color=_MARCA_XL))
 
     for row in ws.iter_rows(min_row=2):
         for cell in row[3:11]:
@@ -490,13 +512,20 @@ def _aba_resumo(wb: Workbook, projetos: list[dict], consolidado: dict) -> None:
     ws.column_dimensions["B"].width = 20
     ws.column_dimensions["C"].width = 14
 
+    # marca no alto da folha, como no papel timbrado
+    ws.append([NOME.upper()])
+    ws.cell(row=1, column=1).font = Font(bold=True, size=14, color=PRETO_XL)
+    ws.append(["Fechamento de projetos"])
+    ws.cell(row=2, column=1).font = Font(size=9, color=CINZA_XL)
+    ws.append([])
+
     def titulo(texto: str) -> None:
         ws.append([texto])
         cell = ws.cell(row=ws.max_row, column=1)
         cell.font = Font(bold=True, color="FFFFFF", size=11)
-        cell.fill = PatternFill("solid", fgColor=_AZUL_XL)
-        ws.cell(row=ws.max_row, column=2).fill = PatternFill("solid", fgColor=_AZUL_XL)
-        ws.cell(row=ws.max_row, column=3).fill = PatternFill("solid", fgColor=_AZUL_XL)
+        cell.fill = PatternFill("solid", fgColor=_MARCA_XL)
+        ws.cell(row=ws.max_row, column=2).fill = PatternFill("solid", fgColor=_MARCA_XL)
+        ws.cell(row=ws.max_row, column=3).fill = PatternFill("solid", fgColor=_MARCA_XL)
 
     def linha(rotulo: str, valor, formato: str | None = None, participacao: float | None = None) -> None:
         ws.append([rotulo, valor, participacao])
