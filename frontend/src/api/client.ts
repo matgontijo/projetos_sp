@@ -29,10 +29,26 @@ export interface SyncLog {
   qtd_registros: number
 }
 
+/** Dupla conferência: o projeto só está fechado com dois ok, de pessoas diferentes. */
+export interface Conferencia {
+  status: 'pendente' | 'conferido' | 'aprovado'
+  oks: 0 | 1 | 2
+  conferido_id: number | null
+  conferido_por: string
+  conferido_em: string | null
+  aprovado_id: number | null
+  aprovado_por: string
+  aprovado_em: string | null
+  resultado_conferido: number | null
+  /** os números mudaram depois de um ok que ainda vale */
+  divergente: boolean
+}
+
 export interface LinhaFechamento {
   projeto: string
   empresas: string // nomes das empresas que faturaram o projeto, separados por vírgula
   cliente: string
+  conferencia?: Conferencia
   receita: number
   producao: number
   frete: number
@@ -65,6 +81,11 @@ export interface Consolidado {
   resultado: number
   margem_media: number
   qtd_projetos: number
+  // dupla conferência
+  qtd_pendentes: number
+  qtd_conferidos: number
+  qtd_aprovados: number
+  qtd_divergentes: number
 }
 
 export interface Fechamento {
@@ -226,11 +247,16 @@ export interface Orcamento {
 export interface Aprovacao {
   id: number
   nome: string
+  /** 1 = conferência (1º ok) · 2 = aprovação (2º ok) */
+  nivel: 1 | 2
+  rotulo: string
   periodo_de: string | null
   periodo_ate: string | null
   dados: LinhaFechamento
   usuario: string
   criado_em: string
+  revogado_em: string | null
+  revogado_por: string
 }
 
 export interface Comentario {
@@ -246,6 +272,8 @@ export interface UsuarioLogado {
   email: string
   papel: 'admin' | 'financeiro' | 'leitura' | 'comercial'
   ativo: boolean
+  /** marcado no cadastro: pode dar o 2º ok (aprovação) da dupla conferência */
+  pode_aprovar: boolean
 }
 
 export function tokenAtual(): string {
@@ -499,10 +527,12 @@ export const api = {
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
   eu: () => request<UsuarioLogado>('/api/auth/eu'),
   listarUsuarios: () => request<UsuarioLogado[]>('/api/usuarios'),
-  criarUsuario: (dados: { nome: string; email: string; senha: string; papel: string }) =>
+  criarUsuario: (dados: { nome: string; email: string; senha: string; papel: string; pode_aprovar?: boolean }) =>
     request<UsuarioLogado>('/api/usuarios', { method: 'POST', body: JSON.stringify(dados) }),
-  atualizarUsuario: (id: number, dados: Partial<{ nome: string; papel: string; ativo: boolean; senha: string }>) =>
-    request<UsuarioLogado>(`/api/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
+  atualizarUsuario: (
+    id: number,
+    dados: Partial<{ nome: string; papel: string; ativo: boolean; senha: string; pode_aprovar: boolean }>,
+  ) => request<UsuarioLogado>(`/api/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(dados) }),
 
   // Empresas
   listarEmpresas: () => request<Empresa[]>('/api/empresas'),
@@ -573,8 +603,10 @@ export const api = {
   obterOrcamento: (nome: string) => request<Orcamento>(`/api/orcamentos${qs({ nome })}`),
   salvarOrcamento: (dados: { nome: string; receita_prevista: number | null; custo_previsto: number | null }) =>
     request<Orcamento>('/api/orcamentos', { method: 'PUT', body: JSON.stringify(dados) }),
+  /** Dá o próximo ok do projeto — o servidor decide se é o 1º (conferência) ou o 2º (aprovação). */
   aprovar: (dados: { nome: string; empresa_ids?: string; de?: string; ate?: string }) =>
     request<Aprovacao>('/api/aprovacoes', { method: 'POST', body: JSON.stringify(dados) }),
+  desfazerAprovacao: (id: number) => request<Aprovacao>(`/api/aprovacoes/${id}`, { method: 'DELETE' }),
   listarAprovacoes: (nome: string) => request<Aprovacao[]>(`/api/aprovacoes${qs({ nome })}`),
   listarComentarios: (nome: string) => request<Comentario[]>(`/api/comentarios${qs({ nome })}`),
   comentar: (nome: string, texto: string) =>

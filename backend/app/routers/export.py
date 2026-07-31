@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..services import export as export_svc
-from .projetos import _empresa_ids, fechamento_cacheado
+from .projetos import _empresa_ids, fechamento_anotado
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
@@ -14,7 +14,7 @@ def _dados(db: Session, empresa_ids: str | None, de: date | None, ate: date | No
     ids = _empresa_ids(db, empresa_ids)
     if not ids:
         return {"projetos": [], "consolidado": {}}
-    return fechamento_cacheado(db, ids, de, ate)
+    return fechamento_anotado(db, ids, de, ate)  # leva o status da dupla conferencia
 
 
 def _nome_arquivo(extensao: str, de: date | None, ate: date | None) -> str:

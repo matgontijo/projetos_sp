@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type LinhaFechamento, type Orcamento } from '../api/client'
 import { useFiltros } from '../components/Filtros'
@@ -15,6 +15,70 @@ const GRUPO_LABEL: Record<string, string> = {
   ignorar: 'Ignorar',
 }
 const GRUPOS_AJUSTE = ['producao', 'frete', 'comissao', 'imposto', 'outros', 'ignorar'] as const
+
+// Dupla conferência: pendente → conferido (1 ok) → aprovado (2 ok)
+const ROTULO_CONFERENCIA = {
+  pendente: { texto: 'Pendente de conferência', ajuda: 'Ninguém conferiu este projeto ainda' },
+  conferido: { texto: '1 de 2', ajuda: 'Conferido — falta o 2º ok (aprovação), de outra pessoa' },
+  aprovado: { texto: '✓✓ Conferido e aprovado', ajuda: 'Os dois ok foram dados, por pessoas diferentes' },
+} as const
+
+const ESTILO_CONFERENCIA: Record<string, CSSProperties> = {
+  pendente: { background: 'var(--surface-2)', color: 'var(--text-muted)' },
+  conferido: {
+    background: 'color-mix(in srgb, var(--status-warning) 18%, transparent)',
+    color: 'var(--text-primary)',
+  },
+  aprovado: {
+    background: 'color-mix(in srgb, var(--status-good) 15%, transparent)',
+    color: 'var(--status-good-text)',
+  },
+}
+
+/** Um dos dois ok: quem assinou, quando, e o desfazer da administradora. */
+function SlotOk({
+  titulo,
+  quem,
+  quando,
+  vazio,
+  onDesfazer,
+}: {
+  titulo: string
+  quem: string
+  quando: string | null
+  vazio: string
+  onDesfazer?: () => void
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+        {titulo}
+      </p>
+      {quem ? (
+        <>
+          <p className="mt-1 font-semibold">✓ {quem}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {fmtDataHora(quando)}
+            {onDesfazer && (
+              <button
+                className="ml-2 underline"
+                style={{ color: 'var(--status-critical)' }}
+                title="Desfazer este ok (só administradora). A linha fica no histórico."
+                onClick={onDesfazer}
+              >
+                desfazer
+              </button>
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="mt-1" style={{ color: 'var(--text-muted)' }}>
+          {vazio}
+        </p>
+      )}
+    </div>
+  )
+}
 
 interface ModalAjuste {
   empresa_id: number
@@ -50,10 +114,22 @@ export default function ProjetoDetalhe() {
     queryFn: () => api.listarAprovacoes(nome),
     enabled: !!nome,
   })
+  // quem pode dar o 2º ok vem do cadastro, que pode ter mudado desde o login —
+  // por isso perguntamos ao servidor em vez de confiar no que está no navegador
+  const { data: eu } = useQuery({ queryKey: ['eu'], queryFn: api.eu })
 
-  const aprovarFechamento = useMutation({
+  function invalidarConferencia() {
+    queryClient.invalidateQueries({ queryKey: ['aprovacoes', nome] })
+    queryClient.invalidateQueries({ queryKey: ['detalhe'] })
+    queryClient.invalidateQueries({ queryKey: ['fechamento'] })
+  }
+  const darOk = useMutation({
     mutationFn: () => api.aprovar({ nome, empresa_ids: empresaIds, de, ate }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['aprovacoes', nome] }),
+    onSuccess: invalidarConferencia,
+  })
+  const desfazerOk = useMutation({
+    mutationFn: (id: number) => api.desfazerAprovacao(id),
+    onSuccess: invalidarConferencia,
   })
 
   const criarAjuste = useMutation({
@@ -95,9 +171,25 @@ export default function ProjetoDetalhe() {
     { id: 'ajustes' as const, rotulo: `Ajustes (${data?.ajustes.length || 0})` },
     { id: 'comentarios' as const, rotulo: 'Comentários' },
   ]
-  const ultimaAprovacao = aprovacoes?.[0]
-  const divergencia =
-    ultimaAprovacao && f ? Math.abs((ultimaAprovacao.dados.resultado ?? 0) - f.resultado) > 0.01 : false
+  // Dupla conferência: o status vem calculado do servidor, junto do fechamento
+  const conf = f?.conferencia
+  const desfeitos = (aprovacoes || []).filter((a) => a.revogado_em)
+  const podeAprovar = eu?.pode_aprovar ?? false
+  const ehAdmin = eu?.papel === 'admin'
+  const souQuemConferiu = !!conf?.conferido_por && conf.conferido_por === eu?.nome
+  const proximoOk =
+    conf?.status === 'pendente'
+      ? { rotulo: 'Dar o 1º ok (conferi)', bloqueio: '' }
+      : conf?.status === 'conferido'
+        ? {
+            rotulo: 'Dar o 2º ok (aprovar)',
+            bloqueio: souQuemConferiu
+              ? 'Você deu o 1º ok — o 2º tem de ser de outra pessoa'
+              : !podeAprovar
+                ? 'Só quem está marcado como aprovador no cadastro dá o 2º ok'
+                : '',
+          }
+        : null
 
   return (
     <div>
@@ -113,33 +205,86 @@ export default function ProjetoDetalhe() {
             {f.empresas.split(',').map((n) => siglaEmpresa(n.trim())).join(' + ')}
           </span>
         )}
-        {f && (
+        {f && conf && (
           <span className="ml-auto flex items-center gap-2">
-            {ultimaAprovacao && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-bold"
+              title={ROTULO_CONFERENCIA[conf.status].ajuda}
+              style={ESTILO_CONFERENCIA[conf.status]}
+            >
+              {conf.status === 'conferido'
+                ? `✓ 1 de 2 · ${conf.conferido_por}`
+                : ROTULO_CONFERENCIA[conf.status].texto}
+            </span>
+            {conf.divergente && (
               <span
                 className="rounded-full px-2.5 py-0.5 text-xs font-bold"
-                title={`Resultado aprovado: ${fmtBRL(ultimaAprovacao.dados.resultado)}${divergencia ? ' — os números atuais divergem da aprovação!' : ''}`}
+                title={`Conferido com resultado de ${fmtBRL(conf.resultado_conferido ?? 0)}; agora está ${fmtBRL(f.resultado)}. Os ok continuam registrados — confira de novo se fizer sentido.`}
                 style={{
-                  background: divergencia
-                    ? 'color-mix(in srgb, var(--status-warning) 20%, transparent)'
-                    : 'color-mix(in srgb, var(--status-good) 15%, transparent)',
-                  color: divergencia ? 'var(--text-primary)' : 'var(--status-good-text)',
+                  background: 'color-mix(in srgb, var(--status-warning) 22%, transparent)',
+                  color: 'var(--text-primary)',
                 }}
               >
-                {divergencia ? '⚠ Mudou após aprovação' : `✓ Aprovado por ${ultimaAprovacao.usuario}`}
+                ⚠ Mudou depois do ok
               </span>
             )}
-            <button
-              className="btn btn-ghost"
-              disabled={aprovarFechamento.isPending}
-              title="Congela os números atuais como fechamento aprovado, assinado com o seu usuário"
-              onClick={() => aprovarFechamento.mutate()}
-            >
-              {aprovarFechamento.isPending ? 'Aprovando…' : 'Aprovar fechamento'}
-            </button>
+            {proximoOk && (
+              <button
+                className={proximoOk.bloqueio ? 'btn btn-ghost' : 'btn btn-primary'}
+                disabled={darOk.isPending || !!proximoOk.bloqueio}
+                title={proximoOk.bloqueio || 'Congela os números de agora e assina o ok com o seu usuário'}
+                onClick={() => darOk.mutate()}
+              >
+                {darOk.isPending ? 'Registrando…' : proximoOk.rotulo}
+              </button>
+            )}
           </span>
         )}
       </div>
+
+      {f && conf && (
+        <div className="card mb-5 p-4">
+          <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
+            <SlotOk
+              titulo="1º ok · conferência"
+              quem={conf.conferido_por}
+              quando={conf.conferido_em}
+              vazio="Ninguém conferiu ainda"
+              // desfazer a conferência com a aprovação de pé deixaria o 2º ok órfão
+              onDesfazer={ehAdmin && conf.status === 'conferido' && conf.conferido_id ? () => desfazerOk.mutate(conf.conferido_id!) : undefined}
+            />
+            <SlotOk
+              titulo="2º ok · aprovação"
+              quem={conf.aprovado_por}
+              quando={conf.aprovado_em}
+              vazio={conf.status === 'pendente' ? 'Aguardando o 1º ok' : 'Falta aprovar'}
+              onDesfazer={ehAdmin && conf.aprovado_id ? () => desfazerOk.mutate(conf.aprovado_id!) : undefined}
+            />
+            <p className="max-w-md text-xs" style={{ color: 'var(--text-muted)' }}>
+              O projeto só está fechado com os dois ok, e eles têm de ser de pessoas diferentes. O 2º ok é de quem
+              estiver marcado como aprovador em Empresas&nbsp;→&nbsp;Equipe.
+            </p>
+          </div>
+          {(darOk.error || desfazerOk.error) && (
+            <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--status-critical)' }}>
+              {(darOk.error || desfazerOk.error)?.message}
+            </p>
+          )}
+          {desfeitos.length > 0 && (
+            <details className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <summary className="cursor-pointer">Ok desfeitos ({desfeitos.length})</summary>
+              <ul className="mt-2 space-y-1">
+                {desfeitos.map((a) => (
+                  <li key={a.id}>
+                    {a.rotulo} de <b>{a.usuario}</b> em {fmtDataHora(a.criado_em)} — desfeito por{' '}
+                    <b>{a.revogado_por}</b> em {fmtDataHora(a.revogado_em)}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
 
       {!nome && (
         <p style={{ color: 'var(--text-muted)' }}>

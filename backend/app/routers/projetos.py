@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import cache, models
 from ..db import get_db
-from ..services import calculo
+from ..services import calculo, conferencia
 
 router = APIRouter(prefix="/api", tags=["projetos"])
 
@@ -17,6 +17,15 @@ def fechamento_cacheado(db: Session, ids: list[int], de: date | None, ate: date 
     if resultado is None:
         resultado = cache.guardar(chave, calculo.fechar_projetos(db, ids, de, ate))
     return resultado
+
+
+def fechamento_anotado(db: Session, ids: list[int], de: date | None, ate: date | None) -> dict:
+    """Fechamento + status da dupla conferencia.
+
+    A anotacao fica FORA do cache de proposito: dar um ok nao mexe nos numeros,
+    entao nao invalida o fechamento — mas o status precisa aparecer na hora.
+    """
+    return conferencia.anotar_fechamento(db, fechamento_cacheado(db, ids, de, ate))
 
 
 def _empresa_ids(db: Session, empresa_ids: str | None) -> list[int]:
@@ -39,8 +48,8 @@ def fechamento(
 ):
     ids = _empresa_ids(db, empresa_ids)
     if not ids:
-        return {"projetos": [], "consolidado": {"receita": 0, "custo_total": 0, "resultado": 0, "margem_media": 0, "qtd_projetos": 0, "imposto": 0, "producao": 0, "frete": 0, "comissao": 0, "outros": 0, "cp_impostos": 0, "nao_classificado": 0}}
-    return fechamento_cacheado(db, ids, de, ate)
+        return {"projetos": [], "consolidado": {"receita": 0, "custo_total": 0, "resultado": 0, "margem_media": 0, "qtd_projetos": 0, "imposto": 0, "producao": 0, "frete": 0, "comissao": 0, "outros": 0, "cp_impostos": 0, "nao_classificado": 0, "qtd_pendentes": 0, "qtd_conferidos": 0, "qtd_aprovados": 0, "qtd_divergentes": 0}}
+    return fechamento_anotado(db, ids, de, ate)
 
 
 @router.get("/fechamento/mensal")
@@ -71,4 +80,4 @@ def detalhe(
     ids = _empresa_ids(db, empresa_ids)
     if not ids:
         raise HTTPException(status_code=404, detail="Nenhuma empresa ativa")
-    return calculo.detalhe_projeto(db, ids, nome, de, ate, fechamento=fechamento_cacheado(db, ids, de, ate))
+    return calculo.detalhe_projeto(db, ids, nome, de, ate, fechamento=fechamento_anotado(db, ids, de, ate))

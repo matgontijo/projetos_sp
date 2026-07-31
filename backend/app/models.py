@@ -214,6 +214,9 @@ class Usuario(Base):
     senha_hash: Mapped[str] = mapped_column(Text)
     papel: Mapped[str] = mapped_column(String(12), default="financeiro")
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Dupla conferencia: quem esta marcado aqui pode dar o 2o ok (aprovacao).
+    # O 1o ok (conferencia) qualquer usuario de escrita do custeio pode dar.
+    pode_aprovar: Mapped[bool] = mapped_column(Boolean, default=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -262,18 +265,31 @@ class Orcamento(Base):
 
 
 class FechamentoAprovado(Base):
-    """Fotografia imutavel de um fechamento aprovado pela gestao."""
+    """Um 'ok' da dupla conferencia: fotografia imutavel dos numeros conferidos.
+
+    nivel 1 = conferencia (1o ok) | nivel 2 = aprovacao (2o ok, de outra pessoa).
+    Desfazer e privilegio de admin e nunca apaga a linha — marca `revogado_em`,
+    para o historico continuar auditavel.
+    """
 
     __tablename__ = "fechamento_aprovado"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chave_projeto: Mapped[str] = mapped_column(String(80), index=True)
     nome: Mapped[str] = mapped_column(String(120))
+    nivel: Mapped[int] = mapped_column(default=1)  # 1 = conferencia | 2 = aprovacao
     periodo_de: Mapped[date | None] = mapped_column(Date, nullable=True)
     periodo_ate: Mapped[date | None] = mapped_column(Date, nullable=True)
     dados: Mapped[dict] = mapped_column(JSONVariant)
     usuario: Mapped[str] = mapped_column(String(80), default="")
+    # id de quem assinou: e por ele que se garante "o 2o ok e de OUTRA pessoa"
+    # (o nome pode repetir). Nulo nas linhas anteriores a dupla conferencia.
+    usuario_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True
+    )
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    revogado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revogado_por: Mapped[str] = mapped_column(String(80), default="")
 
 
 class Comentario(Base):

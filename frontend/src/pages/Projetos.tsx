@@ -9,6 +9,51 @@ import { fmtBRL, fmtPct } from '../lib/format'
 
 type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'comissao' | 'imposto' | 'outros' | 'resultado' | 'margem'
 
+/** Filtros da dupla conferência — é por aqui que elas tocam a rotina de conferir. */
+const FILTROS_CONFERENCIA = [
+  { id: 'todos', rotulo: 'Todos' },
+  { id: 'pendente', rotulo: 'Pendentes' },
+  { id: 'conferido', rotulo: 'Falta o 2º ok' },
+  { id: 'aprovado', rotulo: 'Conferidos' },
+  { id: 'divergente', rotulo: 'Mudou depois do ok' },
+] as const
+type FiltroConferencia = (typeof FILTROS_CONFERENCIA)[number]['id']
+
+/** Selo compacto do status de conferência na lista. */
+function SeloConferencia({ p }: { p: LinhaFechamento }) {
+  const conf = p.conferencia
+  if (!conf) return null
+  const base = 'rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap'
+  if (conf.status === 'pendente') {
+    return (
+      <span className={base} style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }} title="Ninguém conferiu ainda">
+        —
+      </span>
+    )
+  }
+  const aprovado = conf.status === 'aprovado'
+  const titulo = aprovado
+    ? `Conferido por ${conf.conferido_por} · aprovado por ${conf.aprovado_por}`
+    : `Conferido por ${conf.conferido_por} — falta o 2º ok`
+  return (
+    <span
+      className={base}
+      title={conf.divergente ? `${titulo}. Atenção: os números mudaram depois do ok.` : titulo}
+      style={{
+        background: conf.divergente
+          ? 'color-mix(in srgb, var(--status-warning) 22%, transparent)'
+          : aprovado
+            ? 'color-mix(in srgb, var(--status-good) 15%, transparent)'
+            : 'color-mix(in srgb, var(--status-warning) 18%, transparent)',
+        color: aprovado && !conf.divergente ? 'var(--status-good-text)' : 'var(--text-primary)',
+      }}
+    >
+      {conf.divergente ? '⚠ ' : ''}
+      {conf.oks}/2
+    </span>
+  )
+}
+
 /** Botão de exportação que baixa via fetch: aguenta o servidor gratuito acordando
  * (~1 min) e mostra erro de verdade — o download nativo do navegador desistia. */
 function BotaoExport({ rotulo, url, nome, primario = false }: { rotulo: string; url: string; nome: string; primario?: boolean }) {
@@ -38,7 +83,7 @@ function BotaoExport({ rotulo, url, nome, primario = false }: { rotulo: string; 
 }
 
 export default function Projetos() {
-  const { empresaIds, de, ate, params } = useFiltros()
+  const { empresaIds, de, ate, params, set } = useFiltros()
   const { data, isLoading, error } = useQuery({
     queryKey: ['fechamento', empresaIds, de, ate],
     queryFn: () => api.fechamento(empresaIds, de, ate),
@@ -48,6 +93,11 @@ export default function Projetos() {
 
   const navigate = useNavigate()
   const [busca, setBusca] = useState('')
+  // o filtro de conferência mora na URL: o Dashboard linka direto para "pendentes"
+  // e voltar do detalhe do projeto devolve a lista como estava
+  const confDaUrl = params.get('conf') || 'todos'
+  const filtroConf = (FILTROS_CONFERENCIA.some((f) => f.id === confDaUrl) ? confDaUrl : 'todos') as FiltroConferencia
+  const setFiltroConf = (id: FiltroConferencia) => set('conf', id === 'todos' ? '' : id)
   const [ordem, setOrdem] = useState<{ campo: CampoOrdenavel; desc: boolean }>({ campo: 'receita', desc: true })
 
   function ordenarPor(campo: CampoOrdenavel) {
@@ -55,11 +105,17 @@ export default function Projetos() {
   }
 
   const todos = data?.projetos || []
-  const filtrados = busca
+  const porBusca = busca
     ? todos.filter((p) =>
         `${p.projeto} ${p.cliente} ${p.empresas}`.toLowerCase().includes(busca.toLowerCase()),
       )
     : todos
+  const filtrados =
+    filtroConf === 'todos'
+      ? porBusca
+      : porBusca.filter((p) =>
+          filtroConf === 'divergente' ? p.conferencia?.divergente : p.conferencia?.status === filtroConf,
+        )
   const projetos = [...filtrados].sort((a, b) => {
     const va = a[ordem.campo]
     const vb = b[ordem.campo]
@@ -107,7 +163,28 @@ export default function Projetos() {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
-            {busca && (
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filtrar por conferência">
+              {FILTROS_CONFERENCIA.map((op) => {
+                const ativo = filtroConf === op.id
+                return (
+                  <button
+                    key={op.id}
+                    className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                    onClick={() => setFiltroConf(op.id)}
+                    style={{
+                      background: ativo ? 'var(--accent)' : 'var(--surface-2)',
+                      color: ativo ? 'var(--surface-1)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {op.rotulo}
+                    {op.id === 'pendente' && (data?.consolidado.qtd_pendentes ?? 0) > 0
+                      ? ` (${data!.consolidado.qtd_pendentes})`
+                      : ''}
+                  </button>
+                )
+              })}
+            </div>
+            {(busca || filtroConf !== 'todos') && (
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {projetos.length} de {todos.length}
               </span>
@@ -134,21 +211,24 @@ export default function Projetos() {
               <Th campo="margem">Margem</Th>
               <th style={{ minWidth: 140 }}>Composição</th>
               <th>Status</th>
+              <th title="Dupla conferência: 1/2 conferido, 2/2 conferido e aprovado">Conf.</th>
             </tr>
           </thead>
           <tbody>
             {isLoading &&
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <tr key={i}>
-                  <td colSpan={13}>
+                  <td colSpan={14}>
                     <Skeleton altura={18} />
                   </td>
                 </tr>
               ))}
             {!isLoading && !error && projetos.length === 0 && (
               <tr>
-                <td colSpan={13} style={{ color: 'var(--text-muted)' }}>
-                  Nenhum projeto no período. Sincronize os dados na aba "Sincronizar".
+                <td colSpan={14} style={{ color: 'var(--text-muted)' }}>
+                  {filtroConf === 'todos'
+                    ? 'Nenhum projeto no período. Sincronize os dados na aba "Sincronizar".'
+                    : 'Nenhum projeto neste filtro de conferência.'}
                 </td>
               </tr>
             )}
@@ -196,6 +276,9 @@ export default function Projetos() {
                 <td>
                   <BadgeMeta margem={p.margem} receita={p.receita} alvo={margemAlvo} />
                 </td>
+                <td>
+                  <SeloConferencia p={p} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -224,6 +307,9 @@ export default function Projetos() {
                   </td>
                   <td className="num">{fmtPct(receita > 0 ? resultado / receita : 0)}</td>
                   <td colSpan={2}></td>
+                  <td className="text-xs" style={{ color: 'var(--text-muted)' }} title="Projetos com os dois ok">
+                    {linhas.filter((p) => p.conferencia?.status === 'aprovado').length}/{linhas.length}
+                  </td>
                 </tr>
               </tfoot>
             )
