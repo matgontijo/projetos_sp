@@ -57,7 +57,9 @@ function CelulaConferencia({
         : { fundo: 'var(--surface-2)', texto: 'var(--text-muted)' }
 
   const marca = `${conf.divergente ? '⚠ ' : ''}${conf.oks}/2`
-  const base = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold leading-tight'
+  // maior no celular: 21px de altura não é alvo de toque; no desktop volta ao compacto
+  const base =
+    'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold leading-tight md:px-2 md:py-0.5 md:text-xs'
 
   if (conf.status === 'aprovado') {
     return (
@@ -90,6 +92,79 @@ function CelulaConferencia({
       {marca}
       <span aria-hidden style={{ opacity: 0.65 }}>+</span>
     </button>
+  )
+}
+
+/** O projeto como cartão — a forma da lista no celular.
+ *
+ * Mostra só o que decide a conferência. O toque no cartão abre o detalhe; a
+ * seleção e o ok ficam em alvos próprios, grandes o bastante para o dedo. */
+function CartaoProjeto({
+  p,
+  selecionado,
+  onSelecionar,
+  onOk,
+  ocupado,
+  euNome,
+  href,
+}: {
+  p: LinhaFechamento
+  selecionado: boolean
+  onSelecionar: (comShift: boolean) => void
+  onOk: () => void
+  ocupado: boolean
+  euNome: string
+  href: string
+}) {
+  const positivo = p.resultado >= 0
+  return (
+    <div
+      className="min-w-0 rounded-xl p-3"
+      style={{
+        background: selecionado ? 'color-mix(in srgb, var(--accent) 10%, var(--surface-1))' : 'var(--surface-1)',
+        border: '1px solid var(--border-hairline)',
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-6 w-6 shrink-0"
+          style={{ accentColor: 'var(--accent)' }}
+          checked={selecionado}
+          onClick={(e) => onSelecionar(e.shiftKey)}
+          onChange={() => {}}
+          aria-label={`Selecionar ${p.projeto}`}
+        />
+        <Link to={href} className="min-w-0 flex-1">
+          <div className="truncate font-bold" style={{ color: 'var(--accent)' }} title={p.projeto}>
+            {p.projeto}
+          </div>
+          <div className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>
+            {[p.cliente, p.empresas].filter(Boolean).join(' · ') || '—'}
+          </div>
+        </Link>
+        <CelulaConferencia p={p} ocupado={ocupado} onOk={onOk} euNome={euNome} />
+      </div>
+      <Link to={href} className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <div className="titulo-secao">Receita</div>
+          <div className="text-sm font-semibold tabular-nums">{fmtBRL(p.receita)}</div>
+        </div>
+        <div className="text-right">
+          <div className="titulo-secao">Resultado</div>
+          <div
+            className="text-base font-extrabold tabular-nums"
+            style={{ color: positivo ? 'var(--status-good-text)' : 'var(--neg)' }}
+          >
+            {fmtBRL(p.resultado)}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="titulo-secao">Margem</div>
+          <div className="text-sm font-bold tabular-nums">{fmtPct(p.margem)}</div>
+        </div>
+      </Link>
+    </div>
   )
 }
 
@@ -322,9 +397,9 @@ export default function Projetos() {
       )}
 
       {selecaoVisivel.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2">
+        <div className="fixed bottom-4 left-1/2 z-30 w-[calc(100vw-1.5rem)] max-w-2xl -translate-x-1/2 md:bottom-6 md:w-auto">
           <div
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-full px-5 py-3 shadow-lg"
+            className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 rounded-2xl px-5 py-3 shadow-lg md:rounded-full"
             style={{ background: 'var(--surface-1)', border: '1px solid var(--border-hairline)' }}
           >
             <b className="text-sm">{selecaoVisivel.length} selecionado{selecaoVisivel.length === 1 ? '' : 's'}</b>
@@ -398,7 +473,36 @@ export default function Projetos() {
             <LegendaSeries />
           </div>
         </div>
-        <div className="tabela-wrap">
+        {/* No celular a tabela de 15 colunas é inútil: vira uma lista de cartões
+            com o que decide a conferência — projeto, quem é o cliente, resultado
+            e o selo de ok. O resto abre no detalhe. */}
+        {/* grid-cols-1 (= minmax(0,1fr)) e não só `grid`: a coluna `auto` do grid
+            dimensiona pelo conteúdo, e um número de projeto longo estica o cartão
+            para além da tela em vez de truncar. */}
+        <div className="grid grid-cols-1 gap-2 px-3 pb-3 md:hidden">
+          {isLoading && [1, 2, 3].map((i) => <Skeleton key={i} altura={92} />)}
+          {!isLoading && !error && projetos.length === 0 && (
+            <p className="px-2 py-6 text-sm" style={{ color: 'var(--text-muted)' }}>
+              {filtroConf === 'todos'
+                ? 'Nenhum projeto no período. Sincronize os dados em "Buscar dados".'
+                : 'Nenhum projeto neste filtro de conferência.'}
+            </p>
+          )}
+          {projetos.map((p, indice) => (
+            <CartaoProjeto
+              key={p.projeto}
+              p={p}
+              selecionado={selecionados.has(p.projeto)}
+              onSelecionar={(comShift) => alternarSelecao(indice, comShift)}
+              onOk={() => darOks.mutate([p.projeto])}
+              ocupado={darOks.isPending}
+              euNome={eu?.nome || 'você'}
+              href={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`}
+            />
+          ))}
+        </div>
+
+        <div className="tabela-wrap hidden md:block">
         <table className="data tabela-fixa">
           <thead>
             <tr>

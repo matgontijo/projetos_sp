@@ -650,7 +650,11 @@ tr.linha-clicavel:hover td {
    São 15 colunas: ao rolar para ver Resultado e Margem, perder de vista QUAL
    projeto é a linha torna a tabela inútil. As três primeiras (seleção, projeto
    e conferência) acompanham o scroll horizontal. Os offsets de `left` dependem
-   das larguras fixas declaradas abaixo — mexer numa exige mexer na outra. */
+   das larguras fixas declaradas abaixo — mexer numa exige mexer na outra.
+
+   Só a partir de 768px: as colunas congeladas somam 258px, o que não sobra tela
+   nenhuma num celular. Lá a lista vira cartões e a tabela nem é renderizada. */
+@media (min-width: 768px) {
 .tabela-fixa th:nth-child(-n + 3),
 .tabela-fixa td:nth-child(-n + 3) {
   position: sticky;
@@ -695,6 +699,8 @@ tr.linha-clicavel:hover td {
 .tabela-fixa tr.linha-selecionada td {
   background: color-mix(in srgb, var(--accent) 11%, var(--surface-1)) !important;
 }
+}
+/* fim das colunas fixas (>= 768px) */
 
 /* ---------- navegação lateral (sempre escura) ---------- */
 
