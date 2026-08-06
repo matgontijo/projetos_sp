@@ -336,12 +336,10 @@ export default function ProjetoDetalhe() {
                 <ValorContado valor={f.receita} formato={fmtBRL} />
               </div>
             </div>
-            <div className="hero-sub">
-              <div className="titulo-secao">Custo total</div>
-              <div className="valor mt-2">
-                <ValorContado valor={f.custo_total} formato={fmtBRL} />
-              </div>
-            </div>
+            {/* Os três se SOMAM para dar o resultado: receita − impostos − custos.
+                Nenhum contém o outro. Antes havia "Custo total" (que já inclui o
+                imposto) ao lado de "Impostos", e a linha convidava a subtrair o
+                imposto duas vezes — que é exatamente o erro da planilha antiga. */}
             <div
               className="hero-sub"
               title={
@@ -354,9 +352,21 @@ export default function ProjetoDetalhe() {
                   .join(' + ') || `${f.qtd_nfe} NF-e`
               }
             >
-              <div className="titulo-secao">Impostos</div>
+              <div className="titulo-secao">(−) Impostos</div>
               <div className="valor mt-2">
                 <ValorContado valor={f.imposto} formato={fmtBRL} />
+              </div>
+              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                receita líquida {fmtBRL(f.receita - f.imposto)}
+              </div>
+            </div>
+            <div className="hero-sub" title="Produção + frete + comissão + outros. Não inclui impostos.">
+              <div className="titulo-secao">(−) Custos</div>
+              <div className="valor mt-2">
+                <ValorContado valor={f.custo_total - f.imposto} formato={fmtBRL} />
+              </div>
+              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                sem impostos
               </div>
             </div>
           </div>
