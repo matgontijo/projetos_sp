@@ -427,27 +427,29 @@ export default function ProjetoDetalhe() {
         <table className="data">
           <thead>
             <tr>
-              <th>Empresa</th>
+              {/* no celular só cabem as colunas que identificam e valoram o título;
+                  empresa e vencimento saem (a sigla da empresa está no cabeçalho) */}
+              <th className="hidden sm:table-cell">Empresa</th>
               <th>Emissão</th>
-              <th>Vencimento</th>
+              <th className="hidden sm:table-cell">Vencimento</th>
               <th>Doc / NF</th>
               <th>Status</th>
               <th className="num">Valor</th>
-              <th></th>
+              <th className="hidden sm:table-cell"></th>
             </tr>
           </thead>
           <tbody>
             {receber.map((t) => (
               <tr key={t.id} style={t.cancelado || t.excluido ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
+                <td className="hidden text-xs whitespace-nowrap sm:table-cell" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
                   {siglaEmpresa(t.empresa_nome)}
                 </td>
                 <td>{fmtData(t.data_emissao)}</td>
-                <td>{fmtData(t.data_vencimento)}</td>
+                <td className="hidden sm:table-cell">{fmtData(t.data_vencimento)}</td>
                 <td>{t.numero_documento_fiscal || t.numero_documento || '—'}</td>
                 <td className="text-xs">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
                 <td className="num">{fmtBRL(t.valor_documento)}</td>
-                <td className="text-right">
+                <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={t.excluido}
                     onMover={() =>
@@ -474,7 +476,8 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={5}>
+              <td colSpan={3} className="sm:hidden">Total a receber</td>
+              <td colSpan={5} className="hidden sm:table-cell">
                 Total recebido/a receber
                 {totalReceber.fora > 0 && (
                   <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
@@ -483,7 +486,7 @@ export default function ProjetoDetalhe() {
                 )}
               </td>
               <td className="num">{fmtBRL(totalReceber.total)}</td>
-              <td></td>
+              <td className="hidden sm:table-cell"></td>
             </tr>
           </tfoot>
         </table>
@@ -495,23 +498,25 @@ export default function ProjetoDetalhe() {
         <table className="data">
           <thead>
             <tr>
-              <th>Empresa</th>
+              {/* o Grupo é o que se confere aqui; empresa, código da categoria
+                  e status saem no celular para ele caber */}
+              <th className="hidden sm:table-cell">Empresa</th>
               <th>Emissão</th>
-              <th>Categoria</th>
+              <th className="hidden sm:table-cell">Categoria</th>
               <th>Grupo</th>
-              <th>Status</th>
+              <th className="hidden sm:table-cell">Status</th>
               <th className="num">Valor</th>
-              <th></th>
+              <th className="hidden sm:table-cell"></th>
             </tr>
           </thead>
           <tbody>
             {pagar.map((t) => (
               <tr key={t.id} style={t.cancelado || t.excluido ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
+                <td className="hidden text-xs whitespace-nowrap sm:table-cell" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
                   {siglaEmpresa(t.empresa_nome)}
                 </td>
                 <td>{fmtData(t.data_emissao)}</td>
-                <td className="text-xs">{t.codigo_categoria || '—'}</td>
+                <td className="hidden text-xs sm:table-cell">{t.codigo_categoria || '—'}</td>
                 <td>
                   {t.parcelas.length > 1 ? (
                     <span className="text-xs" title="Título rateado entre categorias — parcelas conforme o fechamento">
@@ -526,9 +531,9 @@ export default function ProjetoDetalhe() {
                     </span>
                   )}
                 </td>
-                <td className="text-xs">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
+                <td className="hidden text-xs sm:table-cell">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
                 <td className="num">{fmtBRL(t.valor_documento)}</td>
-                <td className="text-right">
+                <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={t.excluido}
                     onReclassificar={() =>
@@ -561,7 +566,8 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={5}>
+              <td colSpan={2} className="sm:hidden">Total a pagar</td>
+              <td colSpan={5} className="hidden sm:table-cell">
                 Total pago/a pagar
                 {totalPagar.fora > 0 && (
                   <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
@@ -570,7 +576,7 @@ export default function ProjetoDetalhe() {
                 )}
               </td>
               <td className="num">{fmtBRL(totalPagar.total)}</td>
-              <td></td>
+              <td className="hidden sm:table-cell"></td>
             </tr>
           </tfoot>
         </table>
@@ -582,43 +588,51 @@ export default function ProjetoDetalhe() {
         <table className="data">
           <thead>
             <tr>
-              <th>Empresa</th>
+              {/* 12 colunas não cabem num celular. A abertura por tributo só a
+                  partir de 1024px; o total de impostos fica sempre visível. */}
+              <th className="hidden sm:table-cell">Empresa</th>
               <th>NF</th>
-              <th>Emissão</th>
+              <th className="hidden sm:table-cell">Emissão</th>
               <th>Destinatário</th>
-              <th className="num">Valor NF</th>
-              <th className="num">ICMS</th>
-              <th className="num">ST</th>
-              <th className="num">IPI</th>
-              <th className="num">PIS</th>
-              <th className="num">COFINS</th>
+              <th className="num hidden sm:table-cell">Valor NF</th>
+              <th className="num hidden lg:table-cell">ICMS</th>
+              <th className="num hidden lg:table-cell">ST</th>
+              <th className="num hidden lg:table-cell">IPI</th>
+              <th className="num hidden lg:table-cell">PIS</th>
+              <th className="num hidden lg:table-cell">COFINS</th>
               <th className="num">Impostos</th>
-              <th></th>
+              <th className="hidden sm:table-cell"></th>
             </tr>
           </thead>
           <tbody>
             {(data?.nfes || []).map((n) => (
               <tr key={n.id} style={n.cancelada || n.excluida ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={n.empresa_nome}>
+                <td className="hidden text-xs whitespace-nowrap sm:table-cell" style={{ color: 'var(--text-secondary)' }} title={n.empresa_nome}>
                   {siglaEmpresa(n.empresa_nome)}
                 </td>
-                <td className="font-semibold">
+                <td className="font-semibold" title={`Emitida em ${fmtData(n.d_emi)}`}>
                   {n.n_nf}
                   {n.serie && `/${n.serie}`}
                 </td>
-                <td>{fmtData(n.d_emi)}</td>
-                <td className="max-w-48 truncate">{n.dest_nome}</td>
-                <td className="num">{fmtBRL(n.v_nf)}</td>
-                <td className="num">{fmtBRL(n.v_icms)}</td>
-                <td className="num">{fmtBRL(n.v_st)}</td>
-                <td className="num">{fmtBRL(n.v_ipi)}</td>
-                <td className="num">{fmtBRL(n.v_pis)}</td>
-                <td className="num">{fmtBRL(n.v_cofins)}</td>
+                <td className="hidden sm:table-cell">{fmtData(n.d_emi)}</td>
+                <td>
+                  {/* span-bloco de propósito: max-width em <td> é ignorado no
+                      layout automático de tabela e o truncate não acontece */}
+                  <span className="block max-w-20 truncate sm:max-w-48" title={n.dest_nome}>
+                    {n.dest_nome}
+                  </span>
+                </td>
+                <td className="num hidden sm:table-cell">{fmtBRL(n.v_nf)}</td>
+                <td className="num hidden lg:table-cell">{fmtBRL(n.v_icms)}</td>
+                <td className="num hidden lg:table-cell">{fmtBRL(n.v_st)}</td>
+                <td className="num hidden lg:table-cell">{fmtBRL(n.v_ipi)}</td>
+                <td className="num hidden lg:table-cell">{fmtBRL(n.v_pis)}</td>
+                <td className="num hidden lg:table-cell">{fmtBRL(n.v_cofins)}</td>
                 <td className="num font-semibold">
                   {fmtBRL(n.imposto_total)}
                   {n.imposto_ajustado && ' ✎'}
                 </td>
-                <td className="text-right">
+                <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={n.excluida}
                     rotuloReclassificar="Corrigir imposto"
@@ -651,7 +665,11 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={4}>
+              {/* dois rótulos com colSpan diferente: colSpan não muda por CSS, e um
+                  colSpan que atravessa coluna escondida cria coluna fantasma e
+                  desalinha os totais */}
+              <td colSpan={2} className="sm:hidden">Total das notas</td>
+              <td colSpan={4} className="hidden sm:table-cell">
                 Total das notas
                 {totalNfe.fora > 0 && (
                   <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
@@ -659,10 +677,10 @@ export default function ProjetoDetalhe() {
                   </span>
                 )}
               </td>
-              <td className="num">{fmtBRL(totalNfe.valor)}</td>
-              <td colSpan={5}></td>
+              <td className="num hidden sm:table-cell">{fmtBRL(totalNfe.valor)}</td>
+              <td colSpan={5} className="hidden lg:table-cell"></td>
               <td className="num">{fmtBRL(totalNfe.imposto)}</td>
-              <td></td>
+              <td className="hidden sm:table-cell"></td>
             </tr>
           </tfoot>
         </table>
