@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from .. import cache, models, schemas
+from ..auth import exigir_admin_ou_financeiro
 from ..config import settings
 from ..crypto import decrypt_str, encrypt_str
 from ..db import get_db
@@ -148,6 +150,67 @@ def excluir(empresa_id: int, db: Session = Depends(get_db)):
     db.delete(empresa)
     db.commit()
     cache.invalidar()
+
+
+# ---------- perfis de tributação por operação ----------
+# Os blocos da planilha: venda padrão SP paga a tabela cheia; fins de exportação
+# (CFOP 5502) e exportação (7101) só CSLL/IRPJ. O projeto escolhe o perfil por nome.
+
+
+class PerfilIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=60)
+    impostos: list[schemas.ImpostoItem] = []
+
+
+def _perfil_out(p: models.PerfilTributacao) -> dict:
+    return {
+        "nome": p.nome,
+        "impostos": p.impostos or [],
+        "atualizado_por": p.atualizado_por,
+        "atualizado_em": p.atualizado_em.isoformat() if p.atualizado_em else None,
+    }
+
+
+@router.get("/{empresa_id}/perfis")
+def listar_perfis(empresa_id: int, db: Session = Depends(get_db)):
+    _get_empresa(db, empresa_id)
+    rows = db.scalars(
+        select(models.PerfilTributacao)
+        .where(models.PerfilTributacao.empresa_id == empresa_id)
+        .order_by(models.PerfilTributacao.nome)
+    ).all()
+    return [_perfil_out(p) for p in rows]
+
+
+@router.put("/{empresa_id}/perfis")
+def salvar_perfis(
+    empresa_id: int,
+    payload: list[PerfilIn],
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(exigir_admin_ou_financeiro),
+):
+    """Substitui a lista de perfis da empresa (a tela edita a lista inteira).
+
+    Perfil removido daqui continua citado por projetos? Sem problema: o cálculo
+    cai na tabela padrão da empresa quando o nome não existe mais.
+    """
+    _get_empresa(db, empresa_id)
+    nomes = [p.nome.strip() for p in payload]
+    if len(set(n.lower() for n in nomes)) != len(nomes):
+        raise HTTPException(status_code=422, detail="Dois perfis com o mesmo nome")
+    db.execute(delete(models.PerfilTributacao).where(models.PerfilTributacao.empresa_id == empresa_id))
+    for p in payload:
+        db.add(
+            models.PerfilTributacao(
+                empresa_id=empresa_id,
+                nome=p.nome.strip(),
+                impostos=_linhas_de_imposto(p.impostos) or [],
+                atualizado_por=usuario.nome,
+            )
+        )
+    db.commit()
+    cache.invalidar()  # a aliquota dos projetos que usam esses perfis mudou
+    return listar_perfis(empresa_id, db)
 
 
 @router.post("/{empresa_id}/testar-conexao", response_model=schemas.TesteConexaoOut)

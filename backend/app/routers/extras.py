@@ -86,6 +86,68 @@ def salvar_orcamento(
     return obter_orcamento(payload.nome, db)
 
 
+# ---------- Tributação do projeto (perfil de operação) ----------
+# A operação muda o imposto: venda padrão SP paga a tabela cheia; fins de
+# exportação (CFOP 5502) não tem PIS/COFINS/ICMS. O projeto aponta um perfil
+# cadastrado nas empresas; sem escolha, vale a tabela padrão de cada uma.
+
+
+class TributacaoIn(BaseModel):
+    nome: str = Field(min_length=1)
+    perfil: str | None = None  # None = voltar ao padrão da empresa
+
+
+@router.get("/tributacao")
+def obter_tributacao(nome: str = Query(min_length=1), db: Session = Depends(get_db)):
+    row = db.get(models.TributacaoProjeto, chave_projeto(nome))
+    # opções = nomes de perfil existentes nas empresas ativas (união, sem repetição)
+    nomes_perfis = sorted(
+        {
+            p.nome
+            for p in db.scalars(
+                select(models.PerfilTributacao).join(
+                    models.Empresa, models.Empresa.id == models.PerfilTributacao.empresa_id
+                ).where(models.Empresa.ativa)
+            ).all()
+        },
+        key=str.lower,
+    )
+    return {
+        "nome": nome,
+        "perfil": row.perfil if row else None,
+        "opcoes": nomes_perfis,
+        "atualizado_por": row.atualizado_por if row else "",
+        "atualizado_em": row.atualizado_em.isoformat() if row and row.atualizado_em else None,
+    }
+
+
+@router.put("/tributacao")
+def definir_tributacao(
+    payload: TributacaoIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(guarda_custeio),
+):
+    chave = chave_projeto(payload.nome)
+    row = db.get(models.TributacaoProjeto, chave)
+    if payload.perfil is None:
+        if row is not None:
+            db.delete(row)
+    else:
+        existe = db.scalar(
+            select(models.PerfilTributacao).where(models.PerfilTributacao.nome == payload.perfil)
+        )
+        if existe is None:
+            raise HTTPException(status_code=422, detail="Perfil inexistente — cadastre em Empresas primeiro")
+        if row is None:
+            row = models.TributacaoProjeto(chave_projeto=chave)
+            db.add(row)
+        row.perfil = payload.perfil
+        row.atualizado_por = usuario.nome
+    db.commit()
+    cache.invalidar()  # o imposto do projeto mudou
+    return obter_tributacao(payload.nome, db)
+
+
 # ---------- Dupla conferencia (dois ok por projeto) ----------
 
 

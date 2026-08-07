@@ -155,6 +155,10 @@ def grupos_por_categoria(db: Session, empresa_ids: list[int]) -> dict[tuple[int,
     return {(r.empresa_id, r.codigo_categoria): r.grupo for r in rows}
 
 
+def _soma_itens(itens: list) -> float:
+    return sum(_f(item.get("aliquota")) for item in itens if isinstance(item, dict)) / 100.0
+
+
 def aliquota_da_empresa(empresa: models.Empresa) -> float:
     """Fracao de imposto sobre a receita vinda do CADASTRO da empresa.
 
@@ -163,8 +167,21 @@ def aliquota_da_empresa(empresa: models.Empresa) -> float:
     """
     itens = empresa.impostos or []
     if itens:
-        return sum(_f(item.get("aliquota")) for item in itens if isinstance(item, dict)) / 100.0
+        return _soma_itens(itens)
     return _f(empresa.aliquota_extra) / 100.0
+
+
+def aliquota_para_projeto(empresa: models.Empresa, perfil_itens: list | None) -> float:
+    """Aliquota da empresa PARA UM PROJETO, respeitando o perfil de tributacao.
+
+    A operacao muda o imposto: venda padrao em SP paga a tabela cheia; fins de
+    exportacao (CFOP 5502) nao tem PIS/COFINS/ICMS. `perfil_itens` e a tabela do
+    perfil escolhido no projeto — quando existe NA EMPRESA, substitui a padrao.
+    Empresa do Simples ignora perfis: a aliquota dela e o DAS, nao a operacao.
+    """
+    if perfil_itens is not None and empresa.regime != "simples":
+        return _soma_itens(perfil_itens)
+    return aliquota_da_empresa(empresa)
 
 
 def nfe_entra_no_imposto(empresa: models.Empresa | None) -> bool:
@@ -224,6 +241,17 @@ class _Contexto:
         }
         self.grupos = grupos_por_categoria(db, empresa_ids)
         self.ajustes = carregar_ajustes(db, empresa_ids)
+        # perfis de tributacao: {(empresa_id, nome_do_perfil): linhas itemizadas}
+        # e a escolha por projeto: {chave_projeto: nome_do_perfil}
+        self.perfis = {
+            (p.empresa_id, p.nome): (p.impostos or [])
+            for p in db.scalars(
+                select(models.PerfilTributacao).where(models.PerfilTributacao.empresa_id.in_(empresa_ids))
+            ).all()
+        }
+        self.tributacao = {
+            t.chave_projeto: t.perfil for t in db.scalars(select(models.TributacaoProjeto)).all()
+        }
 
         query_titulos = select(models.Titulo).where(models.Titulo.empresa_id.in_(empresa_ids))
         if de:
@@ -263,6 +291,12 @@ class _Contexto:
         codigo = ajuste if ajuste is not None else nfe.codigo_projeto_omie
         return self.nome_projeto(nfe.empresa_id, codigo)
 
+    def aliquota(self, empresa: models.Empresa, nome_projeto: str) -> float:
+        """Aliquota da empresa para ESTE projeto (perfil de tributacao, se houver)."""
+        perfil = self.tributacao.get(chave_projeto(nome_projeto))
+        itens = self.perfis.get((empresa.id, perfil)) if perfil else None
+        return aliquota_para_projeto(empresa, itens)
+
 
 def fechar_projetos(
     db: Session,
@@ -298,7 +332,8 @@ def fechar_projetos(
             ln._clientes[(titulo.empresa_id, titulo.codigo_cliente_fornecedor)] += 1
         empresa = ctx.empresas.get(titulo.empresa_id)
         if empresa:
-            parcela = valor * aliquota_da_empresa(empresa)
+            # a aliquota depende do PROJETO: fins de exportacao nao paga PIS/COFINS/ICMS
+            parcela = valor * ctx.aliquota(empresa, nome)
             if parcela:
                 if empresa.regime == "simples":
                     # Simples: a aliquota do cadastro E o imposto da empresa (sem calculo automatico)
@@ -413,7 +448,8 @@ def serie_mensal(
     for titulo in ctx.titulos:
         if _cancelado(titulo.status_titulo) or ctx.ajustes.excluido("titulo", titulo.id):
             continue
-        if not e_projeto_de_venda(ctx.projeto_do_titulo(titulo)):
+        nome = ctx.projeto_do_titulo(titulo)
+        if not e_projeto_de_venda(nome):
             continue
         mes = mes_de(titulo.data_emissao)
         if not mes:
@@ -425,8 +461,9 @@ def serie_mensal(
             empresa = ctx.empresas.get(titulo.empresa_id)
             if empresa:
                 # impostos cadastrados na empresa (Simples: a aliquota; Presumido:
-                # IRPJ/CSLL fora da nota, ou a tabela inteira se ela e a fonte)
-                ln["imposto"] += valor * aliquota_da_empresa(empresa)
+                # IRPJ/CSLL fora da nota, ou a tabela inteira se ela e a fonte),
+                # respeitando o perfil de tributacao do projeto
+                ln["imposto"] += valor * ctx.aliquota(empresa, nome)
         else:
             grupo_override = ctx.ajustes.get("titulo", titulo.id, "grupo")
             for grupo, valor in _parcelas_do_titulo(titulo, ctx.grupos, grupo_override):

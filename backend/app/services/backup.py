@@ -156,6 +156,11 @@ def exportar(db: Session) -> dict:
                 {**_linha(c, excluir={"empresa_id"}), "empresa": ek_por_id.get(c.empresa_id)}
                 for c in db.scalars(select(models.CategoriaGrupo)).all()
             ],
+            "perfis_tributacao": [
+                {**_linha(p, excluir={"empresa_id"}), "empresa": ek_por_id.get(p.empresa_id)}
+                for p in db.scalars(select(models.PerfilTributacao)).all()
+            ],
+            "tributacoes_projeto": [_linha(t) for t in db.scalars(select(models.TributacaoProjeto)).all()],
             "ajustes": [a for a in (ajuste_out(x) for x in db.scalars(select(models.Ajuste)).all()) if a],
             "fechamentos_aprovados": [
                 {**_linha(f, excluir={"usuario_id"}), "usuario_email": email_por_id.get(f.usuario_id)}
@@ -260,6 +265,34 @@ def restaurar(db: Session, dados: dict) -> dict:
         _aplicar(novo, cg, excluir={"empresa"})
         db.add(novo)
         c.criado("categorias_grupo")
+
+    # --- perfis de tributacao (por empresa) e a escolha por projeto ---
+    for p in t.get("perfis_tributacao", []):
+        empresa = _resolver_empresa(db, p.get("empresa"))
+        if empresa is None:
+            c.pendente("perfis_tributacao")
+            continue
+        if existe(
+            select(models.PerfilTributacao).where(
+                models.PerfilTributacao.empresa_id == empresa.id,
+                models.PerfilTributacao.nome == p.get("nome", ""),
+            )
+        ):
+            c.pulado("perfis_tributacao")
+            continue
+        novo = models.PerfilTributacao(empresa_id=empresa.id)
+        _aplicar(novo, p, excluir={"empresa"})
+        db.add(novo)
+        c.criado("perfis_tributacao")
+
+    for tp in t.get("tributacoes_projeto", []):
+        if existe(select(models.TributacaoProjeto).where(models.TributacaoProjeto.chave_projeto == tp.get("chave_projeto", ""))):
+            c.pulado("tributacoes_projeto")
+            continue
+        novo = models.TributacaoProjeto()
+        _aplicar(novo, tp)
+        db.add(novo)
+        c.criado("tributacoes_projeto")
 
     # --- ajustes (alvo por identidade Omie; pendente se ainda nao sincronizado) ---
     for a in t.get("ajustes", []):
