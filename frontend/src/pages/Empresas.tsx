@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
   api,
+  baixarArquivo,
   usuarioLogado,
   type Empresa,
   type ImpostoEmpresa,
@@ -131,6 +132,7 @@ export default function Empresas() {
 
       <Preferencias />
       {usuarioLogado()?.papel === 'admin' && <Equipe />}
+      {usuarioLogado()?.papel === 'admin' && <Backup />}
 
       <div className="grid gap-3 lg:grid-cols-2">
         {(empresas || []).map((e) => {
@@ -521,6 +523,101 @@ const PAPEIS_OPCOES = [
 
 // Dupla conferência: só quem escreve no custeio pode ser aprovador
 const PAPEIS_APROVADOR = new Set(['admin', 'financeiro'])
+
+/** Backup do trabalho humano: o que uma nova sincronização NÃO traz de volta.
+ *
+ * O banco free do Render expira em 30 dias. Este cartão baixa um JSON com
+ * usuários, empresas, classificações, ajustes, os dois ok, orçamentos e
+ * comentários — e devolve tudo num banco novo. Restaurar nunca sobrescreve. */
+function Backup() {
+  const [restaurando, setRestaurando] = useState(false)
+  const [resultado, setResultado] = useState<string>('')
+  const [erro, setErro] = useState('')
+
+  async function restaurarArquivo(arquivo: File) {
+    setRestaurando(true)
+    setErro('')
+    setResultado('')
+    try {
+      const dados = JSON.parse(await arquivo.text())
+      const r = await api.restaurarBackup(dados)
+      const soma = (m: Record<string, number>) => Object.values(m).reduce((s, n) => s + n, 0)
+      const partes = [`${soma(r.criados)} registro(s) restaurados`, `${soma(r.pulados)} já existiam`]
+      const pendentes = soma(r.pendentes)
+      if (pendentes > 0)
+        partes.push(`${pendentes} pendentes — sincronize a Omie e restaure o MESMO arquivo de novo para completá-los`)
+      setResultado(partes.join(' · ') + (r.aviso_chave ? ` · ATENÇÃO: ${r.aviso_chave}` : ''))
+    } catch (e) {
+      setErro(e instanceof SyntaxError ? 'Este arquivo não é um JSON de backup válido' : (e as Error).message)
+    } finally {
+      setRestaurando(false)
+    }
+  }
+
+  return (
+    <div className="card mb-4 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span className="titulo-secao">Backup do trabalho da equipe</span>
+          <p className="help mt-0.5 max-w-xl">
+            Guarda o que a sincronização não traz de volta: contas, empresas, classificações de custo, ajustes,
+            as conferências (os dois ok), orçamentos e comentários. Baixe um arquivo por semana e guarde fora do
+            servidor. Restaurar nunca sobrescreve — só devolve o que faltar.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <BotaoExportBackup />
+          <label className={`btn btn-ghost text-xs ${restaurando ? 'opacity-50' : 'cursor-pointer'}`}>
+            {restaurando ? 'Restaurando…' : 'Restaurar arquivo'}
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              disabled={restaurando}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) restaurarArquivo(f)
+                e.target.value = '' // permite escolher o mesmo arquivo de novo
+              }}
+            />
+          </label>
+        </div>
+      </div>
+      {resultado && (
+        <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--status-good-text)' }}>
+          ✓ {resultado}
+        </p>
+      )}
+      {erro && (
+        <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--neg)' }}>
+          {erro}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function BotaoExportBackup() {
+  const [estado, setEstado] = useState<'pronto' | 'gerando' | 'erro'>('pronto')
+  return (
+    <button
+      className="btn btn-primary text-xs"
+      disabled={estado === 'gerando'}
+      style={estado === 'erro' ? { background: 'var(--neg)' } : undefined}
+      onClick={async () => {
+        setEstado('gerando')
+        try {
+          await baixarArquivo('/api/backup', 'custeio_backup.json')
+          setEstado('pronto')
+        } catch {
+          setEstado('erro')
+        }
+      }}
+    >
+      {estado === 'gerando' ? 'Gerando…' : estado === 'erro' ? 'Falhou — tentar de novo' : 'Baixar backup'}
+    </button>
+  )
+}
 
 function Equipe() {
   const queryClient = useQueryClient()

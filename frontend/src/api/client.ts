@@ -632,6 +632,15 @@ export const api = {
   comentar: (nome: string, texto: string) =>
     request<Comentario[]>('/api/comentarios', { method: 'POST', body: JSON.stringify({ nome, texto }) }),
 
+  // Backup do trabalho humano (admin): baixar via baixarArquivo('/api/backup', …)
+  restaurarBackup: (dados: object) =>
+    request<{
+      criados: Record<string, number>
+      pulados: Record<string, number>
+      pendentes: Record<string, number>
+      aviso_chave: string
+    }>('/api/backup/restaurar', { method: 'POST', body: JSON.stringify(dados) }),
+
   // Export (URLs para <a download>)
   urlExportCsv: (empresaIds?: string, de?: string, ate?: string) =>
     `/api/export/fechamento.csv${qs({ empresa_ids: empresaIds, de, ate })}`,

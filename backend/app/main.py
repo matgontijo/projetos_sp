@@ -9,6 +9,7 @@ from .routers import (
     ajustes,
     analises,
     autenticacao,
+    backup,
     categorias,
     compras,
     config as config_router,
@@ -65,6 +66,7 @@ app.include_router(config_router.router, dependencies=_CUSTEIO)
 app.include_router(analises.router, dependencies=_CUSTEIO)
 app.include_router(extras.router, dependencies=_CUSTEIO)
 app.include_router(compras.router, dependencies=_CUSTEIO)
+app.include_router(backup.router)  # ja exige admin internamente
 
 # precificacao: admin, financeiro e comercial (guardas internas por rota)
 app.include_router(precificacao.router)
