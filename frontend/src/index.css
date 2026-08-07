@@ -870,6 +870,15 @@ tr.linha-clicavel:hover td {
   table.tabela {
     white-space: nowrap;
   }
+  /* o respiro lateral de 1.3rem é luxo que 375px não têm */
+  .tabela-wrap table th:first-child,
+  .tabela-wrap table td:first-child {
+    padding-left: 0.85rem;
+  }
+  .tabela-wrap table th:last-child,
+  .tabela-wrap table td:last-child {
+    padding-right: 0.85rem;
+  }
   .sidebar-item {
     padding-top: 10px;
     padding-bottom: 10px;
