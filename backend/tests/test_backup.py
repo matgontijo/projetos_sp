@@ -57,6 +57,11 @@ def povoar_origem(db: Session) -> models.Empresa:
     db.add(models.Comentario(chave_projeto="BR25600", texto="margem ok", usuario="Maria"))
     db.add(models.Configuracao(chave="margem_alvo", valor="20"))
     db.add(models.Produto(nome="Copo 500ml", categoria="copo", custo_base=1.25))
+    db.add(models.PerfilTributacao(
+        empresa_id=empresa.id, nome="Fins de exportação",
+        impostos=[{"nome": "CSLL", "aliquota": 1.2}, {"nome": "IRPJ", "aliquota": 1.08}],
+    ))
+    db.add(models.TributacaoProjeto(chave_projeto="BR25600", perfil="Fins de exportação", atualizado_por="Maria"))
     db.commit()
     return empresa
 
@@ -116,6 +121,9 @@ def test_restaurar_antes_do_sync_deixa_ajustes_pendentes_e_completa_depois(db: S
     assert resumo1["criados"]["empresas"] == 1
     assert resumo1["pendentes"]["ajustes"] == 2  # sem titulo/nfe nao ha como religar
     assert resumo1["criados"]["fechamentos_aprovados"] == 1  # conferencia nao depende do sync
+    # perfis de tributacao e a escolha do projeto voltam junto (a empresa ja foi criada acima)
+    assert resumo1["criados"]["perfis_tributacao"] == 1
+    assert resumo1["criados"]["tributacoes_projeto"] == 1
 
     # "sincronizou": os dados da Omie chegaram
     empresa2 = destino.scalar(select(models.Empresa).where(models.Empresa.cnpj == "11.222.333/0001-44"))

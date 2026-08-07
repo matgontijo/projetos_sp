@@ -80,6 +80,69 @@ function SlotOk({
   )
 }
 
+/** Perfil de tributação do projeto — a operação muda o imposto.
+ *
+ * Venda padrão paga a tabela cheia da empresa; fins de exportação (CFOP 5502)
+ * não tem PIS/COFINS/ICMS. Trocar aqui recalcula o fechamento na hora. */
+function Tributacao({ nome }: { nome: string }) {
+  const queryClient = useQueryClient()
+  const { data } = useQuery({
+    queryKey: ['tributacao', nome],
+    queryFn: () => api.obterTributacao(nome),
+    enabled: !!nome,
+  })
+  const definir = useMutation({
+    mutationFn: (perfil: string | null) => api.definirTributacao(nome, perfil),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tributacao', nome] })
+      queryClient.invalidateQueries({ queryKey: ['detalhe'] })
+      queryClient.invalidateQueries({ queryKey: ['fechamento'] })
+    },
+  })
+
+  // sem perfis cadastrados nas empresas não há o que escolher — a linha some
+  if (!data || (data.opcoes.length === 0 && !data.perfil)) return null
+
+  return (
+    <div className="card mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+      <div className="min-w-0">
+        <span className="titulo-secao">Tributação</span>
+        <p className="help mt-0.5">
+          A operação muda o imposto — ex.: fins de exportação não paga PIS/COFINS/ICMS.
+        </p>
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        {data.atualizado_por && data.perfil && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            definido por {data.atualizado_por}
+          </span>
+        )}
+        <select
+          className="input py-1.5 text-sm"
+          value={data.perfil ?? ''}
+          disabled={definir.isPending}
+          aria-label="Perfil de tributação do projeto"
+          onChange={(e) => definir.mutate(e.target.value || null)}
+        >
+          <option value="">Padrão da empresa</option>
+          {data.opcoes.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+          {/* perfil escolhido que foi apagado do cadastro: continua visível aqui */}
+          {data.perfil && !data.opcoes.includes(data.perfil) && (
+            <option value={data.perfil}>{data.perfil} (perfil removido)</option>
+          )}
+        </select>
+      </div>
+      {definir.error && (
+        <p className="w-full text-sm font-semibold" style={{ color: 'var(--status-critical)' }}>
+          {(definir.error as Error).message}
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface ModalAjuste {
   empresa_id: number
   alvo_tipo: 'titulo' | 'nfe'
@@ -409,6 +472,8 @@ export default function ProjetoDetalhe() {
           </p>
         </div>
       )}
+
+      {f && <Tributacao nome={nome} />}
 
       {f && orcamento && <OrcadoRealizado nome={nome} orcamento={orcamento} fechamento={f} />}
 

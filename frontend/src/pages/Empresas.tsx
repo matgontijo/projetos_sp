@@ -71,6 +71,7 @@ export default function Empresas() {
   const [form, setForm] = useState<FormEmpresa | null>(null)
   const [testes, setTestes] = useState<Record<number, TesteConexao | 'testando'>>({})
   const [categoriasAbertas, setCategoriasAbertas] = useState<number | null>(null)
+  const [perfisAbertos, setPerfisAbertos] = useState<number | null>(null)
 
   const invalidar = () => queryClient.invalidateQueries({ queryKey: ['empresas'] })
 
@@ -237,8 +238,17 @@ export default function Empresas() {
                 <button className="btn btn-ghost text-xs" onClick={() => alternarCategorias(e.id)}>
                   {categoriasAbertas === e.id ? 'Fechar classificação' : 'Classificar custos'}
                 </button>
+                {e.regime !== 'simples' && (
+                  <button
+                    className="btn btn-ghost text-xs"
+                    onClick={() => setPerfisAbertos(perfisAbertos === e.id ? null : e.id)}
+                  >
+                    {perfisAbertos === e.id ? 'Fechar tributação' : 'Tributação por operação'}
+                  </button>
+                )}
               </div>
               {categoriasAbertas === e.id && <Categorias empresaId={e.id} />}
+              {perfisAbertos === e.id && <PerfisTributacao empresaId={e.id} />}
             </div>
           )
         })}
@@ -523,6 +533,139 @@ const PAPEIS_OPCOES = [
 
 // Dupla conferência: só quem escreve no custeio pode ser aprovador
 const PAPEIS_APROVADOR = new Set(['admin', 'financeiro'])
+
+/** Perfis de tributação por operação — os blocos da planilha, dentro do app.
+ *
+ * Venda padrão SP paga a tabela cheia (a do cadastro); fins de exportação
+ * (CFOP 5502) não tem PIS/COFINS/ICMS, só CSLL/IRPJ. Cada perfil tem sua
+ * tabela itemizada; no detalhe do projeto se escolhe qual perfil vale. */
+function PerfisTributacao({ empresaId }: { empresaId: number }) {
+  const queryClient = useQueryClient()
+  const { data: salvos } = useQuery({
+    queryKey: ['perfis', empresaId],
+    queryFn: () => api.listarPerfis(empresaId),
+  })
+  const [rascunho, setRascunho] = useState<{ nome: string; impostos: ImpostoEmpresa[] }[] | null>(null)
+  const perfis = rascunho ?? (salvos || []).map((p) => ({ nome: p.nome, impostos: p.impostos }))
+
+  const salvar = useMutation({
+    mutationFn: () => api.salvarPerfis(empresaId, perfis.filter((p) => p.nome.trim())),
+    onSuccess: () => {
+      setRascunho(null)
+      queryClient.invalidateQueries({ queryKey: ['perfis', empresaId] })
+      queryClient.invalidateQueries({ queryKey: ['fechamento'] })
+      queryClient.invalidateQueries({ queryKey: ['detalhe'] })
+    },
+  })
+
+  const editar = (novo: { nome: string; impostos: ImpostoEmpresa[] }[]) => setRascunho(novo)
+
+  return (
+    <div className="mt-3 rounded-lg p-3" style={{ background: 'var(--surface-2)' }}>
+      <p className="help mb-2">
+        A tabela do cadastro é a operação <b>padrão</b>. Cadastre aqui as exceções — ex.: <b>Fins de exportação</b>{' '}
+        (CFOP 5502), que não paga PIS/COFINS/ICMS — e escolha o perfil no detalhe de cada projeto.
+      </p>
+      <div className="grid gap-3">
+        {perfis.map((p, pi) => (
+          <div key={pi} className="rounded-lg p-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-hairline)' }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="input min-w-0 flex-1 font-semibold"
+                placeholder="Nome do perfil (ex.: Fins de exportação)"
+                aria-label={`Nome do perfil ${pi + 1}`}
+                value={p.nome}
+                onChange={(ev) => editar(perfis.map((x, i) => (i === pi ? { ...x, nome: ev.target.value } : x)))}
+              />
+              <span className="pill" style={{ '--pill': 'var(--serie-imposto)' } as React.CSSProperties}>
+                total {pct(somaImpostos(p.impostos))}
+              </span>
+              <button
+                className="btn btn-perigo px-2.5 py-1"
+                title="Remover este perfil"
+                onClick={() => editar(perfis.filter((_, i) => i !== pi))}
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-2 grid gap-1.5">
+              {p.impostos.map((imp, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    className="input min-w-0 flex-1"
+                    placeholder="ex.: CSLL"
+                    aria-label={`Imposto ${i + 1} do perfil ${p.nome || pi + 1}`}
+                    value={imp.nome}
+                    onChange={(ev) =>
+                      editar(perfis.map((x, xi) =>
+                        xi === pi ? { ...x, impostos: x.impostos.map((y, yi) => (yi === i ? { ...y, nome: ev.target.value } : y)) } : x,
+                      ))
+                    }
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    className="input w-24"
+                    aria-label={`Alíquota ${i + 1} do perfil ${p.nome || pi + 1} em %`}
+                    value={imp.aliquota}
+                    onChange={(ev) =>
+                      editar(perfis.map((x, xi) =>
+                        xi === pi
+                          ? { ...x, impostos: x.impostos.map((y, yi) => (yi === i ? { ...y, aliquota: ev.target.value === '' ? 0 : Number(ev.target.value) } : y)) }
+                          : x,
+                      ))
+                    }
+                  />
+                  <span style={{ color: 'var(--text-muted)' }}>%</span>
+                  <button
+                    className="btn btn-perigo px-2.5 py-1"
+                    title={`Remover ${imp.nome || 'imposto'}`}
+                    onClick={() => editar(perfis.map((x, xi) => (xi === pi ? { ...x, impostos: x.impostos.filter((_, yi) => yi !== i) } : x)))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                className="btn btn-ghost w-fit text-xs"
+                onClick={() => editar(perfis.map((x, xi) => (xi === pi ? { ...x, impostos: [...x.impostos, { nome: '', aliquota: 0 }] } : x)))}
+              >
+                + imposto
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          className="btn btn-ghost text-xs"
+          onClick={() =>
+            editar([
+              ...perfis,
+              // já nasce com CSLL/IRPJ/Add — o caso de exportação que motivou o recurso;
+              // a pessoa ajusta os % conforme o contador
+              { nome: '', impostos: [{ nome: 'CSLL', aliquota: 0 }, { nome: 'IRPJ', aliquota: 0 }, { nome: 'Add. IRPJ', aliquota: 0 }] },
+            ])
+          }
+        >
+          + Adicionar perfil
+        </button>
+        {rascunho && (
+          <button className="btn btn-primary text-xs" disabled={salvar.isPending} onClick={() => salvar.mutate()}>
+            {salvar.isPending ? 'Salvando…' : 'Salvar perfis'}
+          </button>
+        )}
+        {salvar.error && (
+          <span className="text-sm font-semibold" style={{ color: 'var(--neg)' }}>
+            {(salvar.error as Error).message}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 /** Backup do trabalho humano: o que uma nova sincronização NÃO traz de volta.
  *

@@ -276,6 +276,23 @@ export interface ResultadoLote {
   recusados: { projeto: string; motivo: string }[]
 }
 
+/** Perfil de tributação por operação (ex.: 'Fins de exportação' — sem PIS/COFINS/ICMS). */
+export interface PerfilTributacao {
+  nome: string
+  impostos: ImpostoEmpresa[]
+  atualizado_por: string
+  atualizado_em: string | null
+}
+
+export interface TributacaoProjeto {
+  nome: string
+  /** null = tabela padrão de cada empresa */
+  perfil: string | null
+  opcoes: string[]
+  atualizado_por: string
+  atualizado_em: string | null
+}
+
 export interface Comentario {
   id: number
   texto: string
@@ -631,6 +648,14 @@ export const api = {
   listarComentarios: (nome: string) => request<Comentario[]>(`/api/comentarios${qs({ nome })}`),
   comentar: (nome: string, texto: string) =>
     request<Comentario[]>('/api/comentarios', { method: 'POST', body: JSON.stringify({ nome, texto }) }),
+
+  // Tributação por operação: perfis da empresa e a escolha por projeto
+  listarPerfis: (empresaId: number) => request<PerfilTributacao[]>(`/api/empresas/${empresaId}/perfis`),
+  salvarPerfis: (empresaId: number, perfis: { nome: string; impostos: ImpostoEmpresa[] }[]) =>
+    request<PerfilTributacao[]>(`/api/empresas/${empresaId}/perfis`, { method: 'PUT', body: JSON.stringify(perfis) }),
+  obterTributacao: (nome: string) => request<TributacaoProjeto>(`/api/tributacao${qs({ nome })}`),
+  definirTributacao: (nome: string, perfil: string | null) =>
+    request<TributacaoProjeto>('/api/tributacao', { method: 'PUT', body: JSON.stringify({ nome, perfil }) }),
 
   // Backup do trabalho humano (admin): baixar via baixarArquivo('/api/backup', …)
   restaurarBackup: (dados: object) =>

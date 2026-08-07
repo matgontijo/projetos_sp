@@ -305,6 +305,44 @@ class FechamentoAprovado(Base):
     revogado_por: Mapped[str] = mapped_column(String(80), default="")
 
 
+class PerfilTributacao(Base):
+    """Tributação por TIPO DE OPERAÇÃO, como os blocos da planilha das donas.
+
+    A venda padrão em SP paga a tabela cheia (~19%); fins de exportação (CFOP
+    5502) e exportação (7101) não têm PIS/COFINS/ICMS — só CSLL/IRPJ (~3,4%).
+    Cada empresa cadastra seus perfis; o projeto aponta para um pelo NOME.
+    `impostos` tem o mesmo formato itemizado do cadastro da empresa:
+    [{"nome": "CSLL", "aliquota": 1.2}, ...] em pontos percentuais.
+    """
+
+    __tablename__ = "perfil_tributacao"
+    __table_args__ = (UniqueConstraint("empresa_id", "nome", name="uq_perfil_empresa_nome"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresa.id", ondelete="CASCADE"), index=True)
+    nome: Mapped[str] = mapped_column(String(60))
+    impostos: Mapped[list | None] = mapped_column(JSONVariant, nullable=True)
+    atualizado_por: Mapped[str] = mapped_column(String(80), default="")
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class TributacaoProjeto(Base):
+    """Qual perfil de tributação vale para o projeto (chave BR, cross-empresa).
+
+    Sem linha aqui, o projeto usa a tabela padrão de cada empresa. O perfil é
+    aplicado por NOME na(s) empresa(s) do projeto; empresa que não tem um perfil
+    com esse nome continua na sua tabela padrão. Empresa do Simples nunca muda
+    (a alíquota dela é o DAS, não depende da operação).
+    """
+
+    __tablename__ = "tributacao_projeto"
+
+    chave_projeto: Mapped[str] = mapped_column(String(80), primary_key=True)
+    perfil: Mapped[str] = mapped_column(String(60))
+    atualizado_por: Mapped[str] = mapped_column(String(80), default="")
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class Comentario(Base):
     __tablename__ = "comentario"
 
