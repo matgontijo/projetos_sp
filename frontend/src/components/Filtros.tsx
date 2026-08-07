@@ -92,7 +92,8 @@ export function FiltrosBar() {
           </span>
         )}
       </div>
-      <div className="ml-auto flex flex-wrap items-center gap-2">
+      {/* no celular ocupa a linha inteira; as datas dividem a largura meio a meio */}
+      <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
         <span className="titulo-secao mr-1">Período</span>
         {presets.map((p) => {
           const ativo = (de || '') === p.de && (ate || '') === p.ate
@@ -109,7 +110,7 @@ export function FiltrosBar() {
         })}
         <input
           type="date"
-          className="input"
+          className="input min-w-0 flex-1 sm:flex-none"
           aria-label="Data inicial do período"
           title="Data inicial"
           value={de || ''}
@@ -120,7 +121,7 @@ export function FiltrosBar() {
         </span>
         <input
           type="date"
-          className="input"
+          className="input min-w-0 flex-1 sm:flex-none"
           aria-label="Data final do período"
           title="Data final"
           value={ate || ''}
