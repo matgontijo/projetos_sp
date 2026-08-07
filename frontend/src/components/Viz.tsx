@@ -121,14 +121,20 @@ export function GraficoMensal({
     return () => el.removeEventListener('wheel', aoRolar)
   })
 
+  // hover pela POSIÇÃO do ponteiro (não por mouseenter): é o que faz o toque
+  // mostrar os valores da coluna — dedo não dispara mouseenter direito
+  const hoverDe = (clientX: number) => setHover(Math.min(Math.floor(fracaoDe(clientX) * n), n - 1))
+
   const aoPressionar = (e: React.PointerEvent) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return
     ;(e.target as HTMLElement).closest('[data-area-grafico]')?.setPointerCapture?.(e.pointerId)
     gesto.current = { tipo: janela ? 'pan' : 'brush', x0: e.clientX, moveu: false, janela0: [i0, i1] }
     setArrastando(true)
+    hoverDe(e.clientX)
   }
 
   const aoMover = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse') hoverDe(e.clientX)
     const g = gesto.current
     if (!g) return
     if (Math.abs(e.clientX - g.x0) > 4) g.moveu = true
