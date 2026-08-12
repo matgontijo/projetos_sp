@@ -14,10 +14,7 @@ router = APIRouter(prefix="/api/analises", tags=["analises"])
 
 def _caixa_cacheado(db: Session, ids: list[int], de: date | None, ate: date | None) -> dict:
     chave = ("caixa", tuple(sorted(ids)), de, ate)
-    resultado = cache.obter(chave)
-    if resultado is None:
-        resultado = cache.guardar(chave, analises.ciclo_de_caixa(db, ids, de, ate))
-    return resultado
+    return cache.obter_ou_computar(chave, lambda: analises.ciclo_de_caixa(db, ids, de, ate))
 
 
 @router.get("/clientes")

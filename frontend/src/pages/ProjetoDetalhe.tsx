@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useIsFetching, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type LinhaFechamento, type Orcamento } from '../api/client'
@@ -86,6 +86,9 @@ function SlotOk({
  * não tem PIS/COFINS/ICMS. Trocar aqui recalcula o fechamento na hora. */
 function Tributacao({ nome, travado }: { nome: string; travado: boolean }) {
   const queryClient = useQueryClient()
+  // no plano gratuito o recálculo dos projetos leva alguns segundos: sem este
+  // aviso, parece que o clique não fez nada
+  const recalculando = useIsFetching({ queryKey: ['detalhe'] }) > 0
   const { data } = useQuery({
     queryKey: ['tributacao', nome],
     queryFn: () => api.obterTributacao(nome),
@@ -130,6 +133,11 @@ function Tributacao({ nome, travado }: { nome: string; travado: boolean }) {
         </p>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        {(definir.isPending || (definir.isSuccess && recalculando)) && (
+          <span className="pulsa text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
+            Recalculando os números…
+          </span>
+        )}
         {data.atualizado_por && data.perfil && (
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
             definido por {data.atualizado_por}
@@ -156,6 +164,13 @@ function Tributacao({ nome, travado }: { nome: string; travado: boolean }) {
       {definir.error && (
         <p className="w-full text-sm font-semibold" style={{ color: 'var(--status-critical)' }}>
           {(definir.error as Error).message}
+        </p>
+      )}
+      {data.perfil && data.empresas_sem_perfil.length > 0 && (
+        <p className="w-full text-sm font-semibold" style={{ color: 'var(--status-critical)' }}>
+          ⚠ O perfil “{data.perfil}” não está cadastrado em: {data.empresas_sem_perfil.join(', ')}. Nessas empresas o
+          imposto continua pela tabela padrão — cadastre o perfil com o MESMO nome lá para ter efeito.{' '}
+          <Link to="/empresas?abrir=tributacao" className="underline">Abrir cadastro</Link>
         </p>
       )}
     </div>

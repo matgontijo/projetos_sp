@@ -306,6 +306,8 @@ export interface TributacaoProjeto {
   /** null = tabela padrão de cada empresa */
   perfil: string | null
   opcoes: string[]
+  /** empresas ativas (fora do Simples) que NÃO têm o perfil escolhido — nelas nada muda */
+  empresas_sem_perfil: string[]
   atualizado_por: string
   atualizado_em: string | null
 }

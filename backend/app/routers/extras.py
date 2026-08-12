@@ -112,10 +112,30 @@ def obter_tributacao(nome: str = Query(min_length=1), db: Session = Depends(get_
         },
         key=str.lower,
     )
+    # Cobertura: o perfil e aplicado POR NOME em cada empresa. Se a empresa que
+    # fatura o projeto nao tem um perfil com esse nome, ela continua na tabela
+    # padrao — silenciosamente. Este campo permite a tela AVISAR em vez de
+    # deixar a pessoa achando que nada funcionou.
+    empresas_sem_perfil: list[str] = []
+    if row:
+        com_perfil = {
+            p.empresa_id
+            for p in db.scalars(
+                select(models.PerfilTributacao).where(models.PerfilTributacao.nome == row.perfil)
+            ).all()
+        }
+        empresas_sem_perfil = [
+            e.nome
+            for e in db.scalars(
+                select(models.Empresa).where(models.Empresa.ativa, models.Empresa.regime != "simples")
+            ).all()
+            if e.id not in com_perfil
+        ]
     return {
         "nome": nome,
         "perfil": row.perfil if row else None,
         "opcoes": nomes_perfis,
+        "empresas_sem_perfil": empresas_sem_perfil,
         "atualizado_por": row.atualizado_por if row else "",
         "atualizado_em": row.atualizado_em.isoformat() if row and row.atualizado_em else None,
     }
