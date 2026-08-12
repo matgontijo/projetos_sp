@@ -257,6 +257,47 @@ def revogar(db: Session, admin: models.Usuario, ok_id: int) -> models.Fechamento
     return row
 
 
+def projeto_aprovado(db: Session, nome: str) -> bool:
+    """True se o projeto tem os DOIS ok vigentes — e portanto está travado."""
+    chave = chave_projeto(nome)
+    return NIVEL_APROVACAO in _oks_vigentes(db, [chave]).get(chave, {})
+
+
+def nome_projeto_do_alvo(db: Session, alvo_tipo: str, alvo_id: int) -> str | None:
+    """Projeto ATUAL de um título/NF-e, respeitando ajustes de 'mover' vigentes."""
+    registro = db.get(models.Titulo if alvo_tipo == "titulo" else models.NFe, alvo_id)
+    if registro is None:
+        return None
+    ultimo_mover = db.scalar(
+        select(models.Ajuste)
+        .where(
+            models.Ajuste.alvo_tipo == alvo_tipo,
+            models.Ajuste.alvo_id == alvo_id,
+            models.Ajuste.campo == "codigo_projeto",
+        )
+        .order_by(models.Ajuste.id.desc())
+        .limit(1)
+    )
+    try:
+        codigo = int(ultimo_mover.valor_novo) if ultimo_mover else registro.codigo_projeto_omie
+    except (TypeError, ValueError):
+        codigo = registro.codigo_projeto_omie
+    if not codigo:
+        return None
+    projeto = db.scalar(
+        select(models.Projeto).where(
+            models.Projeto.empresa_id == registro.empresa_id, models.Projeto.codigo_omie == codigo
+        )
+    )
+    return (projeto.nome.strip() if projeto and projeto.nome else None) or f"Projeto {codigo}"
+
+
+TRAVADO_MENSAGEM = (
+    "Este projeto está conferido e aprovado (dois ok) — os números estão travados. "
+    "Para editar, uma administradora precisa desfazer o 2º ok no detalhe do projeto."
+)
+
+
 def historico(db: Session, nome: str) -> list[models.FechamentoAprovado]:
     return list(
         db.scalars(
