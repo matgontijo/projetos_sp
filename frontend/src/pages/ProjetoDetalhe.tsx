@@ -84,7 +84,7 @@ function SlotOk({
  *
  * Venda padrão paga a tabela cheia da empresa; fins de exportação (CFOP 5502)
  * não tem PIS/COFINS/ICMS. Trocar aqui recalcula o fechamento na hora. */
-function Tributacao({ nome }: { nome: string }) {
+function Tributacao({ nome, travado }: { nome: string; travado: boolean }) {
   const queryClient = useQueryClient()
   const { data } = useQuery({
     queryKey: ['tributacao', nome],
@@ -120,7 +120,8 @@ function Tributacao({ nome }: { nome: string }) {
         <select
           className="input py-1.5 text-sm"
           value={data.perfil ?? ''}
-          disabled={definir.isPending}
+          disabled={definir.isPending || travado}
+          title={travado ? 'Fechamento aprovado — desfaça o 2º ok para mudar a tributação' : undefined}
           aria-label="Perfil de tributação do projeto"
           onChange={(e) => definir.mutate(e.target.value || null)}
         >
@@ -473,7 +474,7 @@ export default function ProjetoDetalhe() {
         </div>
       )}
 
-      {f && <Tributacao nome={nome} />}
+      {f && <Tributacao nome={nome} travado={conf?.status === 'aprovado'} />}
 
       {f && orcamento && <OrcadoRealizado nome={nome} orcamento={orcamento} fechamento={f} />}
 
@@ -517,6 +518,7 @@ export default function ProjetoDetalhe() {
                 <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={t.excluido}
+                    travado={conf?.status === 'aprovado'}
                     onMover={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'codigo_projeto',
@@ -601,6 +603,7 @@ export default function ProjetoDetalhe() {
                 <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={t.excluido}
+                    travado={conf?.status === 'aprovado'}
                     onReclassificar={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'grupo',
@@ -700,6 +703,7 @@ export default function ProjetoDetalhe() {
                 <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={n.excluida}
+                    travado={conf?.status === 'aprovado'}
                     rotuloReclassificar="Corrigir imposto"
                     onReclassificar={() =>
                       abrirModal({
@@ -1032,13 +1036,26 @@ function BotoesAjuste({
   onExcluir,
   rotuloReclassificar = 'Reclassificar',
   excluido = false,
+  travado = false,
 }: {
   onReclassificar?: () => void
   onMover: () => void
   onExcluir: () => void
   rotuloReclassificar?: string
   excluido?: boolean
+  travado?: boolean
 }) {
+  if (travado) {
+    return (
+      <span
+        className="text-xs"
+        style={{ color: 'var(--text-muted)' }}
+        title="Fechamento aprovado (dois ok) — os números estão travados. Uma administradora desfaz o 2º ok para liberar a edição."
+      >
+        🔒
+      </span>
+    )
+  }
   return (
     <span className="inline-flex gap-1 text-xs whitespace-nowrap">
       {onReclassificar && !excluido && (

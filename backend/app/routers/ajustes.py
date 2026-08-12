@@ -6,7 +6,7 @@ from .. import cache, models, schemas
 from ..auth import usuario_logado
 from ..db import get_db
 from ..schemas import GRUPOS_VALIDOS
-from ..services import calculo
+from ..services import calculo, conferencia
 
 router = APIRouter(prefix="/api/ajustes", tags=["ajustes"])
 
@@ -93,6 +93,30 @@ def criar(
         raise HTTPException(status_code=422, detail=f"Campo inválido para {payload.alvo_tipo}: {payload.campo}")
     if not db.get(models.Empresa, payload.empresa_id):
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
+
+    # Fechamento aprovado e TRAVADO: ajuste manual so depois de desfazer o 2o ok.
+    # Vale para o projeto ATUAL do lancamento e, num "mover", tambem para o destino
+    # — senao daria para inflar um fechamento ja assinado empurrando custo para ele.
+    nome_atual = conferencia.nome_projeto_do_alvo(db, payload.alvo_tipo, payload.alvo_id)
+    if nome_atual and conferencia.projeto_aprovado(db, nome_atual):
+        raise HTTPException(status_code=409, detail=conferencia.TRAVADO_MENSAGEM)
+    if payload.campo == "codigo_projeto":
+        try:
+            codigo_destino = int(payload.valor_novo.strip())
+        except ValueError:
+            codigo_destino = 0
+        if codigo_destino:
+            destino = db.scalar(
+                select(models.Projeto).where(
+                    models.Projeto.empresa_id == payload.empresa_id,
+                    models.Projeto.codigo_omie == codigo_destino,
+                )
+            )
+            if destino and conferencia.projeto_aprovado(db, destino.nome or ""):
+                raise HTTPException(
+                    status_code=409,
+                    detail="O projeto de destino está conferido e aprovado — desfaça o 2º ok dele antes de mover lançamentos para lá.",
+                )
 
     ajuste = models.Ajuste(
         empresa_id=payload.empresa_id,

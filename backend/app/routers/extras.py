@@ -127,6 +127,9 @@ def definir_tributacao(
     db: Session = Depends(get_db),
     usuario: models.Usuario = Depends(guarda_custeio),
 ):
+    # tributação muda o imposto do fechamento: projeto aprovado está travado
+    if conferencia.projeto_aprovado(db, payload.nome):
+        raise HTTPException(status_code=409, detail=conferencia.TRAVADO_MENSAGEM)
     chave = chave_projeto(payload.nome)
     row = db.get(models.TributacaoProjeto, chave)
     if payload.perfil is None:
