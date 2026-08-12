@@ -799,6 +799,37 @@ tr.linha-clicavel:hover td {
 
 /* ---------- esqueleto de carregamento ---------- */
 
+/* ---------- acabamento global ---------- */
+
+/* barras de rolagem discretas, da cor do tema (o padrão do SO grita no escuro) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--baseline) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--baseline);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* anel de foco visível só para teclado — quem navega por Tab nunca se perde */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* ---------- sino de notificações ---------- */
 
 .sino-gatilho {
