@@ -112,6 +112,22 @@ def usuario_logado(
     return usuario
 
 
+def usuario_sessao(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+) -> models.Usuario:
+    """Sessão válida SEM o bloqueio de escrita do papel 'leitura'.
+
+    Uso restrito a rotas onde escrever não mexe em dado financeiro — hoje, o
+    chat de suporte: quem só consulta também precisa conseguir pedir ajuda.
+    """
+    token = _extrair_token(authorization)
+    usuario = usuario_do_token(db, token) if token else None
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Faça login para continuar")
+    return usuario
+
+
 def exigir_admin(usuario: models.Usuario = Depends(usuario_logado)) -> models.Usuario:
     if usuario.papel != "admin":
         raise HTTPException(status_code=403, detail="Apenas administradoras podem gerenciar usuários")

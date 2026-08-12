@@ -20,6 +20,7 @@ from .routers import (
     orcamentos,
     precificacao,
     projetos,
+    suporte,
     sync,
 )
 from .routers.empresas import build_omie_client
@@ -69,6 +70,8 @@ app.include_router(extras.router, dependencies=_CUSTEIO)
 app.include_router(compras.router, dependencies=_CUSTEIO)
 app.include_router(backup.router)  # ja exige admin internamente
 app.include_router(notificacoes.router, dependencies=_CUSTEIO)
+# suporte: TODO papel logado pode pedir ajuda (inclusive leitura e comercial)
+app.include_router(suporte.router)
 
 # precificacao: admin, financeiro e comercial (guardas internas por rota)
 app.include_router(precificacao.router)

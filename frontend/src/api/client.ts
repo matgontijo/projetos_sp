@@ -293,6 +293,24 @@ export interface Notificacoes {
   nao_lidas: number
 }
 
+/** Chat de suporte: uma conversa por usuário; o atendente vê todas. */
+export interface MensagemSuporte {
+  id: number
+  autor: 'cliente' | 'suporte'
+  texto: string
+  criado_em: string
+  lida: boolean
+}
+
+export interface ConversaSuporte {
+  usuario_id: number
+  nome: string
+  email: string
+  ultima: string
+  quando: string
+  nao_lidas: number
+}
+
 /** Perfil de tributação por operação (ex.: 'Fins de exportação' — sem PIS/COFINS/ICMS). */
 export interface PerfilTributacao {
   nome: string
@@ -667,6 +685,19 @@ export const api = {
   listarComentarios: (nome: string) => request<Comentario[]>(`/api/comentarios${qs({ nome })}`),
   comentar: (nome: string, texto: string) =>
     request<Comentario[]>('/api/comentarios', { method: 'POST', body: JSON.stringify({ nome, texto }) }),
+
+  // Suporte (chat dentro do app)
+  suporteResumo: () => request<{ nao_lidas: number; sou_suporte: boolean }>('/api/suporte/resumo'),
+  suporteConversas: () => request<ConversaSuporte[]>('/api/suporte/conversas'),
+  suporteMensagens: (usuarioId?: number) =>
+    request<{ usuario: { id: number; nome: string }; mensagens: MensagemSuporte[] }>(
+      `/api/suporte/mensagens${qs({ usuario_id: usuarioId !== undefined ? String(usuarioId) : undefined })}`,
+    ),
+  suporteEnviar: (texto: string, usuarioId?: number) =>
+    request<MensagemSuporte>('/api/suporte/mensagens', {
+      method: 'POST',
+      body: JSON.stringify({ texto, usuario_id: usuarioId }),
+    }),
 
   // Central de notificações (alertas com leitura por pessoa)
   notificacoes: (empresaIds?: string, de?: string, ate?: string) =>
