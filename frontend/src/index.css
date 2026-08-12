@@ -799,6 +799,149 @@ tr.linha-clicavel:hover td {
 
 /* ---------- esqueleto de carregamento ---------- */
 
+/* ---------- paleta de comandos (Ctrl+K) ---------- */
+
+.paleta-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 70; /* acima da textura de ruído (60) e de qualquer barra */
+  background: color-mix(in srgb, black 45%, transparent);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 1rem 1rem;
+  animation: sobe-assenta 0.18s ease-out;
+}
+.paleta {
+  width: min(620px, 100%);
+  background: var(--surface-1);
+  border: 1px solid var(--border-hairline);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(30rem, 76vh);
+}
+.paleta-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--gridline);
+  color: var(--text-muted);
+}
+.paleta-entrada {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.paleta-entrada::placeholder {
+  color: var(--text-muted);
+}
+.paleta-lista {
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+.paleta-grupo {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0.55rem 0.7rem 0.25rem;
+}
+.paleta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.paleta-item[data-ativa='true'] {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.paleta-icone {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.paleta-selo {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text-primary);
+  font-size: 0.62rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.paleta-detalhe {
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.paleta-rodape {
+  display: flex;
+  gap: 1.1rem;
+  padding: 0.55rem 1.1rem;
+  border-top: 1px solid var(--gridline);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.paleta kbd,
+.paleta-gatilho kbd {
+  font: 700 0.66rem/1.4 var(--font-body);
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--baseline);
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+/* o gatilho na sidebar vive sobre fundo escuro nos dois temas */
+.paleta-gatilho {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--nav-hairline);
+  background: var(--nav-surface);
+  color: var(--nav-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.paleta-gatilho:hover {
+  border-color: color-mix(in srgb, var(--nav-accent) 45%, transparent);
+  color: var(--nav-text);
+}
+.paleta-gatilho kbd {
+  border-color: var(--nav-hairline);
+  background: transparent;
+  color: var(--nav-muted);
+}
+
 .skeleton {
   border-radius: 8px;
   background: linear-gradient(90deg, var(--gridline) 25%, color-mix(in srgb, var(--gridline) 40%, transparent) 50%, var(--gridline) 75%);

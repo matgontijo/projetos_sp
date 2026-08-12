@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { NavLink, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 import {
   api,
   guardarSessao,
@@ -10,6 +10,7 @@ import {
   type UsuarioLogado,
 } from './api/client'
 import { ICONES, Marca } from './components/Layout'
+import Paleta, { type TelaDaPaleta } from './components/Paleta'
 import Ajuda from './pages/Ajuda'
 import Analises from './pages/Analises'
 import CadastroPrecificacao from './pages/CadastroPrecificacao'
@@ -150,6 +151,21 @@ function secoesDoPapel(papel: string): SecaoMenu[] {
   })).filter((s) => s.papeis.includes(papel) && s.itens.length > 0)
 }
 
+/** Título da aba do navegador acompanha a tela — 5 abas abertas deixam de ser
+ *  5 abas idênticas escritas "Grupo JPDV". */
+function TituloDaAba() {
+  const location = useLocation()
+  const [params] = useSearchParams()
+  useEffect(() => {
+    let tela = SECOES.flatMap((s) => s.itens).find((i) => i.to === location.pathname)?.label
+    if (location.pathname.startsWith('/projeto') && params.get('nome')) tela = params.get('nome')!
+    document.title = tela ? `${tela} · Grupo JPDV` : 'Grupo JPDV — Fechamento de Projetos'
+  }, [location.pathname, params])
+  return null
+}
+
+const TECLA_PALETA = /mac/i.test(navigator.platform) ? '⌘ K' : 'Ctrl K'
+
 const PAPEL_LABEL: Record<string, string> = {
   admin: 'Administradora',
   financeiro: 'Financeiro',
@@ -204,6 +220,11 @@ export default function App() {
   const ehComercial = usuario.papel === 'comercial'
   const inicio = ehComercial ? '/precificacao' : '/dashboard'
 
+  const telasDaPaleta: TelaDaPaleta[] = secoesDoPapel(usuario.papel).flatMap((s) =>
+    s.itens.map((i) => ({ to: i.to, label: i.label, secao: s.titulo, icone: i.icone })),
+  )
+  const abrirPaleta = () => window.dispatchEvent(new CustomEvent('abrir-paleta'))
+
   const navegacao = secoesDoPapel(usuario.papel).map((secao) => (
     <div key={secao.titulo}>
       <div className="nav-secao">{secao.titulo}</div>
@@ -257,6 +278,14 @@ export default function App() {
       <div className="mb-5 px-1">
         <Marca />
       </div>
+      <button className="paleta-gatilho mb-4" onClick={abrirPaleta} title="Busca rápida (Ctrl+K ou /)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.2-3.2" />
+        </svg>
+        <span className="flex-1 text-left">Buscar…</span>
+        <kbd>{TECLA_PALETA}</kbd>
+      </button>
       <nav className="min-h-0 flex-1 overflow-y-auto">{navegacao}</nav>
       <div className="mt-4 grid gap-2.5">
         <SeletorTema tema={tema} setTema={setTema} />
@@ -267,6 +296,8 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen">
+      <TituloDaAba />
+      <Paleta telas={telasDaPaleta} buscaProjetos={!ehComercial} />
       {/* Sidebar (desktop) — escura nos dois temas */}
       <aside
         className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col px-4 py-5 md:flex"
@@ -282,6 +313,18 @@ export default function App() {
           style={{ background: 'var(--nav-bg)', borderBottom: '1px solid var(--nav-hairline)' }}
         >
           <Marca />
+          <span className="flex items-center gap-2">
+          <button
+            className="rounded-full p-2"
+            style={{ color: 'var(--nav-text)', border: '1px solid var(--nav-hairline)' }}
+            aria-label="Busca rápida"
+            onClick={abrirPaleta}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" />
+            </svg>
+          </button>
           <button
             className="rounded-full p-2"
             style={{ color: 'var(--nav-text)', border: '1px solid var(--nav-hairline)' }}
@@ -292,6 +335,7 @@ export default function App() {
               {menuAberto ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
             </svg>
           </button>
+          </span>
         </header>
 
         {menuAberto && (
