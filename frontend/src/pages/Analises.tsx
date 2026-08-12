@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { Skeleton, ValorContado } from '../components/Viz'
+import { BarraValor, Skeleton, ValorContado } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 export default function Analises() {
@@ -55,7 +55,7 @@ function Clientes({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
   if (error) return <ErroCarga erro={error} />
   return (
     <div className="card overflow-x-auto">
-      <table className="data">
+      <table className="data tabela-rica">
         <thead>
           <tr>
             <th>Classe</th>
@@ -71,7 +71,7 @@ function Clientes({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
           {isLoading && (
             <tr><td colSpan={7}><Skeleton altura={18} /></td></tr>
           )}
-          {(data || []).map((c) => (
+          {(() => { const maxR = Math.max(...(data || []).map((c) => c.receita), 1); const maxRes = Math.max(...(data || []).map((c) => Math.abs(c.resultado)), 1); return (data || []).map((c) => (
             <tr key={c.cliente}>
               <td>
                 <span
@@ -98,9 +98,13 @@ function Clientes({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
                   {c.cliente}
                 </Link>
               </td>
-              <td className="num">{fmtBRL(c.receita)}</td>
+              <td className="num">
+                {fmtBRL(c.receita)}
+                <BarraValor valor={c.receita} max={maxR} />
+              </td>
               <td className="num font-semibold" style={{ color: c.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
                 {fmtBRL(c.resultado)}
+                <BarraValor valor={c.resultado} max={maxRes} cor={c.resultado >= 0 ? 'color-mix(in srgb, var(--status-good) 65%, transparent)' : 'color-mix(in srgb, var(--neg) 70%, transparent)'} />
               </td>
               <td className="num">{fmtPct(c.margem)}</td>
               <td className="num">{c.qtd_projetos}</td>
@@ -108,7 +112,7 @@ function Clientes({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
                 {c.projetos_prejuizo || '—'}
               </td>
             </tr>
-          ))}
+          )) })()}
           {data && data.length === 0 && (
             <tr><td colSpan={7} style={{ color: 'var(--text-muted)' }}>Sem dados no período.</td></tr>
           )}
@@ -127,7 +131,7 @@ function Vendedores({ empresaIds, de, ate }: { empresaIds?: string; de?: string;
   return (
     <div>
       <div className="card overflow-x-auto">
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               <th>Vendedor</th>
@@ -141,17 +145,21 @@ function Vendedores({ empresaIds, de, ate }: { empresaIds?: string; de?: string;
             {isLoading && (
               <tr><td colSpan={5}><Skeleton altura={18} /></td></tr>
             )}
-            {(data?.vendedores || []).map((v) => (
+            {(() => { const maxRv = Math.max(...(data?.vendedores || []).map((v) => v.receita), 1); const maxResV = Math.max(...(data?.vendedores || []).map((v) => Math.abs(v.resultado_atribuido)), 1); return (data?.vendedores || []).map((v) => (
               <tr key={v.vendedor}>
                 <td className="font-semibold">{v.vendedor}</td>
-                <td className="num">{fmtBRL(v.receita)}</td>
+                <td className="num">
+                  {fmtBRL(v.receita)}
+                  <BarraValor valor={v.receita} max={maxRv} />
+                </td>
                 <td className="num" style={{ color: v.resultado_atribuido >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
                   {fmtBRL(v.resultado_atribuido)}
+                  <BarraValor valor={v.resultado_atribuido} max={maxResV} cor={v.resultado_atribuido >= 0 ? 'color-mix(in srgb, var(--status-good) 65%, transparent)' : 'color-mix(in srgb, var(--neg) 70%, transparent)'} />
                 </td>
                 <td className="num font-semibold">{fmtPct(v.margem_media)}</td>
                 <td className="num">{v.qtd_projetos}</td>
               </tr>
-            ))}
+            )) })()}
             {data && data.vendedores.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ color: 'var(--text-muted)' }}>
@@ -213,7 +221,7 @@ function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
         </div>
       )}
       <div className="card overflow-x-auto">
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               <th>Projeto</th>
@@ -227,21 +235,27 @@ function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
             {isLoading && (
               <tr><td colSpan={5}><Skeleton altura={18} /></td></tr>
             )}
-            {(data?.projetos || []).filter((p) => p.receber_aberto > 0 || p.pagar_aberto > 0).map((p) => (
+            {(() => { const abertos = (data?.projetos || []).filter((p) => p.receber_aberto > 0 || p.pagar_aberto > 0); const maxRec = Math.max(...abertos.map((p) => p.receber_aberto), 1); const maxPag = Math.max(...abertos.map((p) => p.pagar_aberto), 1); return abertos.map((p) => (
               <tr key={p.projeto}>
                 <td>
                   <Link to={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params}`} className="font-semibold hover:underline" style={{ color: 'var(--accent)' }}>
                     {p.projeto}
                   </Link>
                 </td>
-                <td className="num">{fmtBRL(p.receber_aberto)}</td>
+                <td className="num">
+                  {fmtBRL(p.receber_aberto)}
+                  <BarraValor valor={p.receber_aberto} max={maxRec} />
+                </td>
                 <td className="num font-semibold" style={{ color: p.receber_atrasado > 0 ? 'var(--neg)' : 'var(--text-muted)' }}>
                   {p.receber_atrasado > 0 ? fmtBRL(p.receber_atrasado) : '—'}
                 </td>
                 <td className="num">{p.maior_atraso_dias > 0 ? `${p.maior_atraso_dias} dias` : '—'}</td>
-                <td className="num">{fmtBRL(p.pagar_aberto)}</td>
+                <td className="num">
+                  {fmtBRL(p.pagar_aberto)}
+                  <BarraValor valor={p.pagar_aberto} max={maxPag} cor="color-mix(in srgb, var(--serie-imposto) 60%, transparent)" />
+                </td>
               </tr>
-            ))}
+            )) })()}
           </tbody>
         </table>
       </div>

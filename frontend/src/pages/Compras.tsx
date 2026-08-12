@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api, type PedidoCompra } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { Skeleton, ValorContado } from '../components/Viz'
+import { Skeleton, ValorContado , BarraValor } from '../components/Viz'
 import { fmtBRL } from '../lib/format'
 
 const SITUACOES: { valor: string; rotulo: string; cor: string; ajuda: string }[] = [
@@ -166,7 +166,7 @@ export default function Compras() {
 
       {pedidos.length > 0 && (
         <div className="card mt-4 overflow-x-auto">
-          <table className="tabela w-full">
+          <table className="tabela tabela-rica w-full">
             <thead>
               <tr>
                 <th>Nº</th>
@@ -180,7 +180,7 @@ export default function Compras() {
               </tr>
             </thead>
             <tbody>
-              {pedidos.map((p: PedidoCompra) => {
+              {(() => { const maxV = Math.max(...pedidos.map((x: PedidoCompra) => x.valor_total), 1); return pedidos.map((p: PedidoCompra) => {
                 const vencido =
                   p.situacao === 'pendente' &&
                   p.proximo_vencimento &&
@@ -194,7 +194,10 @@ export default function Compras() {
                     <td className="max-w-[22rem] truncate" title={p.observacao}>
                       {p.observacao || <span style={{ color: 'var(--text-muted)' }}>sem observação</span>}
                     </td>
-                    <td className="num text-right font-bold">{fmtBRL(p.valor_total)}</td>
+                    <td className="num text-right font-bold">
+                      {fmtBRL(p.valor_total)}
+                      <BarraValor valor={p.valor_total} max={maxV} />
+                    </td>
                     <td className="num text-right" style={{ color: p.credito_impostos > 0 ? 'var(--status-good-text)' : 'var(--text-muted)' }}>
                       {p.credito_impostos > 0 ? fmtBRL(p.credito_impostos) : '—'}
                     </td>
@@ -210,7 +213,7 @@ export default function Compras() {
                     </td>
                   </tr>
                 )
-              })}
+              }) })()}
             </tbody>
           </table>
         </div>

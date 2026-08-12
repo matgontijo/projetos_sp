@@ -738,11 +738,13 @@ tr.linha-clicavel:hover td {
 /* ---------- tabela de projetos: linhas com presença ----------
    Menos colunas, mais fortes: linha alta, nome grande com o cliente embaixo,
    e o valor DESENHADO na célula (barra de dados proporcional ao maior da lista). */
-.tabela-projetos td {
+.tabela-projetos td,
+.tabela-rica td {
   padding-top: 0.78rem;
   padding-bottom: 0.78rem;
 }
-.tabela-projetos tbody tr:hover td:first-child {
+.tabela-projetos tbody tr:hover td:first-child,
+.tabela-rica tbody tr:hover td:first-child {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 .medida-barra {
@@ -793,6 +795,24 @@ tr.linha-clicavel:hover td {
   background: var(--nav-surface);
   color: var(--nav-text);
   transform: translateX(2px);
+}
+.sidebar-item svg {
+  transition: transform 0.15s ease;
+}
+.sidebar-item:hover svg {
+  transform: scale(1.12);
+}
+/* contador vivo ao lado de "Projetos": o menu REAGE aos dados */
+.sidebar-contador {
+  margin-left: auto;
+  min-width: 1.3rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.66rem;
+  font-weight: 900;
+  background: color-mix(in srgb, var(--nav-accent) 18%, transparent);
+  color: var(--nav-text);
 }
 .sidebar-item-ativo {
   background: color-mix(in srgb, var(--nav-accent) 14%, transparent);

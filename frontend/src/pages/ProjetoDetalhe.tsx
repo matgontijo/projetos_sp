@@ -3,7 +3,7 @@ import { useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type LinhaFechamento, type Orcamento } from '../api/client'
 import { useFiltros } from '../components/Filtros'
-import { BadgeLucro, siglaEmpresa, ValorContado } from '../components/Viz'
+import { BadgeLucro, BarraValor, siglaEmpresa, ValorContado } from '../components/Viz'
 import { fmtBRL, fmtData, fmtDataHora, fmtPct } from '../lib/format'
 
 const GRUPO_LABEL: Record<string, string> = {
@@ -231,6 +231,10 @@ export default function ProjetoDetalhe() {
   const totalReceber = somaValidos(receber, (t) => t.valor_documento, (t) => t.cancelado || t.excluido)
   const totalPagar = somaValidos(pagar, (t) => t.valor_documento, (t) => t.cancelado || t.excluido)
   const nfesValidas = (data?.nfes || []).filter((n) => !n.cancelada && !n.excluida)
+  // barras de dados: proporcionais ao maior valor de CADA tabela
+  const maxReceber = Math.max(...receber.map((t) => t.valor_documento), 1)
+  const maxPagar = Math.max(...pagar.map((t) => t.valor_documento), 1)
+  const maxImpostoNfe = Math.max(...(data?.nfes || []).map((n) => n.imposto_total), 1)
   const totalNfe = {
     fora: (data?.nfes || []).length - nfesValidas.length,
     valor: nfesValidas.reduce((s, n) => s + n.v_nf, 0),
@@ -490,7 +494,7 @@ export default function ProjetoDetalhe() {
 
       {aba === 'receber' && data && (
       <Secao titulo={`Contas a Receber (${receber.length})`}>
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               {/* no celular só cabem as colunas que identificam e valoram o título;
@@ -514,7 +518,10 @@ export default function ProjetoDetalhe() {
                 <td className="hidden sm:table-cell">{fmtData(t.data_vencimento)}</td>
                 <td>{t.numero_documento_fiscal || t.numero_documento || '—'}</td>
                 <td className="text-xs">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
-                <td className="num">{fmtBRL(t.valor_documento)}</td>
+                <td className="num">
+                  {fmtBRL(t.valor_documento)}
+                  <BarraValor valor={t.valor_documento} max={maxReceber} cor="color-mix(in srgb, var(--status-good) 55%, transparent)" />
+                </td>
                 <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={t.excluido}
@@ -562,7 +569,7 @@ export default function ProjetoDetalhe() {
 
       {aba === 'pagar' && data && (
       <Secao titulo={`Contas a Pagar (${pagar.length})`}>
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               {/* o Grupo é o que se confere aqui; empresa, código da categoria
@@ -599,7 +606,10 @@ export default function ProjetoDetalhe() {
                   )}
                 </td>
                 <td className="hidden text-xs sm:table-cell">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
-                <td className="num">{fmtBRL(t.valor_documento)}</td>
+                <td className="num">
+                  {fmtBRL(t.valor_documento)}
+                  <BarraValor valor={t.valor_documento} max={maxPagar} />
+                </td>
                 <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
                     excluido={t.excluido}
@@ -653,7 +663,7 @@ export default function ProjetoDetalhe() {
 
       {aba === 'nfe' && data && (
       <Secao titulo={`NF-e emitidas (${data?.nfes.length || 0})`}>
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               {/* 12 colunas não cabem num celular. A abertura por tributo só a
@@ -699,6 +709,7 @@ export default function ProjetoDetalhe() {
                 <td className="num font-semibold">
                   {fmtBRL(n.imposto_total)}
                   {n.imposto_ajustado && ' ✎'}
+                  <BarraValor valor={n.imposto_total} max={maxImpostoNfe} cor="color-mix(in srgb, var(--serie-imposto) 60%, transparent)" />
                 </td>
                 <td className="hidden text-right sm:table-cell">
                   <BotoesAjuste
@@ -758,7 +769,7 @@ export default function ProjetoDetalhe() {
 
       {aba === 'ajustes' && data && (
       <Secao titulo={`Histórico de ajustes (${data?.ajustes.length || 0})`}>
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               <th>Quando</th>

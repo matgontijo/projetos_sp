@@ -134,7 +134,7 @@ export default function Sincronizar() {
       </div>
 
       <div className="card mt-4 overflow-x-auto">
-        <table className="data">
+        <table className="data tabela-rica">
           <thead>
             <tr>
               <th>Empresa</th>
