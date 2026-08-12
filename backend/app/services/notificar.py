@@ -12,6 +12,7 @@ uma apikey e cadastra CALLMEBOT_TELEFONE + CALLMEBOT_APIKEY no ambiente.
 """
 
 import logging
+import re
 import smtplib
 import threading
 from email.message import EmailMessage
@@ -52,6 +53,12 @@ def _enviar_whatsapp(texto: str) -> None:
         timeout=15,
     )
     resposta.raise_for_status()
+    # O CallMeBot sinaliza recusa NO CORPO com HTTP 200 ("APIKey is invalid",
+    # "The message has invalid characters"...). Sem olhar o texto, uma recusa
+    # passaria por sucesso — foi o que escondeu o número errado por muito tempo.
+    if "queued" not in resposta.text.lower():
+        motivo = re.sub(r"<[^>]+>", " ", resposta.text).strip()
+        raise RuntimeError(f"CallMeBot recusou o envio: {motivo[:200]}")
     logger.info("Suporte: aviso por WhatsApp enviado")
 
 
