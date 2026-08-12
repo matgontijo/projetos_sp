@@ -127,3 +127,24 @@ def test_consolidado_mistura_perfis_correto(db: Session, empresa_aliquota):
 
     consolidado = calculo.fechar_projetos(db, [empresa_aliquota.id])["consolidado"]
     assert consolidado["imposto"] == pytest.approx(894.56 + 1905.0, abs=0.02)
+
+
+def test_api_avisa_empresa_sem_o_perfil(db: Session, empresa_aliquota):
+    """O buraco silencioso: perfil criado numa empresa, projeto faturado por outra."""
+    from app.routers.extras import obter_tributacao
+
+    outra = models.Empresa(nome="Filial Sem Perfil", cnpj="77", app_key_enc="a", app_secret_enc="b", regime="nota")
+    db.add(outra)
+    db.commit()
+    criar_projeto(db, empresa_aliquota, 1, "BR26_200")
+    com_perfil(db, empresa_aliquota, "BR26_200", "Fins de exportação", FINS_EXPORTACAO)
+
+    saida = obter_tributacao("BR26_200", db)
+
+    assert saida["perfil"] == "Fins de exportação"
+    assert saida["empresas_sem_perfil"] == ["Filial Sem Perfil"]  # a que ficou de fora
+
+    # cadastrando o perfil na outra empresa, o aviso some
+    db.add(models.PerfilTributacao(empresa_id=outra.id, nome="Fins de exportação", impostos=FINS_EXPORTACAO))
+    db.commit()
+    assert obter_tributacao("BR26_200", db)["empresas_sem_perfil"] == []

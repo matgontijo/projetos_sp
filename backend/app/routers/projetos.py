@@ -13,10 +13,7 @@ router = APIRouter(prefix="/api", tags=["projetos"])
 
 def fechamento_cacheado(db: Session, ids: list[int], de: date | None, ate: date | None) -> dict:
     chave = ("fechamento", tuple(sorted(ids)), de, ate)
-    resultado = cache.obter(chave)
-    if resultado is None:
-        resultado = cache.guardar(chave, calculo.fechar_projetos(db, ids, de, ate))
-    return resultado
+    return cache.obter_ou_computar(chave, lambda: calculo.fechar_projetos(db, ids, de, ate))
 
 
 def fechamento_anotado(db: Session, ids: list[int], de: date | None, ate: date | None) -> dict:
@@ -63,10 +60,7 @@ def fechamento_mensal(
     if not ids:
         return []
     chave = ("mensal", tuple(sorted(ids)), de, ate)
-    resultado = cache.obter(chave)
-    if resultado is None:
-        resultado = cache.guardar(chave, calculo.serie_mensal(db, ids, de, ate))
-    return resultado
+    return cache.obter_ou_computar(chave, lambda: calculo.serie_mensal(db, ids, de, ate))
 
 
 @router.get("/projetos/detalhe")
