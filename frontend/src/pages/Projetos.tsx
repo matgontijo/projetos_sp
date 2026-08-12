@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api, baixarArquivo, type LinhaFechamento, type ResultadoLote } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { BadgeMeta, BarraComposicao, ChipsEmpresas, LegendaSeries, Skeleton } from '../components/Viz'
+import { BadgeMeta, BarraComposicao, LegendaSeries, Skeleton } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 type CampoOrdenavel = 'projeto' | 'receita' | 'producao' | 'frete' | 'comissao' | 'imposto' | 'outros' | 'resultado' | 'margem'
@@ -289,15 +289,29 @@ export default function Projetos() {
     setSelecionados(todosMarcados ? new Set() : new Set(projetos.map((p) => p.projeto)))
   }
 
-  const Th = ({ campo, children, numerica = true }: { campo: CampoOrdenavel; children: React.ReactNode; numerica?: boolean }) => (
+  const Th = ({
+    campo,
+    children,
+    numerica = true,
+    extra = '',
+  }: {
+    campo: CampoOrdenavel
+    children: React.ReactNode
+    numerica?: boolean
+    extra?: string
+  }) => (
     <th
-      className={`ordenavel ${numerica ? 'num' : ''}`}
+      className={`ordenavel ${numerica ? 'num' : ''} ${extra}`}
       onClick={() => ordenarPor(campo)}
       title="Clique para ordenar"
     >
       {children} {ordem.campo === campo ? (ordem.desc ? '▾' : '▴') : ''}
     </th>
   )
+
+  // barras de dados: o valor DESENHADO na célula, proporcional ao maior da lista
+  const maxReceita = Math.max(...projetos.map((p) => p.receita), 1)
+  const maxResultado = Math.max(...projetos.map((p) => Math.abs(p.resultado)), 1)
 
   const abrir = (p: LinhaFechamento) => navigate(`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`)
 
@@ -503,7 +517,11 @@ export default function Projetos() {
         </div>
 
         <div className="tabela-wrap hidden md:block">
-        <table className="data tabela-fixa">
+        {/* A leitura da linha conta uma história: receita → para onde foi
+            (composição) → resultado → margem. Cliente e empresas moram DENTRO
+            da célula do projeto; a abertura de custos só em telas largas —
+            no notebook ficam as colunas que decidem. */}
+        <table className="data tabela-fixa tabela-projetos">
           <thead>
             <tr>
               <th>
@@ -519,32 +537,29 @@ export default function Projetos() {
               </th>
               <Th campo="projeto" numerica={false}>Projeto</Th>
               <th title="Dupla conferência: 0/2 sem ok, 1/2 conferido, 2/2 conferido e aprovado">Conf.</th>
-              <th>Empresas</th>
-              <th>Cliente</th>
               <Th campo="receita">Receita</Th>
-              <Th campo="producao">Produção</Th>
-              <Th campo="frete">Frete</Th>
-              <Th campo="imposto">Impostos</Th>
-              <Th campo="comissao">Comissão</Th>
-              <Th campo="outros">Outros</Th>
+              <Th campo="producao" extra="hidden 2xl:table-cell">Produção</Th>
+              <Th campo="frete" extra="hidden 2xl:table-cell">Frete</Th>
+              <Th campo="imposto" extra="hidden 2xl:table-cell">Impostos</Th>
+              <Th campo="comissao" extra="hidden 2xl:table-cell">Comissão</Th>
+              <Th campo="outros" extra="hidden 2xl:table-cell">Outros</Th>
+              <th style={{ minWidth: 150 }}>Composição</th>
               <Th campo="resultado">Resultado</Th>
               <Th campo="margem">Margem</Th>
-              <th style={{ minWidth: 140 }}>Composição</th>
-              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {isLoading &&
               [1, 2, 3, 4, 5, 6].map((i) => (
                 <tr key={i}>
-                  <td colSpan={15}>
+                  <td colSpan={12}>
                     <Skeleton altura={18} />
                   </td>
                 </tr>
               ))}
             {!isLoading && !error && projetos.length === 0 && (
               <tr>
-                <td colSpan={15} style={{ color: 'var(--text-muted)' }}>
+                <td colSpan={12} style={{ color: 'var(--text-muted)' }}>
                   {filtroConf === 'todos'
                     ? 'Nenhum projeto no período. Sincronize os dados na aba "Sincronizar".'
                     : 'Nenhum projeto neste filtro de conferência.'}
@@ -572,12 +587,19 @@ export default function Projetos() {
                 <td>
                   <Link
                     to={`/projeto?nome=${encodeURIComponent(p.projeto)}&${params.toString()}`}
-                    className="projeto-nome font-semibold underline-offset-2 hover:underline"
+                    className="projeto-nome text-[0.95rem] font-bold underline-offset-2 hover:underline"
                     style={{ color: 'var(--accent)' }}
                     title={p.projeto}
                   >
                     {p.projeto}
                   </Link>
+                  <span
+                    className="projeto-nome mt-0.5 text-xs"
+                    style={{ color: 'var(--text-muted)' }}
+                    title={[p.cliente, p.empresas].filter(Boolean).join(' · ')}
+                  >
+                    {[p.cliente, p.empresas].filter(Boolean).join(' · ') || '—'}
+                  </span>
                 </td>
                 <td className="whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                   <CelulaConferencia
@@ -587,24 +609,17 @@ export default function Projetos() {
                     onOk={() => darOks.mutate([p.projeto])}
                   />
                 </td>
-                <td>
-                  <ChipsEmpresas empresas={p.empresas} />
-                </td>
-                <td style={{ color: 'var(--text-secondary)' }}>
-                  <span className="block max-w-36 truncate" title={p.cliente}>
-                    {p.cliente || '—'}
+                <td className="num">
+                  {fmtBRL(p.receita)}
+                  <span className="medida-barra" aria-hidden>
+                    <i style={{ width: `${(p.receita / maxReceita) * 100}%`, background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
                   </span>
                 </td>
-                <td className="num">{fmtBRL(p.receita)}</td>
-                <td className="num">{fmtBRL(p.producao)}</td>
-                <td className="num">{fmtBRL(p.frete)}</td>
-                <td className="num">{fmtBRL(p.imposto)}</td>
-                <td className="num">{fmtBRL(p.comissao)}</td>
-                <td className="num">{fmtBRL(p.outros)}</td>
-                <td className="num font-semibold" style={{ color: p.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
-                  {fmtBRL(p.resultado)}
-                </td>
-                <td className="num font-semibold">{fmtPct(p.margem)}</td>
+                <td className="num hidden 2xl:table-cell">{fmtBRL(p.producao)}</td>
+                <td className="num hidden 2xl:table-cell">{fmtBRL(p.frete)}</td>
+                <td className="num hidden 2xl:table-cell">{fmtBRL(p.imposto)}</td>
+                <td className="num hidden 2xl:table-cell">{fmtBRL(p.comissao)}</td>
+                <td className="num hidden 2xl:table-cell">{fmtBRL(p.outros)}</td>
                 <td>
                   <BarraComposicao
                     compacta
@@ -617,8 +632,22 @@ export default function Projetos() {
                     resultado={p.resultado}
                   />
                 </td>
-                <td>
-                  <BadgeMeta margem={p.margem} receita={p.receita} alvo={margemAlvo} />
+                <td className="num font-bold" style={{ color: p.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+                  {fmtBRL(p.resultado)}
+                  <span className="medida-barra" aria-hidden>
+                    <i
+                      style={{
+                        width: `${(Math.abs(p.resultado) / maxResultado) * 100}%`,
+                        background: p.resultado >= 0 ? 'color-mix(in srgb, var(--status-good) 65%, transparent)' : 'color-mix(in srgb, var(--neg) 70%, transparent)',
+                      }}
+                    />
+                  </span>
+                </td>
+                <td className="num">
+                  <span className="font-bold">{fmtPct(p.margem)}</span>
+                  <span className="mt-1 flex justify-end">
+                    <BadgeMeta margem={p.margem} receita={p.receita} alvo={margemAlvo} />
+                  </span>
                 </td>
               </tr>
             ))}
@@ -634,24 +663,26 @@ export default function Projetos() {
               <tfoot>
                 <tr style={{ fontWeight: 700, borderTop: '2px solid var(--baseline)' }}>
                   <td></td>
-                  <td title="Soma das linhas exibidas">Total</td>
+                  <td title="Soma das linhas exibidas">
+                    Total
+                    <span className="block text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                      {linhas.length} projetos
+                    </span>
+                  </td>
                   <td className="text-xs" style={{ color: 'var(--text-muted)' }} title="Projetos com os dois ok">
                     {linhas.filter((p) => p.conferencia?.status === 'aprovado').length}/{linhas.length}
                   </td>
-                  <td colSpan={2} className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {linhas.length} projetos
-                  </td>
                   <td className="num">{fmtBRL(receita)}</td>
-                  <td className="num">{fmtBRL(soma('producao'))}</td>
-                  <td className="num">{fmtBRL(soma('frete'))}</td>
-                  <td className="num">{fmtBRL(soma('imposto'))}</td>
-                  <td className="num">{fmtBRL(soma('comissao'))}</td>
-                  <td className="num">{fmtBRL(soma('outros'))}</td>
+                  <td className="num hidden 2xl:table-cell">{fmtBRL(soma('producao'))}</td>
+                  <td className="num hidden 2xl:table-cell">{fmtBRL(soma('frete'))}</td>
+                  <td className="num hidden 2xl:table-cell">{fmtBRL(soma('imposto'))}</td>
+                  <td className="num hidden 2xl:table-cell">{fmtBRL(soma('comissao'))}</td>
+                  <td className="num hidden 2xl:table-cell">{fmtBRL(soma('outros'))}</td>
+                  <td></td>
                   <td className="num" style={{ color: resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
                     {fmtBRL(resultado)}
                   </td>
                   <td className="num">{fmtPct(receita > 0 ? resultado / receita : 0)}</td>
-                  <td colSpan={2}></td>
                 </tr>
               </tfoot>
             )

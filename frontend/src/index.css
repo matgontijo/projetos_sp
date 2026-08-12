@@ -735,6 +735,32 @@ tr.linha-clicavel:hover td {
 }
 /* fim das colunas fixas (>= 768px) */
 
+/* ---------- tabela de projetos: linhas com presença ----------
+   Menos colunas, mais fortes: linha alta, nome grande com o cliente embaixo,
+   e o valor DESENHADO na célula (barra de dados proporcional ao maior da lista). */
+.tabela-projetos td {
+  padding-top: 0.78rem;
+  padding-bottom: 0.78rem;
+}
+.tabela-projetos tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.medida-barra {
+  display: block;
+  height: 3px;
+  margin-top: 5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--baseline) 40%, transparent);
+  overflow: hidden;
+}
+.medida-barra i {
+  display: block;
+  height: 100%;
+  margin-left: auto; /* a coluna é alinhada à direita: a barra cresce da direita */
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* ---------- navegação lateral (sempre escura) ---------- */
 
 .nav-secao {
