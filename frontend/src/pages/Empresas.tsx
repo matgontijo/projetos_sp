@@ -566,9 +566,11 @@ function PerfisTributacao({ empresaId }: { empresaId: number }) {
         A tabela do cadastro é a operação <b>padrão</b>. Cadastre aqui as exceções — ex.: <b>Fins de exportação</b>{' '}
         (CFOP 5502), que não paga PIS/COFINS/ICMS — e escolha o perfil no detalhe de cada projeto.
       </p>
-      <div className="grid gap-3">
+      {/* grid-cols-1 (= minmax(0,1fr)): a coluna `auto` do grid é dimensionada
+          pelo conteúdo e as linhas de imposto estouram a tela no celular */}
+      <div className="grid grid-cols-1 gap-3">
         {perfis.map((p, pi) => (
-          <div key={pi} className="rounded-lg p-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-hairline)' }}>
+          <div key={pi} className="min-w-0 rounded-lg p-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-hairline)' }}>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 className="input min-w-0 flex-1 font-semibold"
@@ -588,9 +590,9 @@ function PerfisTributacao({ empresaId }: { empresaId: number }) {
                 ×
               </button>
             </div>
-            <div className="mt-2 grid gap-1.5">
+            <div className="mt-2 grid grid-cols-1 gap-1.5">
               {p.impostos.map((imp, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex min-w-0 items-center gap-2">
                   <input
                     className="input min-w-0 flex-1"
                     placeholder="ex.: CSLL"
@@ -607,7 +609,7 @@ function PerfisTributacao({ empresaId }: { empresaId: number }) {
                     step="0.01"
                     min="0"
                     max="100"
-                    className="input w-24"
+                    className="input w-20 shrink-0 sm:w-24"
                     aria-label={`Alíquota ${i + 1} do perfil ${p.nome || pi + 1} em %`}
                     value={imp.aliquota}
                     onChange={(ev) =>
