@@ -22,6 +22,18 @@ class Settings(BaseSettings):
     # Intervalo minimo entre chamadas a Omie por empresa (segundos)
     omie_min_interval: float = 0.35
 
+    # --- Suporte: avisos de nova mensagem (tudo opcional; sem configurar, o
+    # chat funciona e os avisos simplesmente nao disparam) ---
+    suporte_email: str = ""          # e-mail de quem atende (identifica a conta de suporte no app)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_pass: str = ""
+    smtp_de: str = ""                # remetente; vazio usa smtp_user
+    callmebot_telefone: str = ""     # +55DDDNUMERO cadastrado no CallMeBot
+    callmebot_apikey: str = ""
+    app_url: str = ""                # ex.: https://custeio-app.onrender.com (vira link no aviso)
+
     @field_validator("database_url")
     @classmethod
     def _normaliza_url_postgres(cls, url: str) -> str:

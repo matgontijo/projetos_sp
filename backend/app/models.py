@@ -305,6 +305,24 @@ class FechamentoAprovado(Base):
     revogado_por: Mapped[str] = mapped_column(String(80), default="")
 
 
+class MensagemSuporte(Base):
+    """Chat de suporte dentro do app — uma conversa por usuario.
+
+    `autor` diz de que lado veio: 'cliente' (quem usa o app) ou 'suporte' (quem
+    atende). `lida_em` marca quando o OUTRO lado viu; e o que alimenta os
+    contadores de nao lidas dos dois lados.
+    """
+
+    __tablename__ = "mensagem_suporte"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), index=True)
+    autor: Mapped[str] = mapped_column(String(10))  # 'cliente' | 'suporte'
+    texto: Mapped[str] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    lida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class NotificacaoLida(Base):
     """Estado de leitura das notificações, POR PESSOA.
 

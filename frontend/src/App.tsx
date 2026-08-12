@@ -12,6 +12,7 @@ import {
 import { ICONES, Marca } from './components/Layout'
 import Paleta, { type TelaDaPaleta } from './components/Paleta'
 import Sino from './components/Sino'
+import SuporteChat from './components/SuporteChat'
 import Ajuda from './pages/Ajuda'
 import Analises from './pages/Analises'
 import CadastroPrecificacao from './pages/CadastroPrecificacao'
@@ -354,6 +355,7 @@ export default function App() {
       <TituloDaAba />
       <Paleta telas={telasDaPaleta} buscaProjetos={!ehComercial} />
       {!ehComercial && <Sino />}
+      <SuporteChat />
       {/* Sidebar (desktop) — escura nos dois temas */}
       <aside
         className={`nav-lateral sticky top-0 hidden h-screen shrink-0 flex-col py-5 md:flex ${navColapsada ? 'nav-colapsada px-2' : 'px-4'}`}
@@ -370,6 +372,16 @@ export default function App() {
         >
           <Marca />
           <span className="flex items-center gap-2">
+          <button
+            className="rounded-full p-2"
+            style={{ color: 'var(--nav-text)', border: '1px solid var(--nav-hairline)' }}
+            aria-label="Falar com o suporte"
+            onClick={() => window.dispatchEvent(new CustomEvent('abrir-suporte'))}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.8 8.8 0 0 1-3.2-.6L3 21l1.9-5.6a8 8 0 0 1-.9-3.9A8.4 8.4 0 0 1 12.5 3.2 8.4 8.4 0 0 1 21 11.5z" />
+            </svg>
+          </button>
           {!ehComercial && (
             <button
               className="rounded-full p-2"
