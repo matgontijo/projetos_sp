@@ -114,7 +114,7 @@ function Tributacao({ nome, travado }: { nome: string; travado: boolean }) {
             <b> fins de exportação</b>, que não paga PIS/COFINS/ICMS — cadastre o perfil e escolha aqui.
           </p>
         </div>
-        <Link to="/empresas" className="btn btn-ghost ml-auto text-xs">
+        <Link to="/empresas?abrir=tributacao" className="btn btn-ghost ml-auto text-xs">
           Cadastrar perfil de tributação
         </Link>
       </div>
