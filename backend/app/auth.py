@@ -8,7 +8,9 @@ Papeis: 'admin' (tudo + gerencia usuarios), 'financeiro' (opera tudo),
 import hashlib
 import hmac
 import secrets
+import threading
 import time
+from collections import defaultdict, deque
 from datetime import timedelta
 
 from fastapi import Depends, Header, HTTPException, Request
@@ -26,6 +28,47 @@ PAPEIS_PRECIFICACAO = {"admin", "financeiro", "comercial"}
 PAPEIS_CUSTEIO = {"admin", "financeiro", "leitura"}
 _SESSAO_DIAS = 30
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
+
+
+# --- Freio de forca bruta no login -------------------------------------------
+# Conta as falhas recentes por e-mail (em memoria; suficiente para 1 instancia
+# como a do Render). Depois de _MAX_FALHAS numa janela de _JANELA_FALHAS_SEG,
+# o login daquele e-mail responde 429 ate a janela deslizar. O sucesso zera.
+_MAX_FALHAS = 10
+_JANELA_FALHAS_SEG = 300  # 5 minutos
+_falhas_login: dict[str, deque] = defaultdict(deque)
+_lock_falhas = threading.Lock()
+
+
+def _podar(dq: deque, agora: float) -> None:
+    while dq and agora - dq[0] > _JANELA_FALHAS_SEG:
+        dq.popleft()
+
+
+def segundos_ate_liberar_login(email: str) -> float:
+    """0 se pode tentar; senao, segundos que faltam para a janela deslizar."""
+    chave = email.strip().lower()
+    agora = time.monotonic()
+    with _lock_falhas:
+        dq = _falhas_login[chave]
+        _podar(dq, agora)
+        if len(dq) >= _MAX_FALHAS:
+            return _JANELA_FALHAS_SEG - (agora - dq[0])
+    return 0.0
+
+
+def registrar_falha_login(email: str) -> None:
+    chave = email.strip().lower()
+    agora = time.monotonic()
+    with _lock_falhas:
+        dq = _falhas_login[chave]
+        _podar(dq, agora)
+        dq.append(agora)
+
+
+def zerar_falhas_login(email: str) -> None:
+    with _lock_falhas:
+        _falhas_login.pop(email.strip().lower(), None)
 
 
 def hash_senha(senha: str) -> str:

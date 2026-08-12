@@ -18,10 +18,15 @@ router = APIRouter(prefix="/api/backup", tags=["backup"], dependencies=[Depends(
 def exportar(db: Session = Depends(get_db)):
     dados = backup_svc.exportar(db)
     nome = f"custeio_backup_{datetime.now().strftime('%Y-%m-%d_%H%M')}.json"
+    # Arquivo sensível (hashes de senha + credenciais Omie criptografadas):
+    # no-store impede o navegador/proxy de guardar uma cópia em cache.
     return Response(
         content=json.dumps(dados, ensure_ascii=False, indent=1).encode("utf-8"),
         media_type="application/json; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{nome}"',
+            "Cache-Control": "no-store",
+        },
     )
 
 
