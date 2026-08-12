@@ -7,11 +7,19 @@ aditivas conhecidas com ALTER TABLE idempotente (SQLite e PostgreSQL).
 """
 
 import logging
+import re
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
+
+# Os nomes de tabela/coluna abaixo entram cruz numa instrução SQL (o DDL do
+# ALTER TABLE não aceita parâmetro ligado). A lista é ESTÁTICA e definida só
+# aqui — nunca vem de entrada do usuário. Ainda assim, validamos o formato como
+# defesa em profundidade: se um dia alguém colar algo estranho na lista, quebra
+# no deploy em vez de virar um vetor de injeção.
+_IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 # (tabela, coluna, DDL do tipo, valor para preencher linhas antigas ou None)
 # O tipo pode ser um dict por dialeto quando o DDL nao e portavel (ex.: data com
@@ -49,6 +57,8 @@ def garantir_colunas(engine: Engine) -> None:
         colunas = {c["name"] for c in inspector.get_columns(tabela)}
         if coluna in colunas:
             continue
+        if not (_IDENT.match(tabela) and _IDENT.match(coluna)):
+            raise ValueError(f"Identificador inválido no auto-reparo: {tabela}.{coluna}")
         logger.warning("Auto-reparo: adicionando coluna %s.%s", tabela, coluna)
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {_ddl_do_tipo(tipo, engine.dialect.name)}"))

@@ -14,7 +14,7 @@ from app.auth import (
     usuario_logado,
     verificar_senha,
 )
-from app.routers.autenticacao import SetupIn, UsuarioIn, criar_usuario, setup
+from app.routers.autenticacao import LoginIn, SetupIn, UsuarioIn, criar_usuario, login, setup
 
 
 def _requisicao(metodo: str = "GET") -> Request:
@@ -83,3 +83,41 @@ def test_usuario_inativo_nao_loga(db):
     usuario.ativo = False
     db.commit()
     assert autenticar(db, "ana@empresa.com", "segredo123") is None
+
+
+def test_login_bloqueia_apos_muitas_falhas(db, monkeypatch):
+    """Depois de 10 senhas erradas, o e-mail leva 429 — mesmo com a senha certa."""
+    import app.auth as auth
+
+    monkeypatch.setattr(auth.time, "sleep", lambda *_: None)  # sem esperar o anti-brute do autenticar
+    auth.zerar_falhas_login("alvo@empresa.com")
+    _criar_usuario(db, email="alvo@empresa.com", senha="segredo123")
+    try:
+        for _ in range(10):
+            with pytest.raises(HTTPException) as exc:
+                login(LoginIn(email="alvo@empresa.com", senha="errada"), db)
+            assert exc.value.status_code == 401
+        with pytest.raises(HTTPException) as exc:
+            login(LoginIn(email="alvo@empresa.com", senha="segredo123"), db)
+        assert exc.value.status_code == 429
+    finally:
+        auth.zerar_falhas_login("alvo@empresa.com")  # nao vaza estado para outros testes
+
+
+def test_login_bem_sucedido_zera_o_contador(db, monkeypatch):
+    import app.auth as auth
+
+    monkeypatch.setattr(auth.time, "sleep", lambda *_: None)
+    auth.zerar_falhas_login("z@empresa.com")
+    _criar_usuario(db, email="z@empresa.com", senha="segredo123")
+    try:
+        for _ in range(9):
+            with pytest.raises(HTTPException):
+                login(LoginIn(email="z@empresa.com", senha="errada"), db)
+        assert login(LoginIn(email="z@empresa.com", senha="segredo123"), db)["token"]
+        # contador zerado pelo sucesso: novas falhas voltam a dar 401, nao 429
+        with pytest.raises(HTTPException) as exc:
+            login(LoginIn(email="z@empresa.com", senha="errada"), db)
+        assert exc.value.status_code == 401
+    finally:
+        auth.zerar_falhas_login("z@empresa.com")

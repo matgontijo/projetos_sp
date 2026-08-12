@@ -33,6 +33,16 @@ def _como_chave_fernet(segredo: str) -> bytes:
 def _fernet() -> Fernet:
     key = settings.app_encryption_key.strip()
     if not key:
+        # Em producao (Postgres) o disco e efemero: gerar uma chave local aqui
+        # significaria uma chave DIFERENTE a cada deploy — e todas as credenciais
+        # Omie ficariam ilegiveis em silencio. Melhor falhar alto e claro.
+        if settings.database_url.startswith("postgresql"):
+            raise RuntimeError(
+                "APP_ENCRYPTION_KEY nao esta definida. Em producao ela e obrigatoria: "
+                "sem uma chave fixa, as credenciais Omie criptografadas ficam ilegiveis "
+                "apos o proximo deploy. Defina APP_ENCRYPTION_KEY no ambiente."
+            )
+        # Desenvolvimento (SQLite): chave local em arquivo, so para nao exigir setup.
         if _KEY_FILE.exists():
             key = _KEY_FILE.read_text(encoding="utf-8").strip()
         else:

@@ -11,7 +11,10 @@ from ..auth import (
     encerrar_sessao,
     exigir_admin,
     hash_senha,
+    registrar_falha_login,
+    segundos_ate_liberar_login,
     usuario_logado,
+    zerar_falhas_login,
 )
 from ..db import get_db
 
@@ -67,9 +70,17 @@ def setup(payload: SetupIn, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(payload: LoginIn, db: Session = Depends(get_db)):
+    restante = segundos_ate_liberar_login(payload.email)
+    if restante > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Muitas tentativas de login. Tente novamente em {int(restante // 60) + 1} min.",
+        )
     usuario = autenticar(db, payload.email, payload.senha)
     if not usuario:
+        registrar_falha_login(payload.email)
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
+    zerar_falhas_login(payload.email)  # sucesso limpa o histórico daquele e-mail
     return {"token": criar_sessao(db, usuario), "usuario": _usuario_out(usuario)}
 
 
