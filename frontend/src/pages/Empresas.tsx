@@ -47,6 +47,15 @@ const TABELA_PRESUMIDO: ImpostoEmpresa[] = [
   { nome: 'Add. IRPJ', aliquota: 1.12 },
 ]
 
+/** Operação sem PIS/COFINS/ICMS (CFOP 5502/7101): só os tributos sobre o lucro.
+ *  São os mesmos percentuais da planilha de fechamento — conferir com a
+ *  contabilidade antes de aplicar, porque alíquota é decisão deles. */
+const PERFIL_EXPORTACAO: ImpostoEmpresa[] = [
+  { nome: 'CSLL', aliquota: 1.2 },
+  { nome: 'IRPJ', aliquota: 1.08 },
+  { nome: 'Add. IRPJ', aliquota: 1.12 },
+]
+
 /** Só o que NÃO aparece na nota fiscal (o resto vem da NF-e). */
 const FORA_DA_NOTA: ImpostoEmpresa[] = [
   { nome: 'CSLL', aliquota: 1.2 },
@@ -656,6 +665,19 @@ function PerfisTributacao({ empresaId }: { empresaId: number }) {
         ))}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {/* atalho para o caso conhecido: evita digitar nome e três percentuais.
+            Some depois de criado, para não gerar perfil duplicado. */}
+        {!perfis.some((p) => p.nome.trim().toLowerCase().startsWith('fins de export')) && (
+          <button
+            className="btn btn-ghost text-xs"
+            title="Cria o perfil já preenchido com CSLL 1,20% + IRPJ 1,08% + Adicional 1,12% — confirme os percentuais com a contabilidade"
+            onClick={() =>
+              editar([...perfis, { nome: 'Fins de exportação', impostos: PERFIL_EXPORTACAO.map((i) => ({ ...i })) }])
+            }
+          >
+            + Fins de exportação (3,40%)
+          </button>
+        )}
         <button
           className="btn btn-ghost text-xs"
           onClick={() =>
@@ -667,7 +689,7 @@ function PerfisTributacao({ empresaId }: { empresaId: number }) {
             ])
           }
         >
-          + Adicionar perfil
+          + Perfil em branco
         </button>
         {rascunho && (
           <button className="btn btn-primary text-xs" disabled={salvar.isPending} onClick={() => salvar.mutate()}>
