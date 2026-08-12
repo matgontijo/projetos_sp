@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   api,
   baixarArquivo,
@@ -72,6 +73,10 @@ export default function Empresas() {
   const [testes, setTestes] = useState<Record<number, TesteConexao | 'testando'>>({})
   const [categoriasAbertas, setCategoriasAbertas] = useState<number | null>(null)
   const [perfisAbertos, setPerfisAbertos] = useState<number | null>(null)
+  // ?abrir=tributacao (link vindo do detalhe do projeto): abre o painel da
+  // primeira empresa elegível e rola até ele — o link não pode largar a pessoa
+  // numa tela grande sem dizer onde clicar
+  const [paramsUrl, setParamsUrl] = useSearchParams()
 
   const invalidar = () => queryClient.invalidateQueries({ queryKey: ['empresas'] })
 
@@ -119,6 +124,16 @@ export default function Empresas() {
     setCategoriasAbertas((atual) => (atual === empresa ? null : empresa))
   }
 
+  useEffect(() => {
+    if (paramsUrl.get('abrir') !== 'tributacao' || !empresas?.length) return
+    // perfis só existem em empresa que não é do Simples (lá a alíquota é o DAS)
+    const alvo = empresas.find((e) => e.regime !== 'simples')
+    if (!alvo) return
+    setPerfisAbertos(alvo.id)
+    setParamsUrl({}, { replace: true }) // não repete a abertura ao recarregar
+    setTimeout(() => document.getElementById(`empresa-${alvo.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120)
+  }, [paramsUrl, empresas, setParamsUrl])
+
   return (
     <div>
       <PageHeader
@@ -139,7 +154,7 @@ export default function Empresas() {
         {(empresas || []).map((e) => {
           const teste = testes[e.id]
           return (
-            <div key={e.id} className="card px-5 py-4">
+            <div key={e.id} id={`empresa-${e.id}`} className="card px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="truncate font-bold" title={e.nome}>
