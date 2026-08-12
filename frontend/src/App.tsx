@@ -199,6 +199,11 @@ export default function App() {
   const queryClient = useQueryClient()
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(() => (tokenAtual() ? usuarioLogado() : null))
   const [menuAberto, setMenuAberto] = useState(false)
+  // trilho de icones: preferencia da pessoa, lembrada entre sessoes
+  const [navColapsada, setNavColapsada] = useState(() => localStorage.getItem('nav_colapsada') === '1')
+  useEffect(() => {
+    localStorage.setItem('nav_colapsada', navColapsada ? '1' : '0')
+  }, [navColapsada])
   const { tema, setTema } = useTema()
 
   useEffect(() => {
@@ -255,12 +260,13 @@ export default function App() {
           <NavLink
             key={l.to}
             to={`${l.to}${sufixoFiltros}`}
+            title={l.label}
             className={({ isActive }) =>
               `sidebar-item ${isActive || (l.tambem && location.pathname.startsWith(l.tambem)) ? 'sidebar-item-ativo' : ''}`
             }
           >
             {l.icone}
-            <span>{l.label}</span>
+            <span className="nav-rotulo">{l.label}</span>
             {l.to === '/projetos' && usuario.papel !== 'comercial' && <ContadorPendentes />}
           </NavLink>
         ))}
@@ -296,23 +302,49 @@ export default function App() {
     </div>
   )
 
-  const conteudoSidebar = (
+  const conteudoSidebar = (colapsada: boolean) => (
     <>
-      <div className="mb-5 px-1">
-        <Marca />
+      <div className={`mb-5 flex items-start px-1 ${colapsada ? 'justify-center' : 'justify-between'}`}>
+        {!colapsada && <Marca />}
+        <button
+          className="nav-recolher"
+          onClick={() => setNavColapsada(!navColapsada)}
+          aria-label={colapsada ? 'Expandir o menu' : 'Recolher o menu para ícones'}
+          title={colapsada ? 'Expandir o menu' : 'Recolher o menu'}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            {colapsada ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
+          </svg>
+        </button>
       </div>
-      <button className="paleta-gatilho mb-4" onClick={abrirPaleta} title="Busca rápida (Ctrl+K ou /)">
+      <button
+        className="paleta-gatilho mb-4"
+        onClick={abrirPaleta}
+        title="Busca rápida (Ctrl+K ou /)"
+        aria-label="Busca rápida"
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
           <circle cx="11" cy="11" r="7" />
           <path d="m20 20-3.2-3.2" />
         </svg>
-        <span className="flex-1 text-left">Buscar…</span>
-        <kbd>{TECLA_PALETA}</kbd>
+        {!colapsada && <span className="flex-1 text-left">Buscar…</span>}
+        {!colapsada && <kbd>{TECLA_PALETA}</kbd>}
       </button>
       <nav className="min-h-0 flex-1 overflow-y-auto">{navegacao}</nav>
       <div className="mt-4 grid gap-2.5">
-        <SeletorTema tema={tema} setTema={setTema} />
-        {caixaUsuario}
+        {!colapsada && <SeletorTema tema={tema} setTema={setTema} />}
+        {!colapsada && caixaUsuario}
+        {colapsada && (
+          <button
+            className="mx-auto grid h-9 w-9 place-items-center rounded-full text-xs font-black"
+            style={{ background: 'color-mix(in srgb, var(--nav-accent) 22%, transparent)', color: 'var(--nav-accent)' }}
+            title={`${usuario.nome} — clique para expandir o menu`}
+            aria-label="Expandir o menu para ver a conta"
+            onClick={() => setNavColapsada(false)}
+          >
+            {usuario.nome.trim().charAt(0).toUpperCase()}
+          </button>
+        )}
       </div>
     </>
   )
@@ -324,10 +356,10 @@ export default function App() {
       {!ehComercial && <Sino />}
       {/* Sidebar (desktop) — escura nos dois temas */}
       <aside
-        className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col px-4 py-5 md:flex"
+        className={`nav-lateral sticky top-0 hidden h-screen shrink-0 flex-col py-5 md:flex ${navColapsada ? 'nav-colapsada px-2' : 'px-4'}`}
         style={{ background: 'var(--nav-bg)', borderRight: '1px solid var(--nav-hairline)' }}
       >
-        {conteudoSidebar}
+        {conteudoSidebar(navColapsada)}
       </aside>
 
       {/* Barra superior + gaveta (telas pequenas) */}

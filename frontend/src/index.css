@@ -821,11 +821,17 @@ tr.linha-clicavel:hover td {
   background: color-mix(in srgb, var(--nav-accent) 18%, transparent);
   color: var(--nav-text);
 }
+/* ativo em PÍLULA INVERTIDA: branco sólido com texto preto — o item atual
+   nunca precisa ser procurado */
 .sidebar-item-ativo {
-  background: color-mix(in srgb, var(--nav-accent) 14%, transparent);
-  color: var(--nav-text);
+  background: var(--nav-accent);
+  color: var(--nav-bg);
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-accent) 22%, transparent);
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--nav-accent) 55%, transparent);
+}
+.sidebar-item-ativo .sidebar-contador {
+  background: color-mix(in srgb, var(--nav-bg) 14%, transparent);
+  color: var(--nav-bg);
 }
 /* o filete lateral "acende" quando o item vira o ativo */
 .sidebar-item-ativo::before {
@@ -846,7 +852,74 @@ tr.linha-clicavel:hover td {
   transform: none;
 }
 .sidebar-item-ativo svg {
-  color: var(--nav-accent);
+  color: var(--nav-bg); /* ícone escuro sobre a pílula clara */
+}
+
+/* ---------- sidebar última geração: luz, recolhimento, trilho ---------- */
+
+/* luz ambiente no topo — a mesma assinatura do painel do login */
+.nav-lateral {
+  position: sticky;
+  overflow: hidden;
+  width: 16rem;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), padding 0.22s ease;
+}
+.nav-lateral.nav-colapsada {
+  width: 4.6rem;
+}
+.nav-lateral::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(420px 300px at 18% -8%, rgba(255, 255, 255, 0.08), transparent 70%);
+}
+.nav-lateral > * {
+  position: relative; /* acima da luz */
+}
+
+.nav-recolher {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--nav-hairline);
+  color: var(--nav-muted);
+  transition: color 0.12s, border-color 0.12s;
+}
+.nav-recolher:hover {
+  color: var(--nav-text);
+  border-color: color-mix(in srgb, var(--nav-accent) 40%, transparent);
+}
+
+/* modo TRILHO: só ícones, tooltips nos titles, contador vira ponto */
+.nav-colapsada .nav-rotulo,
+.nav-colapsada .nav-secao {
+  display: none;
+}
+.nav-colapsada .sidebar-item {
+  justify-content: center;
+  padding: 0.6rem 0;
+}
+.nav-colapsada .sidebar-item:hover {
+  transform: none;
+}
+.nav-colapsada .sidebar-item-ativo::before {
+  left: -0.45rem;
+}
+.nav-colapsada .sidebar-contador {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.35rem;
+  margin: 0;
+  min-width: 0.9rem;
+  padding: 0 0.2rem;
+  font-size: 0.56rem;
+}
+.nav-colapsada .paleta-gatilho {
+  justify-content: center;
+  padding: 0.55rem 0;
 }
 
 /* seletor de tema (claro/sistema/escuro) no rodapé da sidebar */
