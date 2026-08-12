@@ -50,6 +50,23 @@ export function Skeleton({ altura = 20, largura = '100%' }: { altura?: number; l
   return <div className="skeleton" style={{ height: altura, width: largura }} />
 }
 
+/** Barra de dados sob um número: o valor DESENHADO na célula, proporcional ao
+ * maior da lista. É o que deixa a coluna legível de relance — quem é grande,
+ * quem é prejuízo — sem ler número por número. */
+export function BarraValor({ valor, max, cor }: { valor: number; max: number; cor?: string }) {
+  if (!max || !isFinite(max)) return null
+  return (
+    <span className="medida-barra" aria-hidden>
+      <i
+        style={{
+          width: `${Math.min((Math.abs(valor) / max) * 100, 100)}%`,
+          background: cor || 'color-mix(in srgb, var(--accent) 45%, transparent)',
+        }}
+      />
+    </span>
+  )
+}
+
 /** Variação vs o período anterior — só aparece quando tem algo a dizer. */
 export function Delta({ atual, anterior, invertido = false }: { atual: number; anterior: number; invertido?: boolean }) {
   // sem base de comparação (período anterior vazio) ou variação nula: silêncio

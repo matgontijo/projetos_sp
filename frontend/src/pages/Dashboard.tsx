@@ -6,6 +6,7 @@ import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import {
   BarraComposicao,
+  BarraValor,
   ComposicaoLinhas,
   Delta,
   GraficoMensal,
@@ -268,6 +269,10 @@ export default function Dashboard() {
                   formato={fmtBRL}
                 />
               </div>
+              <BarraValor
+                valor={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
+                max={consolidado.receita || 1}
+              />
               <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {consolidadoAnterior && (
                   <Delta
@@ -288,6 +293,7 @@ export default function Dashboard() {
               <div className="valor mt-2">
                 <ValorContado valor={consolidado.imposto} formato={fmtBRL} />
               </div>
+              <BarraValor valor={consolidado.imposto} max={consolidado.receita || 1} cor="color-mix(in srgb, var(--serie-imposto) 60%, transparent)" />
               <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {consolidadoAnterior && <Delta atual={consolidado.imposto} anterior={consolidadoAnterior.imposto} invertido />}
               </div>

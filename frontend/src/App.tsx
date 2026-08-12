@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 import {
@@ -167,6 +167,27 @@ function TituloDaAba() {
 
 const TECLA_PALETA = /mac/i.test(navigator.platform) ? '⌘ K' : 'Ctrl K'
 
+/** O menu REAGE aos dados: quantos projetos ainda esperam ok, ao lado de "Projetos".
+ *  Mesma query key das páginas — quando o Dashboard já carregou, custa zero. */
+function ContadorPendentes() {
+  const [params] = useSearchParams()
+  const empresaIds = params.get('empresas') || undefined
+  const de = params.get('de') || undefined
+  const ate = params.get('ate') || undefined
+  const { data } = useQuery({
+    queryKey: ['fechamento', empresaIds, de, ate],
+    queryFn: () => api.fechamento(empresaIds, de, ate),
+    staleTime: 60_000,
+  })
+  const pendentes = (data?.consolidado.qtd_pendentes ?? 0) + (data?.consolidado.qtd_conferidos ?? 0)
+  if (!pendentes) return null
+  return (
+    <span className="sidebar-contador" title={`${pendentes} projeto(s) esperando ok da conferência`}>
+      {pendentes > 99 ? '99+' : pendentes}
+    </span>
+  )
+}
+
 const PAPEL_LABEL: Record<string, string> = {
   admin: 'Administradora',
   financeiro: 'Financeiro',
@@ -240,6 +261,7 @@ export default function App() {
           >
             {l.icone}
             <span>{l.label}</span>
+            {l.to === '/projetos' && usuario.papel !== 'comercial' && <ContadorPendentes />}
           </NavLink>
         ))}
       </div>
