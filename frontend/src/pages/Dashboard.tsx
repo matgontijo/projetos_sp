@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, type Alerta, type Consolidado } from '../api/client'
+import { api, type Alerta, type MesFechamento } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import {
@@ -81,40 +81,112 @@ function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string 
   )
 }
 
-/** Quanto falta conferir no período — cada número abre a lista já filtrada. */
-function PainelConferencia({ consolidado, params }: { consolidado: Consolidado; params: string }) {
-  const itens = [
-    { id: 'pendente', valor: consolidado.qtd_pendentes, rotulo: 'sem nenhum ok', cor: 'var(--text-muted)' },
-    { id: 'conferido', valor: consolidado.qtd_conferidos, rotulo: 'falta o 2º ok', cor: 'var(--status-warning)' },
-    { id: 'aprovado', valor: consolidado.qtd_aprovados, rotulo: 'conferidos', cor: 'var(--status-good)' },
-    { id: 'divergente', valor: consolidado.qtd_divergentes, rotulo: 'mudou depois do ok', cor: 'var(--neg)' },
-  ].filter((i) => i.valor > 0)
-  if (!itens.length) return null
 
-  const falta = consolidado.qtd_pendentes + consolidado.qtd_conferidos
+/** O pulso do período dentro do cartão-herói: o resultado mês a mês numa linha
+ * só, com o último mês marcado. Sem eixos — o gráfico grande fica logo abaixo. */
+function Sparkline({ serie }: { serie: MesFechamento[] }) {
+  const valores = serie.map((m) => m.resultado)
+  const min = Math.min(...valores, 0)
+  const max = Math.max(...valores, 1)
+  const L = 100
+  const A = 26
+  const y = (v: number) => A - ((v - min) / (max - min || 1)) * (A - 3) - 1.5
+  const x = (i: number) => (valores.length > 1 ? (i / (valores.length - 1)) * (L - 4) + 2 : L / 2)
+  const pontos = valores.map((v, i) => `${x(i)},${y(v)}`).join(' ')
+  const ultimo = valores[valores.length - 1]
   return (
-    <div className="card mt-4 px-5 py-3">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <b className="text-sm">Conferência</b>
-        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          {falta === 0
-            ? 'Todos os projetos do período têm os dois ok.'
-            : `${falta} de ${consolidado.qtd_projetos} projetos ainda precisam de ok.`}
+    <svg
+      className="mt-4 w-full"
+      viewBox={`0 0 ${L} ${A}`}
+      preserveAspectRatio="none"
+      style={{ height: 34 }}
+      role="img"
+      aria-label="Resultado mês a mês no período"
+    >
+      {min < 0 && <line x1="0" x2={L} y1={y(0)} y2={y(0)} stroke="var(--gridline)" strokeWidth="0.4" />}
+      <polyline
+        points={pontos}
+        fill="none"
+        stroke="color-mix(in srgb, var(--text-primary) 55%, transparent)"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      <circle cx={x(valores.length - 1)} cy={y(ultimo)} r="1.6" fill={ultimo >= 0 ? 'var(--status-good)' : 'var(--neg)'} />
+    </svg>
+  )
+}
+
+/** Anel de progresso da conferência: quanto do período já tem os dois ok. */
+function AnelProgresso({ fracao, rotulo }: { fracao: number; rotulo: string }) {
+  const R = 30
+  const C = 2 * Math.PI * R
+  const cheio = Math.max(0, Math.min(fracao, 1)) * C
+  return (
+    <svg width="84" height="84" viewBox="0 0 84 84" role="img" aria-label={`Conferência: ${rotulo} projetos com os dois ok`}>
+      <circle cx="42" cy="42" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="7" />
+      <circle
+        cx="42"
+        cy="42"
+        r={R}
+        fill="none"
+        stroke={fracao >= 1 ? 'var(--status-good)' : 'color-mix(in srgb, var(--status-good) 80%, transparent)'}
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeDasharray={`${cheio} ${C - cheio}`}
+        transform="rotate(-90 42 42)"
+        style={{ transition: 'stroke-dasharray 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}
+      />
+      <text x="42" y="46" textAnchor="middle" style={{ font: '800 13px var(--font-display)', fill: 'var(--text-primary)' }}>
+        {rotulo}
+      </text>
+    </svg>
+  )
+}
+
+/** KPI agregado do bento: ícone na cor da série, valor, variação e participação. */
+function CartaoKpi({
+  titulo,
+  valor,
+  anterior,
+  fracaoDaReceita,
+  cor,
+  icone,
+  invertido = false,
+}: {
+  titulo: string
+  valor: number
+  anterior?: number
+  fracaoDaReceita?: number
+  cor: string
+  icone: React.ReactNode
+  invertido?: boolean
+}) {
+  return (
+    <div className="card px-5 py-4 xl:col-span-4">
+      <div className="flex items-center gap-2.5">
+        <span
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full"
+          style={{ background: `color-mix(in srgb, ${cor} 16%, transparent)`, color: cor }}
+          aria-hidden
+        >
+          {icone}
         </span>
-        <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
-          {itens.map((i) => (
-            <Link
-              key={i.id}
-              to={`/projetos?${params}${params ? '&' : ''}conf=${i.id}`}
-              className="text-sm underline-offset-2 hover:underline"
-              title={`Ver os projetos: ${i.rotulo}`}
-            >
-              <b style={{ color: i.cor }}>{i.valor}</b>{' '}
-              <span style={{ color: 'var(--text-muted)' }}>{i.rotulo}</span>
-            </Link>
-          ))}
-        </span>
+        <span className="titulo-secao">{titulo}</span>
+        {fracaoDaReceita !== undefined && (
+          <span className="ml-auto text-xs font-bold" style={{ color: 'var(--text-muted)' }} title="Participação sobre a receita">
+            {fmtPct(fracaoDaReceita)} da receita
+          </span>
+        )}
       </div>
+      <div className="kpi-valor mt-2 text-2xl">
+        <ValorContado valor={valor} formato={fmtBRL} />
+      </div>
+      <div className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+        {anterior !== undefined && anterior > 0 && <Delta atual={valor} anterior={anterior} invertido={invertido} />}
+      </div>
+      {fracaoDaReceita !== undefined && <BarraValor valor={fracaoDaReceita} max={1} cor={`color-mix(in srgb, ${cor} 60%, transparent)`} />}
     </div>
   )
 }
@@ -225,8 +297,11 @@ export default function Dashboard() {
       )}
       {consolidado && consolidado.qtd_projetos > 0 && (
         <>
-          <div className="card hero-metricas overflow-hidden">
-            <div className="hero-protagonista">
+          {/* Bento: o resultado é o herói à esquerda (com o pulso do ano dentro);
+              a conferência é um anel de progresso; os três agregados viram
+              cartões com ícone. Tamanhos desiguais DE PROPÓSITO — hierarquia. */}
+          <div className="grid gap-4 xl:grid-cols-12">
+            <div className="card bento-hero xl:col-span-5">
               <div className="titulo-secao">Resultado do período</div>
               <div className="hero-valor mt-2" style={{ color: consolidado.resultado >= 0 ? 'var(--text-primary)' : 'var(--neg)' }}>
                 <ValorContado valor={consolidado.resultado} formato={fmtBRL} />
@@ -251,56 +326,91 @@ export default function Dashboard() {
                 {consolidadoAnterior && <Delta atual={consolidado.resultado} anterior={consolidadoAnterior.resultado} />}
                 <span style={{ color: 'var(--text-muted)' }}>{consolidado.qtd_projetos} projetos de venda</span>
               </div>
+              {serie && serie.length > 1 && <Sparkline serie={serie} />}
             </div>
-            <div className="hero-sub">
-              <div className="titulo-secao">Receita</div>
-              <div className="valor mt-2">
-                <ValorContado valor={consolidado.receita} formato={fmtBRL} />
-              </div>
-              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                {consolidadoAnterior && <Delta atual={consolidado.receita} anterior={consolidadoAnterior.receita} />}
-              </div>
-            </div>
-            <div className="hero-sub" title="Produção + frete + comissão + outros custos (impostos ficam ao lado)">
-              <div className="titulo-secao">Custos</div>
-              <div className="valor mt-2">
-                <ValorContado
-                  valor={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
-                  formato={fmtBRL}
-                />
-              </div>
-              <BarraValor
-                valor={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
-                max={consolidado.receita || 1}
-              />
-              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                {consolidadoAnterior && (
-                  <Delta
-                    atual={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
-                    anterior={
-                      consolidadoAnterior.producao +
-                      consolidadoAnterior.frete +
-                      consolidadoAnterior.comissao +
-                      consolidadoAnterior.outros
-                    }
-                    invertido
-                  />
-                )}
-              </div>
-            </div>
-            <div className="hero-sub">
-              <div className="titulo-secao">Impostos</div>
-              <div className="valor mt-2">
-                <ValorContado valor={consolidado.imposto} formato={fmtBRL} />
-              </div>
-              <BarraValor valor={consolidado.imposto} max={consolidado.receita || 1} cor="color-mix(in srgb, var(--serie-imposto) 60%, transparent)" />
-              <div className="mt-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                {consolidadoAnterior && <Delta atual={consolidado.imposto} anterior={consolidadoAnterior.imposto} invertido />}
-              </div>
-            </div>
-          </div>
 
-          <PainelConferencia consolidado={consolidado} params={params.toString()} />
+            <div className="card flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5 xl:col-span-7">
+              <AnelProgresso
+                fracao={consolidado.qtd_projetos ? consolidado.qtd_aprovados / consolidado.qtd_projetos : 0}
+                rotulo={`${consolidado.qtd_aprovados}/${consolidado.qtd_projetos}`}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="titulo-secao">Conferência do período</div>
+                <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {consolidado.qtd_pendentes + consolidado.qtd_conferidos === 0
+                    ? 'Todos os projetos têm os dois ok.'
+                    : `${consolidado.qtd_pendentes + consolidado.qtd_conferidos} de ${consolidado.qtd_projetos} projetos ainda precisam de ok.`}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  {(
+                    [
+                      ['pendente', consolidado.qtd_pendentes, 'sem nenhum ok', 'var(--text-muted)'],
+                      ['conferido', consolidado.qtd_conferidos, 'falta o 2º ok', 'var(--status-warning)'],
+                      ['aprovado', consolidado.qtd_aprovados, 'fechados', 'var(--status-good)'],
+                      ['divergente', consolidado.qtd_divergentes, 'mudou depois do ok', 'var(--neg)'],
+                    ] as const
+                  )
+                    .filter(([, v]) => v > 0)
+                    .map(([id, valor, rotulo, cor]) => (
+                      <Link
+                        key={id}
+                        to={`/projetos?${params.toString()}${params.toString() ? '&' : ''}conf=${id}`}
+                        className="underline-offset-2 hover:underline"
+                        title={`Ver os projetos: ${rotulo}`}
+                      >
+                        <b style={{ color: cor }}>{valor}</b>{' '}
+                        <span style={{ color: 'var(--text-muted)' }}>{rotulo}</span>
+                      </Link>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            <CartaoKpi
+              titulo="Receita"
+              valor={consolidado.receita}
+              anterior={consolidadoAnterior?.receita}
+              cor="var(--serie-producao)"
+              icone={
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 17l6-6 4 4 8-8" />
+                  <path d="M21 12V7h-5" />
+                </svg>
+              }
+            />
+            <CartaoKpi
+              titulo="Custos"
+              valor={consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros}
+              anterior={
+                consolidadoAnterior
+                  ? consolidadoAnterior.producao + consolidadoAnterior.frete + consolidadoAnterior.comissao + consolidadoAnterior.outros
+                  : undefined
+              }
+              fracaoDaReceita={(consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros) / (consolidado.receita || 1)}
+              cor="var(--serie-outros)"
+              invertido
+              icone={
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
+                  <path d="M9 8h6M9 12h6" />
+                </svg>
+              }
+            />
+            <CartaoKpi
+              titulo="Impostos"
+              valor={consolidado.imposto}
+              anterior={consolidadoAnterior?.imposto}
+              fracaoDaReceita={consolidado.imposto / (consolidado.receita || 1)}
+              cor="var(--serie-imposto)"
+              invertido
+              icone={
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="3" width="16" height="18" rx="2" />
+                  <path d="M8 7h8M8 11h8M8 15h4" />
+                </svg>
+              }
+            />
+          </div>
 
           {alertas && alertas.length > 0 && <PainelAtencao alertas={alertas} params={params.toString()} />}
 
