@@ -259,6 +259,18 @@ export function GraficoMensal({
             style={{ left: `${(hover / n) * 100}%`, width: `${100 / n}%`, background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
           />
         )}
+        {/* crosshair: o fio vertical marca exatamente o mês em leitura */}
+        {hover !== null && (
+          <div
+            data-crosshair
+            className="pointer-events-none absolute inset-y-0"
+            style={{
+              left: `${xCentro(hover)}%`,
+              width: 1,
+              background: 'color-mix(in srgb, var(--text-muted) 55%, transparent)',
+            }}
+          />
+        )}
 
         {/* seleção do arrasto (brush) */}
         {selecao && (
