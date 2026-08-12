@@ -62,15 +62,15 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --page: #0b0b0a;
-    --surface-1: #141414;
-    --surface-2: #1e1e1c;
+    --page: #0a0a09;
+    --surface-1: #191918;
+    --surface-2: #242422;
     --text-primary: #f5f5f3;
     --text-secondary: #b5b5ae;
     --text-muted: #83837c;
-    --gridline: #262624;
+    --gridline: #2e2e2b;
     --baseline: #3a3a37;
-    --border-hairline: rgba(245, 245, 243, 0.08);
+    --border-hairline: rgba(245, 245, 243, 0.13);
     --accent: #ffffff;
     --accent-forte: #e2e2dd;
     --accent-texto: #0a0a0a;
@@ -94,15 +94,15 @@
 /* …ou escolhido no botão de tema (data-theme vence o sistema) */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0b0b0a;
-  --surface-1: #141414;
-  --surface-2: #1e1e1c;
+  --page: #0a0a09;
+  --surface-1: #191918;
+  --surface-2: #242422;
   --text-primary: #f5f5f3;
   --text-secondary: #b5b5ae;
   --text-muted: #83837c;
-  --gridline: #262624;
+  --gridline: #2e2e2b;
   --baseline: #3a3a37;
-  --border-hairline: rgba(245, 245, 243, 0.08);
+  --border-hairline: rgba(245, 245, 243, 0.13);
   --accent: #ffffff;
   --accent-forte: #e2e2dd;
   --accent-texto: #0a0a0a;
@@ -374,6 +374,13 @@ h1, h2, h3,
 }
 .hero-sub {
   padding: 1.5rem 1.4rem 1.4rem;
+  container-type: inline-size;
+  min-width: 0;
+}
+/* cartão-herói do bento: mesmo contrato do hero antigo (o número escala com a
+   largura via cqw), agora como cartão independente da grade */
+.bento-hero {
+  padding: 1.5rem 1.75rem 1.3rem;
   container-type: inline-size;
   min-width: 0;
 }

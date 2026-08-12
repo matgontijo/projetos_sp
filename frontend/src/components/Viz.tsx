@@ -35,7 +35,13 @@ export function ValorContado({
       if (p < 1) raf = requestAnimationFrame(passo)
     }
     raf = requestAnimationFrame(passo)
-    return () => cancelAnimationFrame(raf)
+    // rAF não dispara em aba/painel que não está compositando — sem esta
+    // garantia, o número congela em R$ 0,00 até a aba voltar a ficar visível
+    const garantia = setTimeout(() => setMostrado(valor), duracao + 100)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(garantia)
+    }
   }, [valor])
   return (
     <span className={className} style={style}>
