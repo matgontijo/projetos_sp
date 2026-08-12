@@ -76,6 +76,8 @@ const INDICE = [
   ['rotina', 'A rotina do mês, em 5 passos'],
   ['telas', 'Tela por tela'],
   ['conferencia', 'Os dois "ok" de cada projeto'],
+  ['tributacao', 'Quando a venda paga imposto diferente'],
+  ['atalhos', 'Atalhos que economizam tempo'],
   ['numero-estranho', 'Quando o número parecer errado'],
   ['duvidas', 'Perguntas que sempre aparecem'],
 ]
@@ -101,6 +103,8 @@ export default function Ajuda() {
           quanto entrou, quanto saiu, quanto foi de imposto e quanto sobrou. Ele <b>nunca altera nada na Omie</b>.
           Para usar no dia a dia bastam três telas: <b>Visão geral</b> (como está o negócio),
           <b> Projetos</b> (a lista, projeto por projeto) e <b>Buscar dados</b> (trazer o que é novo da Omie).
+          E dois atalhos poupam muito tempo: <b>Ctrl+K</b> acha qualquer projeto pelo número ou pelo cliente, e o{' '}
+          <b>sino</b> no canto avisa o que precisa de atenção sem você procurar.
         </p>
       </div>
 
@@ -356,7 +360,61 @@ export default function Ajuda() {
         </p>
       </Secao>
 
-      <Secao id="numero-estranho" titulo="6. Quando o número parecer errado" resumo="A ordem em que vale a pena investigar">
+      <Secao
+        id="tributacao"
+        titulo="6. Quando a venda paga imposto diferente"
+        resumo="Exportação não paga PIS/COFINS/ICMS — o app precisa saber disso"
+      >
+        <p>
+          A tabela de impostos que está no cadastro da empresa vale para a <b>venda normal</b>. Mas nem toda venda
+          paga o mesmo: uma venda para <b>fins de exportação</b>, por exemplo, não tem PIS, COFINS nem ICMS — só
+          CSLL e IRPJ. Se o app aplicasse a tabela cheia nesses projetos, o imposto sairia bem maior que o real e o
+          lucro apareceria menor do que é.
+        </p>
+        <p>
+          Por isso existem os <b>perfis de tributação</b>: você cadastra uma vez cada tipo de venda que foge do
+          padrão e, depois, marca em cada projeto qual deles vale.
+        </p>
+        <Passo n={1} titulo="Cadastre o tipo de venda (uma vez só)">
+          Vá em <Link to="/empresas" className="underline">Empresas</Link>, no cartão da empresa, e clique em{' '}
+          <b>Tributação por operação</b>. Clique em <b>+ Adicionar perfil</b>, dê um nome (ex.:{' '}
+          <b>Fins de exportação</b>) e preencha os percentuais que essa operação paga. O app mostra o total somado
+          ao lado. Clique em <b>Salvar perfis</b>.
+        </Passo>
+        <Passo n={2} titulo="Marque o projeto">
+          Abra o projeto e procure o cartão <b>Tributação</b>. Troque de <b>Padrão da empresa</b> para o perfil que
+          você criou. O imposto, o resultado e a margem se recalculam na hora, e fica registrado quem escolheu.
+        </Passo>
+        <p className="help">
+          Projeto sem escolha continua usando a tabela padrão da empresa — ou seja, quem não usa exportação não
+          precisa mexer em nada. Empresa no Simples ignora perfis, porque lá a alíquota é o DAS e não muda com o
+          tipo de operação.
+        </p>
+      </Secao>
+
+      <Secao id="atalhos" titulo="7. Atalhos que economizam tempo" resumo="Três recursos que a maioria descobre tarde demais">
+        <Palavra termo="Ctrl+K — achar qualquer coisa">
+          Aperte <b>Ctrl+K</b> (ou só a tecla <b>/</b>) em qualquer tela e digite o número do projeto ou o nome do
+          cliente. Com centenas de projetos, é a diferença entre 2 segundos e rolar a lista inteira. As setas
+          navegam, <b>Enter</b> abre. Ele também lembra os últimos que você abriu.
+        </Palavra>
+        <Palavra termo="O sino — o app te procura">
+          No canto da tela há um sino com um número vermelho: é o que precisa de atenção — projeto no prejuízo,
+          margem abaixo da meta, custo sem classificação, projetos esperando ok. Clicar numa notificação abre
+          direto o lugar certo. Marcar como lida vale <b>só para você</b>: não some para o resto da equipe.
+        </Palavra>
+        <Palavra termo="Dar ok em vários de uma vez">
+          Na lista de Projetos, filtre por <b>Pendentes</b>, marque a caixinha do cabeçalho (seleciona todos) e use
+          o botão que aparece embaixo. Também dá para marcar um, segurar <b>Shift</b> e clicar em outro para
+          selecionar tudo que está entre eles.
+        </Palavra>
+        <Palavra termo="Recolher o menu">
+          A setinha no alto do menu escuro encolhe ele para só os ícones, liberando espaço para as tabelas. O app
+          lembra da sua escolha.
+        </Palavra>
+      </Secao>
+
+      <Secao id="numero-estranho" titulo="8. Quando o número parecer errado" resumo="A ordem em que vale a pena investigar">
         <Passo n={1} titulo="O período e as empresas estão certos?">
           Quase todo susto vem daí. Confira os filtros no alto da tela — inclusive se algum recorte antigo ficou
           aplicado.
@@ -374,11 +432,12 @@ export default function Ajuda() {
         </Passo>
         <Passo n={5} titulo="O imposto está diferente do esperado?">
           Confira a tabela de impostos da empresa em Empresas → Editar. É de lá que sai a conta — o app não usa
-          nenhum percentual inventado.
+          nenhum percentual inventado. Se a venda for de um tipo que paga imposto diferente (exportação, por
+          exemplo), veja a seção <a href="#tributacao" className="underline">Quando a venda paga imposto diferente</a>.
         </Passo>
       </Secao>
 
-      <Secao id="duvidas" titulo="7. Perguntas que sempre aparecem" resumo="As dúvidas mais comuns de quem está começando">
+      <Secao id="duvidas" titulo="9. Perguntas que sempre aparecem" resumo="As dúvidas mais comuns de quem está começando">
         <p>
           <b>Mexer aqui muda alguma coisa na Omie?</b>{' '}
           <span style={{ color: 'var(--text-secondary)' }}>
@@ -389,6 +448,22 @@ export default function Ajuda() {
           <b>Posso rodar a busca de dados várias vezes?</b>{' '}
           <span style={{ color: 'var(--text-secondary)' }}>
             Pode. Ela atualiza o que mudou e ignora o resto — nada duplica.
+          </span>
+        </p>
+        <p>
+          <b>Dei os dois ok e agora não consigo mais editar. É problema?</b>{' '}
+          <span style={{ color: 'var(--text-secondary)' }}>
+            Não, é proteção. Projeto com os dois ok fica travado: os botões viram um cadeado e nem ajuste nem troca
+            de tributação passam. Para editar, uma administradora desfaz o 2º ok no detalhe do projeto — o
+            histórico de quem deu e quem desfez fica guardado.
+          </span>
+        </p>
+        <p>
+          <b>Como faço uma cópia de segurança?</b>{' '}
+          <span style={{ color: 'var(--text-secondary)' }}>
+            Em Empresas (área da administradora) há o cartão <b>Backup do trabalho da equipe</b>. Ele baixa um
+            arquivo com o que a Omie não devolve: contas, classificações, ajustes, os ok da conferência e
+            orçamentos. Vale baixar um por semana e guardar fora do servidor.
           </span>
         </p>
         <p>

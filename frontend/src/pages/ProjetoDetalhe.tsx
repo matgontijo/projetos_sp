@@ -100,8 +100,26 @@ function Tributacao({ nome, travado }: { nome: string; travado: boolean }) {
     },
   })
 
-  // sem perfis cadastrados nas empresas não há o que escolher — a linha some
-  if (!data || (data.opcoes.length === 0 && !data.perfil)) return null
+  if (!data) return null
+
+  // Sem perfil cadastrado o cartão NÃO some: ele ensina o caminho. Esconder
+  // deixava o recurso invisível justamente para quem ainda não sabe que existe.
+  if (data.opcoes.length === 0 && !data.perfil) {
+    return (
+      <div className="card mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+        <div className="min-w-0">
+          <span className="titulo-secao">Tributação</span>
+          <p className="help mt-0.5">
+            Este projeto usa a tabela de impostos padrão da empresa. Se ele for de uma operação diferente — como
+            <b> fins de exportação</b>, que não paga PIS/COFINS/ICMS — cadastre o perfil e escolha aqui.
+          </p>
+        </div>
+        <Link to="/empresas" className="btn btn-ghost ml-auto text-xs">
+          Cadastrar perfil de tributação
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="card mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
