@@ -308,8 +308,12 @@ h1, h2, h3,
   transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
 }
 .card-clicavel:hover {
+  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  box-shadow: var(--sombra-card), 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow:
+    var(--sombra-card),
+    0 18px 40px -22px rgba(0, 0, 0, 0.45),
+    0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 /* ---------- KPIs ---------- */
@@ -358,6 +362,15 @@ h1, h2, h3,
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+/* no tema escuro o número-herói ganha um halo suave — luz, não cor */
+:root[data-theme='dark'] .hero-valor {
+  text-shadow: 0 0 34px color-mix(in srgb, var(--text-primary) 24%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) .hero-valor {
+    text-shadow: 0 0 34px color-mix(in srgb, var(--text-primary) 24%, transparent);
+  }
 }
 .hero-sub {
   padding: 1.5rem 1.4rem 1.4rem;
@@ -491,6 +504,8 @@ h1, h2, h3,
 }
 /* preto no claro, branco no escuro — o contraste do logotipo */
 .btn-primary {
+  position: relative;
+  overflow: hidden;
   background: var(--accent);
   color: var(--accent-texto);
   box-shadow: 0 6px 16px -10px rgba(10, 10, 10, 0.7);
@@ -499,6 +514,20 @@ h1, h2, h3,
   background: var(--accent-forte);
   transform: translateY(-1px);
   box-shadow: 0 10px 22px -10px rgba(10, 10, 10, 0.8);
+}
+/* varredura de brilho no hover — a cor sai de --accent-texto, que já é o
+   contraste certo do botão nos dois temas (branco no claro, preto no escuro) */
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 32%, color-mix(in srgb, var(--accent-texto) 20%, transparent) 50%, transparent 68%);
+  transform: translateX(-130%);
+  transition: transform 0.55s ease;
+  pointer-events: none;
+}
+.btn-primary:hover:not(:disabled)::after {
+  transform: translateX(130%);
 }
 .btn-ghost {
   background: transparent;
@@ -570,7 +599,11 @@ table.tabela th {
   white-space: nowrap;
   position: sticky;
   top: 0;
-  background: var(--surface-1);
+  /* vidro fosco: o conteúdo desliza por baixo do cabeçalho, visível mas legível
+     (as colunas congeladas da tabela-fixa continuam sólidas — regra mais abaixo) */
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1;
 }
 table.data td,
@@ -719,6 +752,7 @@ tr.linha-clicavel:hover td {
 }
 
 .sidebar-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -739,6 +773,21 @@ tr.linha-clicavel:hover td {
   color: var(--nav-text);
   font-weight: 800;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nav-accent) 22%, transparent);
+}
+/* o filete lateral "acende" quando o item vira o ativo */
+.sidebar-item-ativo::before {
+  content: '';
+  position: absolute;
+  left: -0.65rem;
+  top: 24%;
+  bottom: 24%;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--nav-accent);
+  animation: acende-filete 0.25s ease-out;
+}
+@keyframes acende-filete {
+  from { transform: scaleY(0); }
 }
 .sidebar-item-ativo:hover {
   transform: none;
@@ -779,6 +828,7 @@ tr.linha-clicavel:hover td {
 /* ---------- abas ---------- */
 
 .tab {
+  position: relative;
   border: none;
   background: transparent;
   padding: 0.55rem 1rem;
@@ -792,9 +842,25 @@ tr.linha-clicavel:hover td {
 .tab:hover {
   color: var(--text-primary);
 }
+/* o sublinhado desenha da esquerda ao ativar, em vez de simplesmente aparecer */
+.tab::after {
+  content: '';
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s ease;
+}
 .tab-ativa {
   color: var(--text-primary);
-  border-bottom-color: var(--accent);
+}
+.tab-ativa::after {
+  transform: scaleX(1);
 }
 
 /* ---------- esqueleto de carregamento ---------- */
@@ -882,7 +948,9 @@ tr.linha-clicavel:hover td {
   max-height: min(60vh, 32rem);
   display: flex;
   flex-direction: column;
-  background: var(--surface-1);
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
   border: 1px solid var(--border-hairline);
   border-radius: 16px;
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.5);
@@ -951,7 +1019,10 @@ tr.linha-clicavel:hover td {
 }
 .paleta {
   width: min(620px, 100%);
-  background: var(--surface-1);
+  /* vidro fosco: o conteúdo da página atravessa desfocado — profundidade sem cor */
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
   border: 1px solid var(--border-hairline);
   border-radius: 18px;
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.55);
