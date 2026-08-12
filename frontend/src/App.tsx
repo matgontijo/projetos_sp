@@ -11,6 +11,7 @@ import {
 } from './api/client'
 import { ICONES, Marca } from './components/Layout'
 import Paleta, { type TelaDaPaleta } from './components/Paleta'
+import Sino from './components/Sino'
 import Ajuda from './pages/Ajuda'
 import Analises from './pages/Analises'
 import CadastroPrecificacao from './pages/CadastroPrecificacao'
@@ -298,6 +299,7 @@ export default function App() {
     <div className="flex min-h-screen">
       <TituloDaAba />
       <Paleta telas={telasDaPaleta} buscaProjetos={!ehComercial} />
+      {!ehComercial && <Sino />}
       {/* Sidebar (desktop) — escura nos dois temas */}
       <aside
         className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col px-4 py-5 md:flex"
@@ -314,6 +316,19 @@ export default function App() {
         >
           <Marca />
           <span className="flex items-center gap-2">
+          {!ehComercial && (
+            <button
+              className="rounded-full p-2"
+              style={{ color: 'var(--nav-text)', border: '1px solid var(--nav-hairline)' }}
+              aria-label="Notificações"
+              onClick={() => window.dispatchEvent(new CustomEvent('abrir-sino'))}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+              </svg>
+            </button>
+          )}
           <button
             className="rounded-full p-2"
             style={{ color: 'var(--nav-text)', border: '1px solid var(--nav-hairline)' }}

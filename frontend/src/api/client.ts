@@ -276,6 +276,23 @@ export interface ResultadoLote {
   recusados: { projeto: string; motivo: string }[]
 }
 
+/** Uma notificação: alerta do fechamento com estado de leitura desta pessoa. */
+export interface Notificacao {
+  chave: string
+  gravidade: 'critica' | 'atencao'
+  titulo: string
+  detalhe: string
+  projeto: string | null
+  /** rota interna para abrir (ex.: /projetos?conf=pendente); ausente = usar projeto */
+  rota?: string
+  lida: boolean
+}
+
+export interface Notificacoes {
+  itens: Notificacao[]
+  nao_lidas: number
+}
+
 /** Perfil de tributação por operação (ex.: 'Fins de exportação' — sem PIS/COFINS/ICMS). */
 export interface PerfilTributacao {
   nome: string
@@ -648,6 +665,12 @@ export const api = {
   listarComentarios: (nome: string) => request<Comentario[]>(`/api/comentarios${qs({ nome })}`),
   comentar: (nome: string, texto: string) =>
     request<Comentario[]>('/api/comentarios', { method: 'POST', body: JSON.stringify({ nome, texto }) }),
+
+  // Central de notificações (alertas com leitura por pessoa)
+  notificacoes: (empresaIds?: string, de?: string, ate?: string) =>
+    request<Notificacoes>(`/api/notificacoes${qs({ empresa_ids: empresaIds, de, ate })}`),
+  marcarNotificacoesLidas: (chaves: string[]) =>
+    request<{ ok: boolean }>('/api/notificacoes/lidas', { method: 'POST', body: JSON.stringify({ chaves }) }),
 
   // Tributação por operação: perfis da empresa e a escolha por projeto
   listarPerfis: (empresaId: number) => request<PerfilTributacao[]>(`/api/empresas/${empresaId}/perfis`),

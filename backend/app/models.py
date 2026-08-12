@@ -305,6 +305,24 @@ class FechamentoAprovado(Base):
     revogado_por: Mapped[str] = mapped_column(String(80), default="")
 
 
+class NotificacaoLida(Base):
+    """Estado de leitura das notificações, POR PESSOA.
+
+    As notificações em si são derivadas na hora (dos alertas do fechamento) —
+    não há fila nem pipeline de eventos para quebrar. O que se guarda é só
+    "esta pessoa já viu esta notificação": a chave é um hash estável do
+    conteúdo, então o alerta que continuar valendo amanhã continua lido.
+    """
+
+    __tablename__ = "notificacao_lida"
+    __table_args__ = (UniqueConstraint("usuario_id", "chave", name="uq_notif_usuario_chave"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"), index=True)
+    chave: Mapped[str] = mapped_column(String(40))
+    lida_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class PerfilTributacao(Base):
     """Tributação por TIPO DE OPERAÇÃO, como os blocos da planilha das donas.
 
