@@ -31,7 +31,7 @@ services:
       - key: APP_ENCRYPTION_KEY
         generateValue: true # segredo aleatorio; o app deriva a chave Fernet dele
       - key: CORS_ORIGINS
-        value: https://custeio-app.onrender.com
+        value: https://custeio-app-sjhy.onrender.com
       - key: PYTHON_VERSION
         value: 3.12.8
 
@@ -43,11 +43,12 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     routes:
-      # Se o Render mudar o nome do servico da API (nome ja em uso), ajuste o
-      # destino abaixo para a URL real exibida no dashboard.
+      # O dominio .onrender.com e global: os nomes limpos ja estavam ocupados
+      # pela instalacao anterior, entao o Render sufixou as URLs. Estes sao os
+      # enderecos reais do dashboard — conferir aqui a cada nova instalacao.
       - type: rewrite
         source: /api/*
-        destination: https://custeio-api.onrender.com/api/*
+        destination: https://custeio-api-zfd7.onrender.com/api/*
       # SPA: qualquer rota cai no index.html
       - type: rewrite
         source: /*
