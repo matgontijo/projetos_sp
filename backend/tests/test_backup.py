@@ -176,3 +176,34 @@ def test_datas_sobrevivem_ida_e_volta(db: Session):
     assert ok.periodo_de == date(2026, 1, 1)
     assert ok.periodo_ate == date(2026, 6, 30)
     assert destino.scalar(select(models.SimplesPeriodo)).competencia == "2026-05"
+
+
+def test_restaurar_devolve_classificacao_humana_por_cima_de_sugestao_do_sync(db: Session):
+    """Troca de credencial limpa as categorias; o sync recria com sugestão
+    automática. Restaurar DEPOIS disso tem que devolver o trabalho humano —
+    mas nunca por cima de classificação que outra pessoa já refez."""
+    povoar_origem(db)
+    dados = backup.exportar(db)
+
+    destino = banco_novo()
+    backup.restaurar(destino, dados)
+
+    # simula o pós-limpeza: sync recriou a categoria com sugestão automática
+    cg = destino.scalar(select(models.CategoriaGrupo))
+    codigo = cg.codigo_categoria
+    grupo_humano = cg.grupo
+    cg.grupo = "outros"
+    cg.atualizado_por = "sync (sugestão automática)"
+    destino.commit()
+
+    backup.restaurar(destino, dados)
+    cg = destino.scalar(select(models.CategoriaGrupo).where(models.CategoriaGrupo.codigo_categoria == codigo))
+    assert cg.grupo == grupo_humano  # o humano do backup venceu a sugestão
+
+    # mas se uma PESSOA reclassificou no destino, o backup não passa por cima
+    cg.grupo = "frete"
+    cg.atualizado_por = "outra pessoa"
+    destino.commit()
+    backup.restaurar(destino, dados)
+    cg = destino.scalar(select(models.CategoriaGrupo).where(models.CategoriaGrupo.codigo_categoria == codigo))
+    assert cg.grupo == "frete"
