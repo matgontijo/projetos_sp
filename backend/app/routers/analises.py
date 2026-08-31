@@ -1,9 +1,11 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import cache
+from .. import cache, models
 from ..db import get_db
 from ..services import analises
 from .config import obter_config
@@ -68,6 +70,50 @@ def fluxo(
     if not ids:
         return {"meses": [], "projetos": []}
     return analises.fluxo_mensal(db, ids, de, ate, projeto)
+
+
+@router.get("/sem-projeto")
+def sem_projeto(
+    empresa_ids: str | None = Query(default=None),
+    de: date | None = None,
+    ate: date | None = None,
+    db: Session = Depends(get_db),
+):
+    ids = _empresa_ids(db, empresa_ids)
+    if not ids:
+        return {"itens": [], "qtd": 0, "totais": {"receber": 0, "pagar": 0, "nfe": 0}}
+    return analises.sem_projeto(db, ids, de, ate)
+
+
+@router.get("/comissoes")
+def comissoes(
+    empresa_ids: str | None = Query(default=None),
+    de: date | None = None,
+    ate: date | None = None,
+    db: Session = Depends(get_db),
+):
+    ids = _empresa_ids(db, empresa_ids)
+    if not ids:
+        return {"vendedores": [], "recebido_sem_vendedor": 0, "total_comissao": 0}
+    return analises.comissoes(db, ids, de, ate)
+
+
+class ComissaoIn(BaseModel):
+    vendedor: str = Field(min_length=1, max_length=120)
+    pct: float = Field(ge=0, le=50)
+
+
+@router.put("/comissoes")
+def definir_comissao(payload: ComissaoIn, db: Session = Depends(get_db)):
+    """Grava o % em TODAS as linhas do vendedor com esse nome (o mesmo vendedor
+    existe uma vez por empresa). A guarda global já barra o papel leitura."""
+    rows = db.scalars(select(models.Vendedor).where(models.Vendedor.nome == payload.vendedor)).all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Vendedor não encontrado")
+    for row in rows:
+        row.comissao_pct = payload.pct
+    db.commit()
+    return {"vendedor": payload.vendedor, "pct": payload.pct}
 
 
 @router.get("/alertas")

@@ -82,7 +82,7 @@ export default function SuporteChat() {
   return (
     <div>
       <button
-        className="chat-gatilho hidden md:grid"
+        className="chat-gatilho grid"
         aria-label={naoLidas ? `Suporte — ${naoLidas} mensagens não lidas` : 'Falar com o suporte'}
         title="Falar com o suporte"
         onClick={() => setAberto(!aberto)}

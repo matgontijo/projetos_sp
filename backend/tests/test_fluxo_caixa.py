@@ -68,3 +68,42 @@ def test_margem_prevista_pondera_pelo_total_dos_itens():
 
 def test_margem_prevista_sem_itens_e_zero():
     assert _margem_prevista(models.OrcamentoVenda(snapshot={})) == 0.0
+
+
+def test_sem_projeto_lista_o_que_o_fechamento_nao_ve(db, empresa):
+    from app.services.analises import sem_projeto
+
+    from .conftest import criar_nfe
+
+    criar_projeto(db, empresa, 10, "BR26_001")
+    criar_titulo(db, empresa, "receber", 1, 1000.0, projeto=10)          # com projeto: fora
+    criar_titulo(db, empresa, "receber", 2, 700.0, projeto=None)         # órfão
+    criar_titulo(db, empresa, "pagar", 3, 300.0, projeto=None)           # órfão
+    criar_titulo(db, empresa, "pagar", 4, 50.0, projeto=None, status="CANCELADO")  # cancelado: fora
+    criar_nfe(db, empresa, 900, projeto=None, v_nf=250.0)                # NF órfã
+
+    r = sem_projeto(db, [empresa.id], None, None)
+    assert r["qtd"] == 3
+    assert r["totais"] == {"receber": 700.0, "pagar": 300.0, "nfe": 250.0}
+    assert r["itens"][0]["valor"] == 700.0  # maior primeiro
+
+
+def test_comissao_sobre_o_recebido(db, empresa):
+    from app import models
+    from app.services.analises import comissoes
+
+    criar_projeto(db, empresa, 10, "BR26_001")
+    db.add(models.Vendedor(empresa_id=empresa.id, codigo_omie=77, nome="Ana", comissao_pct=2.5))
+    db.commit()
+
+    t1 = criar_titulo(db, empresa, "receber", 1, 10000.0, projeto=10, status="RECEBIDO")
+    t1.codigo_vendedor = 77
+    t2 = criar_titulo(db, empresa, "receber", 2, 5000.0, projeto=10, status="EMABERTO")  # não entrou: fora
+    t2.codigo_vendedor = 77
+    criar_titulo(db, empresa, "receber", 3, 800.0, projeto=10, status="RECEBIDO")  # sem vendedor
+    db.commit()
+
+    r = comissoes(db, [empresa.id], None, None)
+    assert r["vendedores"] == [{"vendedor": "Ana", "recebido": 10000.0, "pct": 2.5, "comissao": 250.0}]
+    assert r["recebido_sem_vendedor"] == 800.0
+    assert r["total_comissao"] == 250.0

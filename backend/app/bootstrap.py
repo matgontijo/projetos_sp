@@ -34,6 +34,8 @@ _COLUNAS_ADITIVAS = [
     ("orcamento_venda", "cliente_cnpj", "VARCHAR(20)", "''"),
     # Previsto x realizado: orcamento de venda aponta o projeto Omie que virou
     ("orcamento_venda", "codigo_projeto_omie", "BIGINT", None),
+    # Comissao sobre o recebido, por vendedor
+    ("vendedor", "comissao_pct", "NUMERIC(6,3)", "0"),
     # Dupla conferencia (dois ok por projeto). As administradoras ja existentes
     # comecam podendo aprovar — sem nenhum aprovador, o 2o ok ficaria impossivel.
     ("usuario", "pode_aprovar", "BOOLEAN", "(papel = 'admin')"),

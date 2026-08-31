@@ -205,6 +205,27 @@ export interface FluxoMes {
   acumulado: number
 }
 
+export interface SemProjeto {
+  itens: {
+    origem: 'titulo' | 'nfe'
+    tipo: 'receber' | 'pagar' | 'nfe'
+    empresa: string
+    data: string | null
+    valor: number
+    categoria: string
+    documento: string
+    codigo_omie: number
+  }[]
+  qtd: number
+  totais: { receber: number; pagar: number; nfe: number }
+}
+
+export interface Comissoes {
+  vendedores: { vendedor: string; recebido: number; pct: number; comissao: number }[]
+  recebido_sem_vendedor: number
+  total_comissao: number
+}
+
 export interface ComparativoOrcamento {
   id: number
   numero: string
@@ -701,6 +722,15 @@ export const api = {
     request<{ meses: FluxoMes[]; projetos: string[] }>(
       `/api/analises/fluxo${qs({ empresa_ids: empresaIds, de, ate, projeto })}`,
     ),
+  semProjeto: (empresaIds?: string, de?: string, ate?: string) =>
+    request<SemProjeto>(`/api/analises/sem-projeto${qs({ empresa_ids: empresaIds, de, ate })}`),
+  comissoes: (empresaIds?: string, de?: string, ate?: string) =>
+    request<Comissoes>(`/api/analises/comissoes${qs({ empresa_ids: empresaIds, de, ate })}`),
+  definirComissao: (vendedor: string, pct: number) =>
+    request<{ vendedor: string; pct: number }>('/api/analises/comissoes', {
+      method: 'PUT',
+      body: JSON.stringify({ vendedor, pct }),
+    }),
   marca: () => request<{ linha1: string; linha2: string; nome: string }>('/api/marca'),
   simular: (custo: number, margemAlvo: number, preco?: number, comissao?: number) =>
     request<Simulacao>(
