@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { siglaEmpresa } from './Viz'
@@ -39,6 +40,9 @@ function iso(d: Date): string {
 
 export function FiltrosBar() {
   const { empresaIds, de, ate, set, setMany } = useFiltros()
+  // No celular as datas ficam atras de um chip: quem usa preset nunca as ve.
+  // Se ja ha data custom na URL, abrem expandidas (senao o filtro ficaria oculto).
+  const [mostrarDatas, setMostrarDatas] = useState(Boolean(de || ate))
   const { data: empresas } = useQuery({ queryKey: ['empresas'], queryFn: api.listarEmpresas })
   const selecionadas = new Set((empresaIds || '').split(',').filter(Boolean).map(Number))
 
@@ -108,25 +112,38 @@ export function FiltrosBar() {
             </button>
           )
         })}
-        <input
-          type="date"
-          className="input min-w-0 flex-1 sm:flex-none"
-          aria-label="Data inicial do período"
-          title="Data inicial"
-          value={de || ''}
-          onChange={(e) => set('de', e.target.value)}
-        />
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          até
-        </span>
-        <input
-          type="date"
-          className="input min-w-0 flex-1 sm:flex-none"
-          aria-label="Data final do período"
-          title="Data final"
-          value={ate || ''}
-          onChange={(e) => set('ate', e.target.value)}
-        />
+        <button
+          className="chip-preset sm:hidden"
+          style={mostrarDatas || de || ate ? { borderColor: 'var(--accent)', color: 'var(--text-primary)' } : undefined}
+          onClick={() => setMostrarDatas(!mostrarDatas)}
+        >
+          Datas…
+        </button>
+        {/* Datas com rótulo em cima: no iPhone um date vazio é uma caixa cega —
+            sem o "de/até" escrito, ninguém sabe o que aquilo é. No celular as
+            duas dividem a linha meio a meio; no desktop ficam compactas. */}
+        <div className={`${mostrarDatas ? 'flex' : 'hidden'} w-full items-end gap-2 sm:flex sm:w-auto`}>
+          <label className="campo-data min-w-0 flex-1 sm:flex-none">
+            <span>de</span>
+            <input
+              type="date"
+              className="input w-full sm:w-auto"
+              aria-label="Data inicial do período"
+              value={de || ''}
+              onChange={(e) => set('de', e.target.value)}
+            />
+          </label>
+          <label className="campo-data min-w-0 flex-1 sm:flex-none">
+            <span>até</span>
+            <input
+              type="date"
+              className="input w-full sm:w-auto"
+              aria-label="Data final do período"
+              value={ate || ''}
+              onChange={(e) => set('ate', e.target.value)}
+            />
+          </label>
+        </div>
       </div>
     </div>
   )
