@@ -132,6 +132,7 @@ def _serializar(orc: models.OrcamentoVenda, empresa_nome: str | None, qtd: int |
         "condicao_pagamento_dias": orc.condicao_pagamento_dias,
         "criado_por": orc.criado_por,
         "criado_em": orc.criado_em.isoformat() if orc.criado_em else None,
+        "codigo_projeto_omie": orc.codigo_projeto_omie,
     }
 
 
@@ -225,6 +226,91 @@ def exportar_orcamentos(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="orcamentos.xlsx"'},
     )
+
+
+@router.get("/projetos-disponiveis")
+def projetos_disponiveis(db: Session = Depends(get_db), _: models.Usuario = Depends(guarda_precificacao)):
+    """Projetos Omie para o vínculo previsto × realizado (código + nome legível)."""
+    linhas = db.execute(
+        select(models.Projeto.codigo_omie, models.Projeto.nome, models.Projeto.empresa_id)
+        .where(models.Projeto.inativo.is_(False))
+        .order_by(models.Projeto.nome.desc())
+    ).all()
+    return [{"codigo": c, "nome": n, "empresa_id": e} for c, n, e in linhas if n]
+
+
+def _margem_prevista(orc: models.OrcamentoVenda) -> float:
+    """Margem do snapshot congelado, ponderada pelo total de cada item."""
+    itens = (orc.snapshot or {}).get("itens", [])
+    total = sum(float(i.get("total") or 0) for i in itens)
+    if total <= 0:
+        return 0.0
+    return round(sum(float(i.get("margem") or 0) * float(i.get("total") or 0) for i in itens) / total, 6)
+
+
+@router.get("/comparativo/previsto-realizado")
+def comparativo_previsto_realizado(db: Session = Depends(get_db), _: models.Usuario = Depends(guarda_precificacao)):
+    """Fecha o ciclo comercial → financeiro: para cada orçamento vinculado a um
+    projeto Omie, compara o que o comercial prometeu (snapshot) com o que o
+    fechamento apurou de verdade (período todo do projeto)."""
+    orcs = db.scalars(
+        select(models.OrcamentoVenda)
+        .where(models.OrcamentoVenda.codigo_projeto_omie.is_not(None))
+        .order_by(models.OrcamentoVenda.criado_em.desc())
+    ).all()
+    if not orcs:
+        return []
+
+    from ..services.calculo import chave_projeto, fechar_projetos
+
+    ids = list(db.scalars(select(models.Empresa.id).where(models.Empresa.ativa)).all())
+    fechamento = fechar_projetos(db, ids, None, None) if ids else {"projetos": []}
+    real_por_chave = {chave_projeto(p["projeto"]): p for p in fechamento["projetos"]}
+    nome_por_codigo = {
+        p.codigo_omie: p.nome for p in db.scalars(select(models.Projeto)).all()
+    }
+
+    linhas = []
+    for orc in orcs:
+        nome_projeto = nome_por_codigo.get(orc.codigo_projeto_omie, "")
+        real = real_por_chave.get(chave_projeto(nome_projeto)) if nome_projeto else None
+        margem_prevista = _margem_prevista(orc)
+        linhas.append({
+            "id": orc.id,
+            "numero": orc.numero,
+            "cliente": orc.cliente,
+            "status": orc.status,
+            "projeto": nome_projeto or f"#{orc.codigo_projeto_omie}",
+            "total_previsto": float(orc.total),
+            "margem_prevista": margem_prevista,
+            # sem dados reais ainda (projeto sem lançamentos sincronizados): campos nulos
+            "receita_real": real["receita"] if real else None,
+            "resultado_real": real["resultado"] if real else None,
+            "margem_real": real["margem"] if real else None,
+            "desvio_margem": round(real["margem"] - margem_prevista, 6) if real else None,
+        })
+    return linhas
+
+
+class VinculoProjetoIn(BaseModel):
+    codigo_projeto_omie: int | None = None  # None desfaz o vínculo
+
+
+@router.post("/{orcamento_id}/projeto")
+def vincular_projeto(
+    orcamento_id: int,
+    payload: VinculoProjetoIn,
+    db: Session = Depends(get_db),
+    _: models.Usuario = Depends(guarda_precificacao),
+):
+    """Liga (ou desliga) o orçamento ao projeto Omie que nasceu dele. Não fere a
+    imutabilidade: o snapshot não muda — isto é acompanhamento, não orçamento."""
+    orc = db.get(models.OrcamentoVenda, orcamento_id)
+    if orc is None:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    orc.codigo_projeto_omie = payload.codigo_projeto_omie
+    db.commit()
+    return {"id": orc.id, "codigo_projeto_omie": orc.codigo_projeto_omie}
 
 
 @router.get("/{orcamento_id}")

@@ -56,6 +56,20 @@ def caixa(
     return _caixa_cacheado(db, ids, de, ate)
 
 
+@router.get("/fluxo")
+def fluxo(
+    empresa_ids: str | None = Query(default=None),
+    de: date | None = None,
+    ate: date | None = None,
+    projeto: str | None = Query(default=None, max_length=120),
+    db: Session = Depends(get_db),
+):
+    ids = _empresa_ids(db, empresa_ids)
+    if not ids:
+        return {"meses": [], "projetos": []}
+    return analises.fluxo_mensal(db, ids, de, ate, projeto)
+
+
 @router.get("/alertas")
 def alertas(
     empresa_ids: str | None = Query(default=None),

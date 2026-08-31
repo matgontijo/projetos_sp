@@ -157,6 +157,56 @@ def ciclo_de_caixa(db: Session, empresa_ids: list[int], de: date | None, ate: da
     return {"projetos": linhas[:80], "totais": totais}
 
 
+def fluxo_mensal(
+    db: Session, empresa_ids: list[int], de: date | None, ate: date | None, projeto: str | None = None
+) -> dict:
+    """Fluxo de caixa por mês de VENCIMENTO dos títulos: quanto entra (receber),
+    quanto sai (pagar) e o saldo acumulado — inclusive meses futuros, já que o
+    vencimento pode cair depois do período de emissão consultado. A parte ainda
+    em aberto vem separada: é ela que diz o que de fato falta entrar/sair."""
+    ctx = _Contexto(db, empresa_ids, de, ate)
+    meses: dict[str, dict] = {}
+    nomes: set[str] = set()
+    alvo = chave_projeto(projeto) if projeto else None
+
+    for t in ctx.titulos:
+        if _cancelado(t.status_titulo) or ctx.ajustes.excluido("titulo", t.id):
+            continue
+        nome = ctx.projeto_do_titulo(t)
+        if not e_projeto_de_venda(nome):
+            continue
+        nomes.add(nome)
+        if alvo and chave_projeto(nome) != alvo:
+            continue
+        dia = t.data_vencimento or t.data_emissao
+        if dia is None:
+            continue
+        mes = dia.strftime("%Y-%m")
+        m = meses.setdefault(
+            mes, {"mes": mes, "entradas": 0.0, "saidas": 0.0, "aberto_entradas": 0.0, "aberto_saidas": 0.0}
+        )
+        valor = _f(t.valor_documento)
+        aberto = not _quitado(t.status_titulo)
+        if t.tipo == "receber":
+            m["entradas"] += valor
+            if aberto:
+                m["aberto_entradas"] += valor
+        else:
+            m["saidas"] += valor
+            if aberto:
+                m["aberto_saidas"] += valor
+
+    serie = sorted(meses.values(), key=lambda m: m["mes"])
+    acumulado = 0.0
+    for m in serie:
+        m["saldo"] = round(m["entradas"] - m["saidas"], 2)
+        acumulado += m["saldo"]
+        m["acumulado"] = round(acumulado, 2)
+        for campo in ("entradas", "saidas", "aberto_entradas", "aberto_saidas"):
+            m[campo] = round(m[campo], 2)
+    return {"meses": serie, "projetos": sorted(nomes)}
+
+
 # ---------- Central de alertas ----------
 
 

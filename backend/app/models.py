@@ -527,6 +527,9 @@ class OrcamentoVenda(Base):
     total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     snapshot: Mapped[dict] = mapped_column(JSONVariant)  # cálculo completo congelado
     status: Mapped[str] = mapped_column(String(12), default="rascunho")  # rascunho/enviado/aprovado
+    # Elo comercial → financeiro: o projeto Omie que nasceu deste orçamento.
+    # É metadado de acompanhamento (previsto × realizado), fora do snapshot imutável.
+    codigo_projeto_omie: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     criado_por: Mapped[str] = mapped_column(String(80), default="")
     criado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuario.id", ondelete="SET NULL"), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

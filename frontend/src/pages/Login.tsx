@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, type UsuarioLogado } from '../api/client'
 import { Logotipo, Marca } from '../components/Layout'
 
@@ -12,6 +12,19 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
+
+  // No plano que hiberna, o 1º acesso do dia demora ~1 min. Sem este aviso, a
+  // espera parece sistema quebrado — foi exatamente assim que pareceu uma vez.
+  const acordando = setupInfo === undefined || enviando
+  const [demorou, setDemorou] = useState(false)
+  useEffect(() => {
+    if (!acordando) {
+      setDemorou(false)
+      return
+    }
+    const timer = setTimeout(() => setDemorou(true), 4000)
+    return () => clearTimeout(timer)
+  }, [acordando])
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault()
@@ -132,6 +145,12 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
           <button className="btn btn-primary mt-1 w-full" disabled={enviando}>
             {enviando ? 'Entrando…' : primeiroAcesso ? 'Criar conta e entrar' : 'Entrar'}
           </button>
+          {demorou && acordando && (
+            <p className="anima-sobe text-sm" style={{ color: 'var(--text-muted)' }} role="status">
+              O servidor estava dormindo e já está acordando — o primeiro acesso do dia pode levar
+              até um minuto. Pode deixar esta tela aberta.
+            </p>
+          )}
         </form>
         </div>
       </div>

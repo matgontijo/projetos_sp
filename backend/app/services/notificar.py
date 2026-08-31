@@ -79,3 +79,23 @@ def _trabalho(nome: str, email: str, texto: str) -> None:
 def avisar_nova_mensagem(nome: str, email: str, texto: str) -> None:
     """Dispara os avisos em segundo plano; a requisição não espera por eles."""
     threading.Thread(target=_trabalho, args=(nome, email, texto), daemon=True).start()
+
+
+def enviar_email_com_anexo(
+    destinos: list[str], assunto: str, corpo: str, nome_arquivo: str, conteudo: bytes
+) -> None:
+    """E-mail com anexo (relatório mensal). Levanta exceção em falha — quem chama
+    decide se loga ou tenta de novo; aqui não há requisição esperando."""
+    if not (settings.smtp_host and settings.smtp_user):
+        raise RuntimeError("SMTP não configurado (SMTP_HOST/SMTP_USER)")
+    msg = EmailMessage()
+    msg["Subject"] = assunto
+    msg["From"] = settings.smtp_de or settings.smtp_user
+    msg["To"] = ", ".join(destinos)
+    msg.set_content(corpo)
+    msg.add_attachment(conteudo, maintype="application", subtype="pdf", filename=nome_arquivo)
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
+        smtp.starttls()
+        smtp.login(settings.smtp_user, settings.smtp_pass)
+        smtp.send_message(msg)
+    logger.info("Relatório: e-mail enviado para %s", msg["To"])

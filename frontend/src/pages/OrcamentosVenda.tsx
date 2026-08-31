@@ -62,6 +62,17 @@ export default function OrcamentosVenda() {
   })
   const excluir = useMutation({ mutationFn: (id: number) => api.excluirOrcamentoVenda(id), onSuccess: invalidar })
 
+  // Previsto × realizado: o elo entre o orçamento aprovado e o projeto Omie
+  const projetos = useQuery({ queryKey: ['orc-projetos'], queryFn: api.projetosDisponiveis, staleTime: 5 * 60_000 })
+  const comparativo = useQuery({ queryKey: ['orc-comparativo'], queryFn: api.comparativoOrcamentos })
+  const vincular = useMutation({
+    mutationFn: ({ id, codigo }: { id: number; codigo: number | null }) => api.vincularProjetoOrcamento(id, codigo),
+    onSuccess: () => {
+      invalidar()
+      queryClient.invalidateQueries({ queryKey: ['orc-comparativo'] })
+    },
+  })
+
   async function baixar(chave: string, url: string, nome: string) {
     setBaixando(chave)
     try {
@@ -238,6 +249,22 @@ export default function OrcamentosVenda() {
                           Faturar
                         </button>
                       )}
+                      {o.status === 'aprovado' && (
+                        <select
+                          className="input w-40 py-1 text-xs"
+                          title="Projeto Omie que nasceu deste orçamento — liga o previsto ao realizado"
+                          value={o.codigo_projeto_omie ?? ''}
+                          disabled={vincular.isPending}
+                          onChange={(e) =>
+                            vincular.mutate({ id: o.id, codigo: e.target.value ? Number(e.target.value) : null })
+                          }
+                        >
+                          <option value="">Vincular projeto…</option>
+                          {(projetos.data || []).map((p) => (
+                            <option key={p.codigo} value={p.codigo}>{p.nome}</option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         className="btn btn-ghost px-2 py-1 text-xs"
                         disabled={baixando === `pdf${o.id}`}
@@ -254,10 +281,68 @@ export default function OrcamentosVenda() {
         </div>
       )}
 
-      {(mudarStatus.isError || excluir.isError) && (
+      {(mudarStatus.isError || excluir.isError || vincular.isError) && (
         <p className="mt-2 text-sm" style={{ color: 'var(--neg)' }}>
-          {((mudarStatus.error || excluir.error) as Error).message}
+          {((mudarStatus.error || excluir.error || vincular.error) as Error).message}
         </p>
+      )}
+
+      {/* Previsto × Realizado: só aparece quando algum orçamento foi vinculado */}
+      {(comparativo.data?.length || 0) > 0 && (
+        <div className="card mt-4 overflow-x-auto">
+          <div className="px-5 pt-4">
+            <span className="titulo-secao">Previsto × Realizado</span>
+            <p className="help mb-2 mt-0.5">
+              O que o orçamento prometeu contra o que o projeto entregou no fechamento. Desvio positivo = margem real acima da prevista.
+            </p>
+          </div>
+          <table className="data tabela-rica">
+            <thead>
+              <tr>
+                <th>Orçamento</th>
+                <th>Cliente</th>
+                <th>Projeto</th>
+                <th className="num">Previsto</th>
+                <th className="num">Margem prev.</th>
+                <th className="num">Receita real</th>
+                <th className="num">Margem real</th>
+                <th className="num">Desvio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparativo.data!.map((c) => (
+                <tr key={c.id}>
+                  <td className="font-semibold">{c.numero}</td>
+                  <td>{c.cliente || '—'}</td>
+                  <td>{c.projeto}</td>
+                  <td className="num">{fmtBRL(c.total_previsto)}</td>
+                  <td className="num">{fmtPct(c.margem_prevista)}</td>
+                  <td className="num">
+                    {c.receita_real === null ? (
+                      <span style={{ color: 'var(--text-muted)' }}>sem lançamentos</span>
+                    ) : (
+                      fmtBRL(c.receita_real)
+                    )}
+                  </td>
+                  <td className="num">{c.margem_real === null ? '—' : fmtPct(c.margem_real)}</td>
+                  <td
+                    className="num font-bold"
+                    style={{
+                      color:
+                        c.desvio_margem === null
+                          ? 'var(--text-muted)'
+                          : c.desvio_margem >= 0
+                            ? 'var(--status-good-text)'
+                            : 'var(--neg)',
+                    }}
+                  >
+                    {c.desvio_margem === null ? '—' : `${c.desvio_margem >= 0 ? '+' : ''}${fmtPct(c.desvio_margem)}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* detalhe: cálculo congelado */}

@@ -186,6 +186,34 @@ export interface Config {
   margem_alvo: number
   sync_auto: boolean
   sync_hora: number
+  relatorio_auto: boolean
+  relatorio_dia: number
+  relatorio_emails: string
+  email_configurado: boolean
+}
+
+export interface FluxoMes {
+  mes: string // 'YYYY-MM' do VENCIMENTO
+  entradas: number
+  saidas: number
+  aberto_entradas: number
+  aberto_saidas: number
+  saldo: number
+  acumulado: number
+}
+
+export interface ComparativoOrcamento {
+  id: number
+  numero: string
+  cliente: string
+  status: string
+  projeto: string
+  total_previsto: number
+  margem_prevista: number
+  receita_real: number | null
+  resultado_real: number | null
+  margem_real: number | null
+  desvio_margem: number | null
 }
 
 export interface Alerta {
@@ -531,6 +559,7 @@ export interface OrcamentoVenda {
   condicao_pagamento_dias: number
   criado_por: string
   criado_em: string | null
+  codigo_projeto_omie: number | null
 }
 
 export interface OrcamentoVendaDetalhe extends OrcamentoVenda {
@@ -660,6 +689,11 @@ export const api = {
     ),
   caixa: (empresaIds?: string, de?: string, ate?: string) =>
     request<Caixa>(`/api/analises/caixa${qs({ empresa_ids: empresaIds, de, ate })}`),
+  fluxo: (empresaIds?: string, de?: string, ate?: string, projeto?: string) =>
+    request<{ meses: FluxoMes[]; projetos: string[] }>(
+      `/api/analises/fluxo${qs({ empresa_ids: empresaIds, de, ate, projeto })}`,
+    ),
+  marca: () => request<{ linha1: string; linha2: string; nome: string }>('/api/marca'),
   simular: (custo: number, margemAlvo: number, preco?: number, comissao?: number) =>
     request<Simulacao>(
       `/api/analises/simulador${qs({
@@ -790,6 +824,15 @@ export const api = {
   excluirOrcamentoVenda: (id: number) => request<{ ok: boolean }>(`/api/orcamentos-venda/${id}`, { method: 'DELETE' }),
   resumoOrcamentos: () => request<ResumoOrcamentos>('/api/orcamentos-venda/resumo'),
   faturamentoOrcamento: (id: number) => request<ResumoFaturamento>(`/api/orcamentos-venda/${id}/faturamento`),
+  projetosDisponiveis: () =>
+    request<{ codigo: number; nome: string; empresa_id: number }[]>('/api/orcamentos-venda/projetos-disponiveis'),
+  vincularProjetoOrcamento: (id: number, codigoProjetoOmie: number | null) =>
+    request<{ id: number; codigo_projeto_omie: number | null }>(`/api/orcamentos-venda/${id}/projeto`, {
+      method: 'POST',
+      body: JSON.stringify({ codigo_projeto_omie: codigoProjetoOmie }),
+    }),
+  comparativoOrcamentos: () =>
+    request<ComparativoOrcamento[]>('/api/orcamentos-venda/comparativo/previsto-realizado'),
   urlPdfOrcamento: (id: number) => `/api/orcamentos-venda/${id}/pdf`,
   urlExportOrcamentos: (formato: 'csv' | 'xlsx') => `/api/orcamentos-venda/export?formato=${formato}`,
 }
