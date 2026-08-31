@@ -100,7 +100,18 @@ def limpar_cache_empresa(db: Session, empresa_id: int) -> None:
     Chamado quando as credenciais mudam: os dados da conta antiga nao podem
     conviver com os da nova — o upsert nunca apaga, so acrescenta/atualiza.
     """
-    for model in (models.Titulo, models.NFe, models.Projeto, models.Cliente, models.CategoriaGrupo):
+    # Vendedor e PedidoCompra tambem sao espelho da conta (parcelas caem via
+    # ON DELETE CASCADE do pedido) — deixa-los criaria nomes e compromissos
+    # da conta antiga colados na nova.
+    for model in (
+        models.Titulo,
+        models.NFe,
+        models.Projeto,
+        models.Cliente,
+        models.CategoriaGrupo,
+        models.Vendedor,
+        models.PedidoCompra,
+    ):
         db.execute(delete(model).where(model.empresa_id == empresa_id))
 
 
