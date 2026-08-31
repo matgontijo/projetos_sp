@@ -481,7 +481,7 @@ function Preferencias() {
   const [emails, setEmails] = useState<string | null>(null)
 
   const salvar = useMutation({
-    mutationFn: (dados: Partial<{ margem_alvo: number; sync_auto: boolean; sync_hora: number; relatorio_auto: boolean; relatorio_dia: number; relatorio_emails: string }>) =>
+    mutationFn: (dados: Partial<{ margem_alvo: number; sync_auto: boolean; sync_hora: number; relatorio_auto: boolean; relatorio_dia: number; relatorio_emails: string; backup_auto: boolean; backup_dia: number }>) =>
       api.salvarConfig(dados),
     onSuccess: () => {
       setMargem(null)
@@ -591,6 +591,38 @@ function Preferencias() {
           {config.email_configurado
             ? 'Sai automaticamente com a marca da empresa — direto para a diretoria.'
             : 'Atenção: o servidor está sem e-mail configurado (SMTP) — o relatório não tem como sair até configurar.'}
+        </p>
+      </div>
+      <div>
+        <span className="titulo-secao">Backup automático</span>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={config.backup_auto}
+              onChange={(e) => salvar.mutate({ backup_auto: e.target.checked })}
+            />
+            Mandar o backup por e-mail todo mês
+          </label>
+          {config.backup_auto && (
+            <>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>no dia</span>
+              <select
+                className="input w-16 py-1"
+                value={config.backup_dia}
+                onChange={(e) => salvar.mutate({ backup_dia: Number(e.target.value) })}
+              >
+                {Array.from({ length: 28 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>{i + 1}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+        <p className="help mt-1">
+          {config.backup_destino
+            ? `Vai sempre para ${config.backup_destino} (o arquivo carrega senhas e credenciais — destino fixo, por segurança).`
+            : 'Defina SUPORTE_EMAIL no servidor para o backup ter destino.'}
         </p>
       </div>
     </div>

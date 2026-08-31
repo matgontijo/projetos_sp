@@ -181,6 +181,11 @@ export default function SuporteChat() {
                   {(enviar.error as Error).message}
                 </p>
               )}
+              {!souSuporte && (
+                <p className="px-4 pb-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                  Pode fechar o app — quando o suporte responder, o aviso chega no seu e-mail.
+                </p>
+              )}
             </>
           )}
         </div>

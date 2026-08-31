@@ -27,6 +27,8 @@ PADROES = {
     "relatorio_auto": "0",     # 1 = fechamento do mes anterior por e-mail
     "relatorio_dia": "1",      # dia do mes em que o relatorio sai
     "relatorio_emails": "",    # destinatarios separados por virgula
+    "backup_auto": "0",        # 1 = backup mensal por e-mail (so p/ SUPORTE_EMAIL)
+    "backup_dia": "1",
 }
 
 
@@ -45,6 +47,8 @@ class ConfigIn(BaseModel):
     # ate 28 para existir em todo mes (fevereiro inclusive)
     relatorio_dia: int | None = Field(default=None, ge=1, le=28)
     relatorio_emails: str | None = Field(default=None, max_length=500)
+    backup_auto: bool | None = None
+    backup_dia: int | None = Field(default=None, ge=1, le=28)
 
 
 @router.get("")
@@ -57,6 +61,9 @@ def ler(db: Session = Depends(get_db)):
         "relatorio_auto": valores["relatorio_auto"] == "1",
         "relatorio_dia": int(valores["relatorio_dia"] or 1),
         "relatorio_emails": valores["relatorio_emails"],
+        "backup_auto": valores["backup_auto"] == "1",
+        "backup_dia": int(valores["backup_dia"] or 1),
+        "backup_destino": settings.suporte_email.strip(),
         # sem SMTP o relatorio nao tem como sair — o front avisa em vez de fingir
         "email_configurado": bool(settings.smtp_host and settings.smtp_user),
     }
@@ -77,6 +84,10 @@ def salvar(payload: ConfigIn, db: Session = Depends(get_db)):
         novos["relatorio_dia"] = str(payload.relatorio_dia)
     if payload.relatorio_emails is not None:
         novos["relatorio_emails"] = payload.relatorio_emails.strip()
+    if payload.backup_auto is not None:
+        novos["backup_auto"] = "1" if payload.backup_auto else "0"
+    if payload.backup_dia is not None:
+        novos["backup_dia"] = str(payload.backup_dia)
     for chave, valor in novos.items():
         row = db.get(models.Configuracao, chave)
         if row is None:

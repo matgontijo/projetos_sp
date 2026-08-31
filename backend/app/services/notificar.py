@@ -25,13 +25,14 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 
-def _enviar_email(assunto: str, corpo: str) -> None:
-    if not (settings.smtp_host and settings.smtp_user and settings.suporte_email):
+def _enviar_email(assunto: str, corpo: str, para: str | None = None) -> None:
+    destino = para or settings.suporte_email
+    if not (settings.smtp_host and settings.smtp_user and destino):
         return
     msg = EmailMessage()
     msg["Subject"] = assunto
     msg["From"] = settings.smtp_de or settings.smtp_user
-    msg["To"] = settings.suporte_email
+    msg["To"] = destino
     msg.set_content(corpo)
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as smtp:
         smtp.starttls()
@@ -81,11 +82,48 @@ def avisar_nova_mensagem(nome: str, email: str, texto: str) -> None:
     threading.Thread(target=_trabalho, args=(nome, email, texto), daemon=True).start()
 
 
+def _trabalho_resposta(destino: str, texto: str) -> None:
+    recorte = texto if len(texto) <= 400 else texto[:400] + "…"
+    link = f"\n\nAbra o app para continuar a conversa: {settings.app_url}" if settings.app_url else ""
+    try:
+        _enviar_email("O suporte respondeu você", f"Resposta do suporte:\n\n{recorte}{link}", para=destino)
+    except Exception:  # noqa: BLE001
+        logger.exception("Suporte: falha ao avisar o cliente por e-mail")
+
+
+def avisar_resposta_suporte(email_cliente: str, texto: str) -> None:
+    """Fecha o ciclo: quem escreveu não precisa ficar de olho no app — a resposta
+    chega no e-mail dele (só e-mail: o WhatsApp cadastrado é o de quem atende)."""
+    threading.Thread(target=_trabalho_resposta, args=(email_cliente, texto), daemon=True).start()
+
+
+def _trabalho_sync_erro(empresa: str, falhas: list[tuple[str, str]]) -> None:
+    itens = "\n".join(f"- {recurso}: {msg.splitlines()[0][:160]}" for recurso, msg in falhas)
+    link = f"\n\nDetalhes na tela Buscar dados: {settings.app_url}" if settings.app_url else ""
+    corpo = f"A busca de dados da {empresa} falhou em:\n\n{itens}{link}"
+    for canal, envia in (("e-mail", _enviar_email), ("whatsapp", _enviar_whatsapp)):
+        try:
+            if canal == "e-mail":
+                envia(f"⚠ Busca de dados falhou — {empresa}", corpo)
+            else:
+                envia(f"⚠ {corpo}")
+        except Exception:  # noqa: BLE001
+            logger.exception("Sync: falha ao avisar erro por %s", canal)
+
+
+def avisar_sync_erro(empresa: str, falhas: list[tuple[str, str]]) -> None:
+    """Sincronização que quebra não pode morrer calada numa tabela que ninguém
+    abre — quem mantém o sistema fica sabendo na hora, pelo mesmo canal do suporte."""
+    if falhas:
+        threading.Thread(target=_trabalho_sync_erro, args=(empresa, falhas), daemon=True).start()
+
+
 def enviar_email_com_anexo(
-    destinos: list[str], assunto: str, corpo: str, nome_arquivo: str, conteudo: bytes
+    destinos: list[str], assunto: str, corpo: str, nome_arquivo: str, conteudo: bytes,
+    subtipo: str = "pdf",
 ) -> None:
-    """E-mail com anexo (relatório mensal). Levanta exceção em falha — quem chama
-    decide se loga ou tenta de novo; aqui não há requisição esperando."""
+    """E-mail com anexo (relatório mensal, backup). Levanta exceção em falha —
+    quem chama decide se loga ou tenta de novo; aqui não há requisição esperando."""
     if not (settings.smtp_host and settings.smtp_user):
         raise RuntimeError("SMTP não configurado (SMTP_HOST/SMTP_USER)")
     msg = EmailMessage()
@@ -93,7 +131,7 @@ def enviar_email_com_anexo(
     msg["From"] = settings.smtp_de or settings.smtp_user
     msg["To"] = ", ".join(destinos)
     msg.set_content(corpo)
-    msg.add_attachment(conteudo, maintype="application", subtype="pdf", filename=nome_arquivo)
+    msg.add_attachment(conteudo, maintype="application", subtype=subtipo, filename=nome_arquivo)
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
         smtp.starttls()
         smtp.login(settings.smtp_user, settings.smtp_pass)
