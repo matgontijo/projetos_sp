@@ -164,7 +164,7 @@ function CartaoKpi({
   invertido?: boolean
 }) {
   return (
-    <div className="card px-5 py-4 xl:col-span-4">
+    <div className="card hidden px-5 py-4 md:block xl:col-span-4">
       <div className="flex items-center gap-2.5">
         <span
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full"
@@ -329,7 +329,41 @@ export default function Dashboard() {
               {serie && serie.length > 1 && <Sparkline serie={serie} />}
             </div>
 
-            <div className="card flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5 xl:col-span-7">
+            {/* Celular: nada de caixa grande por numero — uma lista enxuta resolve */}
+            <div className="card px-5 py-4 md:hidden">
+              {(
+                [
+                  ['Receita', consolidado.receita, null, 'var(--serie-producao)'],
+                  [
+                    'Custos',
+                    consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros,
+                    (consolidado.producao + consolidado.frete + consolidado.comissao + consolidado.outros) / (consolidado.receita || 1),
+                    'var(--serie-outros)',
+                  ],
+                  ['Impostos', consolidado.imposto, consolidado.imposto / (consolidado.receita || 1), 'var(--serie-imposto)'],
+                ] as const
+              ).map(([rotulo, valor, fracao, cor]) => (
+                <div key={rotulo} className="flex items-baseline justify-between gap-3 py-1.5">
+                  <span className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: cor }} aria-hidden />
+                    {rotulo}
+                  </span>
+                  <span className="num text-sm font-extrabold">
+                    {fmtBRL(valor)}
+                    {fracao !== null && (
+                      <span className="ml-1.5 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        {fmtPct(fracao)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+              <p className="help mt-1.5">
+                Conferência: {consolidado.qtd_aprovados}/{consolidado.qtd_projetos} fechados — detalhes no computador.
+              </p>
+            </div>
+
+            <div className="card hidden flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5 md:flex xl:col-span-7">
               <AnelProgresso
                 fracao={consolidado.qtd_projetos ? consolidado.qtd_aprovados / consolidado.qtd_projetos : 0}
                 rotulo={`${consolidado.qtd_aprovados}/${consolidado.qtd_projetos}`}
@@ -415,7 +449,7 @@ export default function Dashboard() {
           {alertas && alertas.length > 0 && <PainelAtencao alertas={alertas} params={params.toString()} />}
 
           {serie && serie.length > 1 && (
-            <div className="card mt-4">
+            <div className="card mt-4 hidden md:block">
               <div className="card-head">
                 <div>
                   <div className="titulo">Evolução mensal</div>
@@ -430,7 +464,7 @@ export default function Dashboard() {
 
           <ComparativoAnual empresaIds={empresaIds} />
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-4 hidden gap-4 md:grid lg:grid-cols-2">
             <div className="card">
               <div className="card-head">
                 <div>

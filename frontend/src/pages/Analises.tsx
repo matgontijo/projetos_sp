@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { BarraValor, GraficoFluxo, Skeleton, ValorContado } from '../components/Viz'
+import { BarraValor, GraficoFluxo, Skeleton, ValorContado, siglaEmpresa } from '../components/Viz'
 import { fmtBRL, fmtData, fmtPct } from '../lib/format'
 
 export default function Analises() {
@@ -18,17 +18,22 @@ export default function Analises() {
         subtitulo="Quem sustenta a margem, quem vende bem e onde o dinheiro está parado — só projetos de venda (BR)"
       />
       <FiltrosBar />
-      <div className="mb-4 flex gap-1 border-b" style={{ borderColor: 'var(--baseline)' }}>
+      {/* 5 abas não cabem num celular: a régua rola de lado em vez de quebrar */}
+      <div className="mb-4 flex gap-1 overflow-x-auto border-b" style={{ borderColor: 'var(--baseline)' }}>
         {(
           [
-            ['clientes', 'Clientes (curva ABC)'],
+            ['clientes', 'Clientes ABC'],
             ['vendedores', 'Vendedores'],
             ['comissoes', 'Comissões'],
             ['caixa', 'Caixa'],
             ['orfaos', 'Sem projeto'],
           ] as const
         ).map(([id, rotulo]) => (
-          <button key={id} className={`tab ${aba === id ? 'tab-ativa' : ''}`} onClick={() => setAba(id)}>
+          <button
+            key={id}
+            className={`tab shrink-0 whitespace-nowrap ${aba === id ? 'tab-ativa' : ''}`}
+            onClick={() => setAba(id)}
+          >
             {rotulo}
           </button>
         ))}
@@ -423,7 +428,7 @@ function OrfaosTab({ empresaIds, de, ate }: { empresaIds?: string; de?: string; 
   const ROTULO: Record<string, string> = { receber: 'A receber', pagar: 'A pagar', nfe: 'NF-e' }
   return (
     <div>
-      <div className="mb-4 grid grid-cols-3 gap-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
         {(['receber', 'pagar', 'nfe'] as const).map((k) => (
           <div key={k} className="card px-4 py-3">
             <div className="titulo-secao">{ROTULO[k]} sem projeto</div>
@@ -457,10 +462,10 @@ function OrfaosTab({ empresaIds, de, ate }: { empresaIds?: string; de?: string; 
                 </tr>
               </thead>
               <tbody>
-                {data.itens.map((i) => (
-                  <tr key={`${i.origem}-${i.codigo_omie}`}>
+                {data.itens.map((i, idx) => (
+                  <tr key={idx}>
                     <td>{ROTULO[i.tipo] || i.tipo}</td>
-                    <td>{i.empresa}</td>
+                    <td title={i.empresa}>{siglaEmpresa(i.empresa)}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{i.data ? fmtData(i.data) : '—'}</td>
                     <td>{i.documento || `#${i.codigo_omie}`}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{i.categoria || '—'}</td>

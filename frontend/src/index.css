@@ -1456,3 +1456,42 @@ tr.linha-clicavel:hover td {
     padding-bottom: 10px;
   }
 }
+
+/* ---------- campo de data com rotulo (filtros) ---------- */
+/* No iOS um input date vazio e uma caixa muda: o rotulo em cima da o nome. */
+.campo-data {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.campo-data > span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+/* iOS encolhe/estica date inputs por conta propria — trava a altura e o
+   alinhamento para a dupla de/ate ficar identica em qualquer navegador */
+.campo-data .input {
+  min-height: 38px;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type='date'] {
+  color-scheme: light dark; /* o seletor nativo acompanha o tema */
+}
+
+/* ---------- respiro geral no celular ---------- */
+@media (max-width: 640px) {
+  /* iOS da zoom automatico em campo com fonte < 16px — trava o zoom indesejado */
+  .input,
+  .campo-data .input {
+    font-size: 16px;
+  }
+  /* chips de filtro mais juntos: a barra inteira cabe em menos linhas */
+  .chip-preset {
+    padding: 0.3rem 0.65rem;
+  }
+}
