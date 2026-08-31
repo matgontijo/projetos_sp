@@ -14,6 +14,7 @@ from ..auth import (
     registrar_falha_login,
     segundos_ate_liberar_login,
     usuario_logado,
+    verificar_senha,
     zerar_falhas_login,
 )
 from ..db import get_db
@@ -94,6 +95,26 @@ def logout(authorization: str | None = Header(default=None), db: Session = Depen
 @router.get("/eu")
 def eu(usuario: models.Usuario = Depends(usuario_logado)):
     return _usuario_out(usuario)
+
+
+class TrocaSenhaIn(BaseModel):
+    senha_atual: str = Field(min_length=1)
+    senha_nova: str = Field(min_length=8, max_length=128)
+
+
+@router.post("/trocar-senha")
+def trocar_senha(
+    payload: TrocaSenhaIn,
+    db: Session = Depends(get_db),
+    usuario: models.Usuario = Depends(usuario_logado),
+):
+    """Cada pessoa troca a própria senha — senha esquecida continua com a admin,
+    mas senha CONHECIDA não precisa virar chamado de suporte."""
+    if not verificar_senha(payload.senha_atual, usuario.senha_hash):
+        raise HTTPException(status_code=403, detail="A senha atual não confere")
+    usuario.senha_hash = hash_senha(payload.senha_nova)
+    db.commit()
+    return {"ok": True}
 
 
 # ---------- gestao de usuarios (somente admin) ----------

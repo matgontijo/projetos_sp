@@ -158,12 +158,15 @@ def enviar(
         # resposta do suporte na conversa de alguém
         if not _sou_suporte(usuario):
             raise HTTPException(status_code=403, detail="Você só pode escrever na sua própria conversa")
-        if not db.get(models.Usuario, payload.usuario_id):
+        dono = db.get(models.Usuario, payload.usuario_id)
+        if not dono:
             raise HTTPException(status_code=404, detail="Conversa não encontrada")
         row = models.MensagemSuporte(usuario_id=payload.usuario_id, autor="suporte", texto=texto)
         db.add(row)
         db.commit()
         db.refresh(row)
+        # fecha o ciclo: o cliente fica sabendo da resposta sem viver dentro do app
+        notificar.avisar_resposta_suporte(dono.email, texto)
         return _mensagem_out(row)
 
     # mensagem do cliente na própria conversa -> avisa quem atende

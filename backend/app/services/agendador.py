@@ -92,6 +92,37 @@ def _relatorio_mensal(db, config: dict) -> None:
     logger.info("Relatorio mensal de %s enviado para %d destinatario(s)", titulo_mes, len(destinos))
 
 
+def _backup_automatico(db, config: dict) -> None:
+    """O JSON de backup no e-mail de quem mantém o sistema, todo mês. O arquivo
+    carrega hashes de senha e credenciais criptografadas — por isso vai SEMPRE
+    e SOMENTE para SUPORTE_EMAIL, nunca para lista configurável."""
+    if config.get("backup_auto", "0") != "1" or not settings.suporte_email.strip():
+        return
+    hoje = date.today()
+    dia = int(config.get("backup_dia", "1") or 1)
+    mes_atual = hoje.strftime("%Y-%m")
+    if hoje.day < dia or config.get("ultimo_backup_auto") == mes_atual:
+        return
+    _marcar(db, "ultimo_backup_auto", mes_atual)
+
+    import json
+
+    from . import backup as backup_svc
+
+    conteudo = json.dumps(backup_svc.exportar(db), ensure_ascii=False).encode("utf-8")
+    notificar.enviar_email_com_anexo(
+        [settings.suporte_email.strip()],
+        f"Backup do custeio — {mes_atual}",
+        "Backup automático do trabalho da equipe (usuários, categorias, ajustes,\n"
+        "aprovações e orçamentos). Guarde este arquivo: é ele que reconstrói o\n"
+        "sistema num banco novo, junto com uma sincronização da Omie.",
+        f"custeio_backup_{mes_atual}.json",
+        conteudo,
+        subtipo="json",
+    )
+    logger.info("Backup automatico de %s enviado (%d KB)", mes_atual, len(conteudo) // 1024)
+
+
 def _rodada(build_client) -> None:
     db = SessionLocal()
     try:
@@ -101,6 +132,10 @@ def _rodada(build_client) -> None:
             _relatorio_mensal(db, config)
         except Exception:  # noqa: BLE001
             logger.exception("Relatorio mensal falhou")
+        try:
+            _backup_automatico(db, config)
+        except Exception:  # noqa: BLE001
+            logger.exception("Backup automatico falhou")
         _sync_diario(db, config, build_client)
     except Exception:  # noqa: BLE001 — o agendador nunca pode derrubar o app
         logger.exception("Busca automatica falhou")

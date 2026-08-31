@@ -190,6 +190,9 @@ export interface Config {
   relatorio_dia: number
   relatorio_emails: string
   email_configurado: boolean
+  backup_auto: boolean
+  backup_dia: number
+  backup_destino: string
 }
 
 export interface FluxoMes {
@@ -617,6 +620,11 @@ export async function baixarArquivo(url: string, nomeFallback: string): Promise<
 export const api = {
   // Autenticação
   precisaSetup: () => request<{ precisa_setup: boolean }>('/api/auth/precisa-setup'),
+  trocarSenha: (senhaAtual: string, senhaNova: string) =>
+    request<{ ok: boolean }>('/api/auth/trocar-senha', {
+      method: 'POST',
+      body: JSON.stringify({ senha_atual: senhaAtual, senha_nova: senhaNova }),
+    }),
   setup: (dados: { nome: string; email: string; senha: string }) =>
     request<{ token: string; usuario: UsuarioLogado }>('/api/auth/setup', { method: 'POST', body: JSON.stringify(dados) }),
   login: (email: string, senha: string) =>

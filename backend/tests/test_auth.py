@@ -121,3 +121,20 @@ def test_login_bem_sucedido_zera_o_contador(db, monkeypatch):
         assert exc.value.status_code == 401
     finally:
         auth.zerar_falhas_login("z@empresa.com")
+
+
+def test_trocar_a_propria_senha(db):
+    from app.routers.autenticacao import TrocaSenhaIn, trocar_senha
+
+    usuario = _criar_usuario(db, email="troca@empresa.com", senha="senha-antiga")
+
+    # senha atual errada: recusa sem mudar nada
+    with pytest.raises(HTTPException) as erro:
+        trocar_senha(TrocaSenhaIn(senha_atual="errada", senha_nova="senha-nova-123"), db, usuario)
+    assert erro.value.status_code == 403
+    assert verificar_senha("senha-antiga", usuario.senha_hash)
+
+    # senha atual certa: troca e a nova passa a valer
+    trocar_senha(TrocaSenhaIn(senha_atual="senha-antiga", senha_nova="senha-nova-123"), db, usuario)
+    assert verificar_senha("senha-nova-123", usuario.senha_hash)
+    assert not verificar_senha("senha-antiga", usuario.senha_hash)

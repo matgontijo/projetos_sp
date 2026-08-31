@@ -13,6 +13,7 @@ from ..db import SessionLocal
 from ..models import utcnow
 from ..omie import api as omie_api
 from ..omie.client import OmieClient
+from . import notificar
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +360,7 @@ def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) ->
         empresa = db.get(models.Empresa, empresa_id)
         if empresa is None:
             return
+        falhas: list[tuple[str, str]] = []
         with build_client(empresa) as client:
             for recurso in RECURSOS:
                 log = models.SyncLog(empresa_id=empresa_id, recurso=recurso, periodo_de=de, periodo_ate=ate)
@@ -389,9 +391,12 @@ def executar_sync_empresa(empresa_id: int, de: date, ate: date, build_client) ->
                     log = db.get(models.SyncLog, log.id)
                     log.status = "erro"
                     log.mensagem = str(exc)[:2000]
+                    falhas.append((recurso, str(exc)))
                 log.concluido_em = utcnow()
                 db.commit()
                 cache.invalidar()  # dados novos: fechamentos em cache ficam obsoletos
+        # erro de sync nao pode morrer calado numa tabela que ninguem abre
+        notificar.avisar_sync_erro(empresa.nome, falhas)
     finally:
         cache.invalidar()
         db.close()

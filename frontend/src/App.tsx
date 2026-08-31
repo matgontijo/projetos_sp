@@ -9,7 +9,7 @@ import {
   usuarioLogado,
   type UsuarioLogado,
 } from './api/client'
-import { ICONES, Marca } from './components/Layout'
+import { ICONES, Marca, useMarca } from './components/Layout'
 import Paleta, { type TelaDaPaleta } from './components/Paleta'
 import Sino from './components/Sino'
 import SuporteChat from './components/SuporteChat'
@@ -158,11 +158,12 @@ function secoesDoPapel(papel: string): SecaoMenu[] {
 function TituloDaAba() {
   const location = useLocation()
   const [params] = useSearchParams()
+  const marca = useMarca()
   useEffect(() => {
     let tela = SECOES.flatMap((s) => s.itens).find((i) => i.to === location.pathname)?.label
     if (location.pathname.startsWith('/projeto') && params.get('nome')) tela = params.get('nome')!
-    document.title = tela ? `${tela} · Grupo JPDV` : 'Grupo JPDV — Fechamento de Projetos'
-  }, [location.pathname, params])
+    document.title = tela ? `${tela} · ${marca.nome}` : `${marca.nome} — Fechamento de Projetos`
+  }, [location.pathname, params, marca.nome])
   return null
 }
 
@@ -202,6 +203,7 @@ export default function App() {
   const [menuAberto, setMenuAberto] = useState(false)
   // trilho de icones: preferencia da pessoa, lembrada entre sessoes
   const [navColapsada, setNavColapsada] = useState(() => localStorage.getItem('nav_colapsada') === '1')
+  const [trocandoSenha, setTrocandoSenha] = useState(false)
   useEffect(() => {
     localStorage.setItem('nav_colapsada', navColapsada ? '1' : '0')
   }, [navColapsada])
@@ -284,14 +286,18 @@ export default function App() {
       >
         {usuario.nome.trim().charAt(0).toUpperCase()}
       </span>
-      <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate text-sm font-bold" style={{ color: 'var(--nav-text)' }} title={usuario.email}>
+      <button
+        className="min-w-0 flex-1 cursor-pointer text-left leading-tight"
+        onClick={() => setTrocandoSenha(true)}
+        title="Trocar a minha senha"
+      >
+        <div className="truncate text-sm font-bold" style={{ color: 'var(--nav-text)' }}>
           {usuario.nome}
         </div>
         <div className="text-[11px] font-semibold" style={{ color: 'var(--nav-muted)' }}>
-          {PAPEL_LABEL[usuario.papel] || usuario.papel}
+          {PAPEL_LABEL[usuario.papel] || usuario.papel} · trocar senha
         </div>
-      </div>
+      </button>
       <button
         className="rounded-full px-2 py-1 text-xs font-bold"
         style={{ color: 'var(--nav-muted)', border: '1px solid var(--nav-hairline)' }}
@@ -356,6 +362,7 @@ export default function App() {
       <Paleta telas={telasDaPaleta} buscaProjetos={!ehComercial} />
       {!ehComercial && <Sino />}
       <SuporteChat />
+      {trocandoSenha && <ModalTrocarSenha aoFechar={() => setTrocandoSenha(false)} />}
       {/* Sidebar (desktop) — escura nos dois temas */}
       <aside
         className={`nav-lateral sticky top-0 hidden h-screen shrink-0 flex-col py-5 md:flex ${navColapsada ? 'nav-colapsada px-2' : 'px-4'}`}
@@ -472,6 +479,74 @@ export default function App() {
             <Route path="*" element={<Navigate to={inicio} replace />} />
           </Routes>
         </main>
+      </div>
+    </div>
+  )
+}
+
+/** Trocar a própria senha — senha conhecida não precisa virar chamado de suporte. */
+function ModalTrocarSenha({ aoFechar }: { aoFechar: () => void }) {
+  const [atual, setAtual] = useState('')
+  const [nova, setNova] = useState('')
+  const [confirma, setConfirma] = useState('')
+  const [erro, setErro] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [feito, setFeito] = useState(false)
+
+  async function salvar(e: React.FormEvent) {
+    e.preventDefault()
+    setErro('')
+    if (nova !== confirma) {
+      setErro('A confirmação não bate com a senha nova')
+      return
+    }
+    setSalvando(true)
+    try {
+      await api.trocarSenha(atual, nova)
+      setFeito(true)
+      setTimeout(aoFechar, 1600)
+    } catch (ex) {
+      setErro((ex as Error).message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center p-4"
+      style={{ background: 'color-mix(in srgb, black 45%, transparent)' }}
+      onClick={aoFechar}
+    >
+      <div className="card w-full max-w-sm px-6 py-5" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-extrabold">Trocar a minha senha</h2>
+        {feito ? (
+          <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--status-good-text)' }}>
+            Senha trocada — use a nova no próximo acesso.
+          </p>
+        ) : (
+          <form onSubmit={salvar} className="mt-3 grid gap-3">
+            <label className="text-sm">
+              Senha atual
+              <input type="password" className="input mt-1 w-full" value={atual} onChange={(e) => setAtual(e.target.value)} autoComplete="current-password" required />
+            </label>
+            <label className="text-sm">
+              Senha nova <span style={{ color: 'var(--text-muted)' }}>(mínimo 8 caracteres)</span>
+              <input type="password" className="input mt-1 w-full" value={nova} onChange={(e) => setNova(e.target.value)} autoComplete="new-password" minLength={8} required />
+            </label>
+            <label className="text-sm">
+              Repita a senha nova
+              <input type="password" className="input mt-1 w-full" value={confirma} onChange={(e) => setConfirma(e.target.value)} autoComplete="new-password" minLength={8} required />
+            </label>
+            {erro && (
+              <p className="text-sm" style={{ color: 'var(--neg)' }}>{erro}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn btn-ghost" onClick={aoFechar}>Cancelar</button>
+              <button className="btn btn-primary" disabled={salvando}>{salvando ? 'Salvando…' : 'Trocar senha'}</button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )
