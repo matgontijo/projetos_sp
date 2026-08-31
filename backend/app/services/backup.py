@@ -253,16 +253,35 @@ def restaurar(db: Session, dados: dict) -> dict:
         if empresa is None:
             c.pendente("categorias_grupo")
             continue
-        if existe(
+        existente = db.scalar(
             select(models.CategoriaGrupo).where(
                 models.CategoriaGrupo.empresa_id == empresa.id,
                 models.CategoriaGrupo.codigo_categoria == cg.get("codigo_categoria", ""),
             )
-        ):
-            c.pulado("categorias_grupo")
+        )
+        if existente is not None:
+            # "Nunca sobrescreve" protege trabalho HUMANO — sugestão automática
+            # do sync não é. Restaurar depois de re-sincronizar (ex.: troca de
+            # credencial limpou tudo e o sync recriou com sugestões) tem que
+            # devolver a classificação feita por gente.
+            autor_backup = str(cg.get("atualizado_por") or "")
+            veio_do_sync = not existente.atualizado_por or existente.atualizado_por.startswith("sync")
+            # autor vazio no arquivo tambem conta como humano: classificacoes
+            # antigas sao anteriores a coluna de autor
+            backup_e_humano = bool(cg.get("grupo")) and not autor_backup.startswith("sync")
+            if veio_do_sync and backup_e_humano:
+                existente.grupo = cg.get("grupo")
+                # autor nao-sync obrigatorio: senao o proximo sync "reavalia a
+                # sugestao" e passa por cima do que acabou de ser restaurado
+                existente.atualizado_por = autor_backup or "backup restaurado"
+                c.criado("categorias_grupo")
+            else:
+                c.pulado("categorias_grupo")
             continue
         novo = models.CategoriaGrupo(empresa_id=empresa.id)
         _aplicar(novo, cg, excluir={"empresa"})
+        if novo.grupo and (not novo.atualizado_por or novo.atualizado_por.startswith("sync")):
+            novo.atualizado_por = "backup restaurado"
         db.add(novo)
         c.criado("categorias_grupo")
 
