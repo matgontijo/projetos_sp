@@ -428,6 +428,8 @@ export default function Dashboard() {
             </div>
           )}
 
+          <ComparativoAnual empresaIds={empresaIds} />
+
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="card">
               <div className="card-head">
@@ -483,6 +485,109 @@ export default function Dashboard() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/** Ano a ano: "estamos melhores que ano passado?" — mês contra o MESMO mês.
+    Período fixo (ano passado + este ano), independente do filtro de datas:
+    comparar ano exige as duas pontas inteiras. Respeita o filtro de empresas. */
+function ComparativoAnual({ empresaIds }: { empresaIds?: string }) {
+  const anoAtual = new Date().getFullYear()
+  const de = `${anoAtual - 1}-01-01`
+  const ate = new Date().toISOString().slice(0, 10)
+  const { data: serie } = useQuery({
+    queryKey: ['fechamento-mensal', empresaIds, de, ate],
+    queryFn: () => api.fechamentoMensal(empresaIds, de, ate),
+  })
+  if (!serie) return null
+
+  const porAnoMes = new Map(serie.map((m) => [m.mes, m]))
+  const mesLimite = new Date().getMonth() + 1 // só até o mês corrente, nos dois anos
+  const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  const linhas = Array.from({ length: mesLimite }, (_, i) => {
+    const m = String(i + 1).padStart(2, '0')
+    const passado = porAnoMes.get(`${anoAtual - 1}-${m}`)
+    const atual = porAnoMes.get(`${anoAtual}-${m}`)
+    return {
+      mes: nomes[i],
+      passado: passado?.receita ?? 0,
+      atual: atual?.receita ?? 0,
+      resPassado: passado?.resultado ?? 0,
+      resAtual: atual?.resultado ?? 0,
+    }
+  })
+  if (!linhas.some((l) => l.passado > 0 || l.atual > 0)) return null
+
+  const totPassado = linhas.reduce((s, l) => s + l.passado, 0)
+  const totAtual = linhas.reduce((s, l) => s + l.atual, 0)
+  const totResPassado = linhas.reduce((s, l) => s + l.resPassado, 0)
+  const totResAtual = linhas.reduce((s, l) => s + l.resAtual, 0)
+  const varReceita = totPassado > 0 ? (totAtual - totPassado) / totPassado : null
+  const max = Math.max(...linhas.flatMap((l) => [l.passado, l.atual]), 1)
+
+  return (
+    <div className="card mt-4">
+      <div className="card-head">
+        <div>
+          <div className="titulo">
+            {anoAtual} contra {anoAtual - 1}
+          </div>
+          <div className="sub">
+            Receita de cada mês contra o MESMO mês do ano passado (até {nomes[mesLimite - 1]}).
+          </div>
+        </div>
+        {varReceita !== null && (
+          <span
+            className="rounded-full px-2.5 py-1 text-xs font-black"
+            style={{
+              background:
+                varReceita >= 0
+                  ? 'color-mix(in srgb, var(--status-good) 15%, transparent)'
+                  : 'color-mix(in srgb, var(--status-critical) 15%, transparent)',
+              color: varReceita >= 0 ? 'var(--status-good-text)' : 'var(--neg)',
+            }}
+            title={`Receita acumulada: ${fmtBRL(totAtual)} em ${anoAtual} × ${fmtBRL(totPassado)} em ${anoAtual - 1}`}
+          >
+            {varReceita >= 0 ? '+' : ''}
+            {(varReceita * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% em receita
+          </span>
+        )}
+      </div>
+      <div className="card-corpo">
+        <div className="overflow-x-auto pb-1">
+          <div className="flex items-end gap-3" style={{ minWidth: linhas.length * 52 }}>
+            {linhas.map((l) => (
+              <div key={l.mes} className="flex w-12 shrink-0 flex-col items-center gap-1">
+                <div className="flex h-28 items-end gap-1">
+                  <div
+                    className="w-4 rounded-t"
+                    style={{ height: Math.max((l.passado / max) * 112, l.passado > 0 ? 3 : 0), background: 'var(--baseline)' }}
+                    title={`${l.mes}/${anoAtual - 1}: ${fmtBRL(l.passado)} (resultado ${fmtBRL(l.resPassado)})`}
+                  />
+                  <div
+                    className="anima-cresce-y w-4 rounded-t"
+                    style={{ height: Math.max((l.atual / max) * 112, l.atual > 0 ? 3 : 0), background: 'var(--accent)' }}
+                    title={`${l.mes}/${anoAtual}: ${fmtBRL(l.atual)} (resultado ${fmtBRL(l.resAtual)})`}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>{l.mes}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--baseline)' }} /> {anoAtual - 1}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: 'var(--accent)' }} /> {anoAtual}
+          </span>
+          <span>
+            Resultado acumulado: {fmtBRL(totResAtual)} × {fmtBRL(totResPassado)} no ano passado
+          </span>
+        </div>
+      </div>
     </div>
   )
 }

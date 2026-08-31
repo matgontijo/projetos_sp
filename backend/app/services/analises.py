@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from .calculo import (
+    SEM_PROJETO_NOME,
     _Contexto,
     _cancelado,
     _f,
@@ -205,6 +206,113 @@ def fluxo_mensal(
         for campo in ("entradas", "saidas", "aberto_entradas", "aberto_saidas"):
             m[campo] = round(m[campo], 2)
     return {"meses": serie, "projetos": sorted(nomes)}
+
+
+# ---------- Lançamentos sem projeto ----------
+
+
+def sem_projeto(db: Session, empresa_ids: list[int], de: date | None, ate: date | None) -> dict:
+    """O dinheiro que o fechamento NÃO enxerga: títulos e notas lançados na Omie
+    sem projeto. É vazamento silencioso — o número do app parece completo e não
+    é. Esta visão lista o que precisa ser classificado na Omie (e re-buscado)."""
+    ctx = _Contexto(db, empresa_ids, de, ate)
+    nomes_empresa = {
+        e.id: e.nome for e in db.scalars(select(models.Empresa).where(models.Empresa.id.in_(empresa_ids))).all()
+    }
+    itens: list[dict] = []
+    totais = {"receber": 0.0, "pagar": 0.0, "nfe": 0.0}
+
+    for t in ctx.titulos:
+        if _cancelado(t.status_titulo) or ctx.ajustes.excluido("titulo", t.id):
+            continue
+        if ctx.projeto_do_titulo(t) != SEM_PROJETO_NOME:
+            continue
+        valor = _f(t.valor_documento)
+        totais[t.tipo] += valor
+        itens.append({
+            "origem": "titulo",
+            "tipo": t.tipo,
+            "empresa": nomes_empresa.get(t.empresa_id, ""),
+            "data": t.data_emissao.isoformat() if t.data_emissao else None,
+            "valor": round(valor, 2),
+            "categoria": t.codigo_categoria,
+            "documento": t.numero_documento or t.numero_documento_fiscal,
+            # o que a pessoa precisa para achar o lançamento na Omie
+            "codigo_omie": t.codigo_lancamento_omie,
+        })
+
+    for n in ctx.nfes:
+        if n.cancelada or ctx.projeto_da_nfe(n) != SEM_PROJETO_NOME:
+            continue
+        valor = _f(n.v_nf)
+        totais["nfe"] += valor
+        itens.append({
+            "origem": "nfe",
+            "tipo": "nfe",
+            "empresa": nomes_empresa.get(n.empresa_id, ""),
+            "data": n.d_emi.isoformat() if n.d_emi else None,
+            "valor": round(valor, 2),
+            "categoria": "",
+            "documento": f"NF {n.n_nf}",
+            "codigo_omie": n.id_nf,
+        })
+
+    itens.sort(key=lambda i: i["valor"], reverse=True)
+    return {
+        "itens": itens[:200],
+        "qtd": len(itens),
+        "totais": {k: round(v, 2) for k, v in totais.items()},
+    }
+
+
+# ---------- Comissões sobre o recebido ----------
+
+_STATUS_RECEBIDO = {"RECEBIDO", "LIQUIDADO"}
+
+
+def comissoes(db: Session, empresa_ids: list[int], de: date | None, ate: date | None) -> dict:
+    """Base de comissão por vendedor: títulos a receber QUITADOS (dinheiro que
+    entrou), emitidos no período, de projetos de venda. O % vem do cadastro do
+    vendedor e a comissão é % × recebido — a regra mais comum e auditável."""
+    nomes = {
+        (v.empresa_id, v.codigo_omie): v
+        for v in db.scalars(select(models.Vendedor).where(models.Vendedor.empresa_id.in_(empresa_ids))).all()
+    }
+    ctx = _Contexto(db, empresa_ids, de, ate)
+    por_vendedor: dict[str, dict] = {}
+    sem_vendedor = 0.0
+
+    for t in ctx.titulos:
+        if t.tipo != "receber" or _cancelado(t.status_titulo) or ctx.ajustes.excluido("titulo", t.id):
+            continue
+        if (t.status_titulo or "").strip().upper() not in _STATUS_RECEBIDO:
+            continue
+        if not e_projeto_de_venda(ctx.projeto_do_titulo(t)):
+            continue
+        valor = _f(t.valor_documento)
+        if not t.codigo_vendedor:
+            sem_vendedor += valor
+            continue
+        vend = nomes.get((t.empresa_id, t.codigo_vendedor))
+        nome = (vend.nome if vend else "") or f"Vendedor {t.codigo_vendedor}"
+        pct = _f(vend.comissao_pct) if vend else 0.0
+        v = por_vendedor.setdefault(nome, {"vendedor": nome, "recebido": 0.0, "pct": pct})
+        v["recebido"] += valor
+        v["pct"] = max(v["pct"], pct)  # mesmo nome em 2 empresas: vale o % cadastrado
+
+    linhas = []
+    for v in sorted(por_vendedor.values(), key=lambda x: x["recebido"], reverse=True):
+        linhas.append({
+            "vendedor": v["vendedor"],
+            "recebido": round(v["recebido"], 2),
+            "pct": round(v["pct"], 3),
+            "comissao": round(v["recebido"] * v["pct"] / 100.0, 2),
+        })
+    return {
+        "vendedores": linhas,
+        "recebido_sem_vendedor": round(sem_vendedor, 2),
+        "total_comissao": round(sum(l["comissao"] for l in linhas), 2),
+    }
 
 
 # ---------- Central de alertas ----------

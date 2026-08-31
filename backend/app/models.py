@@ -250,6 +250,8 @@ class Vendedor(Base):
     empresa_id: Mapped[int] = mapped_column(ForeignKey("empresa.id", ondelete="CASCADE"))
     codigo_omie: Mapped[int] = mapped_column(BigInteger)
     nome: Mapped[str] = mapped_column(String(120), default="")
+    # % de comissao sobre o RECEBIDO (0 = sem comissao); vem da tela Analises
+    comissao_pct: Mapped[float] = mapped_column(Numeric(6, 3), default=0)
 
 
 class Configuracao(Base):

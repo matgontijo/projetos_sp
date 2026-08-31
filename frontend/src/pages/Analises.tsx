@@ -1,15 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
 import { BarraValor, GraficoFluxo, Skeleton, ValorContado } from '../components/Viz'
-import { fmtBRL, fmtPct } from '../lib/format'
+import { fmtBRL, fmtData, fmtPct } from '../lib/format'
 
 export default function Analises() {
   const { empresaIds, de, ate, params } = useFiltros()
-  const [aba, setAba] = useState<'clientes' | 'vendedores' | 'caixa'>('clientes')
+  const [aba, setAba] = useState<'clientes' | 'vendedores' | 'comissoes' | 'caixa' | 'orfaos'>('clientes')
 
   return (
     <div>
@@ -23,7 +23,9 @@ export default function Analises() {
           [
             ['clientes', 'Clientes (curva ABC)'],
             ['vendedores', 'Vendedores'],
+            ['comissoes', 'Comissões'],
             ['caixa', 'Caixa'],
+            ['orfaos', 'Sem projeto'],
           ] as const
         ).map(([id, rotulo]) => (
           <button key={id} className={`tab ${aba === id ? 'tab-ativa' : ''}`} onClick={() => setAba(id)}>
@@ -33,7 +35,9 @@ export default function Analises() {
       </div>
       {aba === 'clientes' && <Clientes empresaIds={empresaIds} de={de} ate={ate} params={params.toString()} />}
       {aba === 'vendedores' && <Vendedores empresaIds={empresaIds} de={de} ate={ate} />}
+      {aba === 'comissoes' && <ComissoesTab empresaIds={empresaIds} de={de} ate={ate} />}
       {aba === 'caixa' && <CaixaTab empresaIds={empresaIds} de={de} ate={ate} params={params.toString()} />}
+      {aba === 'orfaos' && <OrfaosTab empresaIds={empresaIds} de={de} ate={ate} />}
     </div>
   )
 }
@@ -292,6 +296,187 @@ function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+/** Comissões: % sobre o que efetivamente ENTROU (títulos recebidos), por vendedor. */
+function ComissoesTab({ empresaIds, de, ate }: { empresaIds?: string; de?: string; ate?: string }) {
+  const queryClient = useQueryClient()
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['analise-comissoes', empresaIds, de, ate],
+    queryFn: () => api.comissoes(empresaIds, de, ate),
+  })
+  const [editando, setEditando] = useState<string | null>(null)
+  const [pct, setPct] = useState('')
+  const salvar = useMutation({
+    mutationFn: ({ vendedor, valor }: { vendedor: string; valor: number }) => api.definirComissao(vendedor, valor),
+    onSuccess: () => {
+      setEditando(null)
+      queryClient.invalidateQueries({ queryKey: ['analise-comissoes'] })
+    },
+  })
+  if (error) return <ErroCarga erro={error} />
+  if (isLoading || !data) return <Skeleton altura={220} />
+  return (
+    <div>
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="card px-4 py-3">
+          <div className="titulo-secao">Comissão a pagar no período</div>
+          <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <ValorContado valor={data.total_comissao} formato={fmtBRL} />
+          </div>
+        </div>
+        <div className="card px-4 py-3">
+          <div className="titulo-secao">Recebido sem vendedor</div>
+          <div className="mt-1 text-xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <ValorContado valor={data.recebido_sem_vendedor} formato={fmtBRL} />
+          </div>
+        </div>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="data tabela-rica">
+          <thead>
+            <tr>
+              <th>Vendedor</th>
+              <th className="num">Recebido no período</th>
+              <th className="num">% comissão</th>
+              <th className="num">Comissão</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.vendedores.map((v) => (
+              <tr key={v.vendedor}>
+                <td className="font-semibold">{v.vendedor}</td>
+                <td className="num">{fmtBRL(v.recebido)}</td>
+                <td className="num">
+                  {editando === v.vendedor ? (
+                    <span className="inline-flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        step="0.1"
+                        className="input w-20 py-1 text-right"
+                        value={pct}
+                        autoFocus
+                        onChange={(e) => setPct(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') salvar.mutate({ vendedor: v.vendedor, valor: Number(pct) })
+                          if (e.key === 'Escape') setEditando(null)
+                        }}
+                      />
+                      <button
+                        className="btn btn-primary px-2 py-1 text-xs"
+                        disabled={salvar.isPending}
+                        onClick={() => salvar.mutate({ vendedor: v.vendedor, valor: Number(pct) })}
+                      >
+                        ok
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      className="cursor-pointer underline decoration-dotted underline-offset-4"
+                      title="Clique para definir o % de comissão"
+                      onClick={() => {
+                        setEditando(v.vendedor)
+                        setPct(String(v.pct))
+                      }}
+                    >
+                      {v.pct.toLocaleString('pt-BR')}%
+                    </button>
+                  )}
+                </td>
+                <td className="num font-bold">{fmtBRL(v.comissao)}</td>
+              </tr>
+            ))}
+            {data.vendedores.length === 0 && (
+              <tr>
+                <td colSpan={4} style={{ color: 'var(--text-muted)' }}>
+                  Nenhum título recebido com vendedor no período.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="help mt-2">
+        Base: títulos a receber com status RECEBIDO/LIQUIDADO, emitidos no período filtrado, de projetos de venda.
+        O % fica no cadastro do vendedor — clique no número para definir.
+      </p>
+      {salvar.error && (
+        <p className="mt-1 text-sm" style={{ color: 'var(--neg)' }}>{(salvar.error as Error).message}</p>
+      )}
+    </div>
+  )
+}
+
+/** Sem projeto: o dinheiro que o fechamento NÃO enxerga — para classificar na Omie. */
+function OrfaosTab({ empresaIds, de, ate }: { empresaIds?: string; de?: string; ate?: string }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['analise-orfaos', empresaIds, de, ate],
+    queryFn: () => api.semProjeto(empresaIds, de, ate),
+  })
+  if (error) return <ErroCarga erro={error} />
+  if (isLoading || !data) return <Skeleton altura={220} />
+  const t = data.totais
+  const ROTULO: Record<string, string> = { receber: 'A receber', pagar: 'A pagar', nfe: 'NF-e' }
+  return (
+    <div>
+      <div className="mb-4 grid grid-cols-3 gap-3">
+        {(['receber', 'pagar', 'nfe'] as const).map((k) => (
+          <div key={k} className="card px-4 py-3">
+            <div className="titulo-secao">{ROTULO[k]} sem projeto</div>
+            <div
+              className="mt-1 text-xl font-extrabold"
+              style={{ color: t[k] > 0 ? 'var(--neg)' : 'var(--status-good-text)', fontVariantNumeric: 'tabular-nums' }}
+            >
+              <ValorContado valor={t[k]} formato={fmtBRL} />
+            </div>
+          </div>
+        ))}
+      </div>
+      {data.qtd === 0 ? (
+        <div className="card px-5 py-8 text-center">
+          <p className="text-sm font-semibold" style={{ color: 'var(--status-good-text)' }}>
+            Tudo classificado — nenhum lançamento sem projeto no período.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="card overflow-x-auto">
+            <table className="data tabela-rica">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Empresa</th>
+                  <th>Data</th>
+                  <th>Documento</th>
+                  <th>Categoria</th>
+                  <th className="num">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.itens.map((i) => (
+                  <tr key={`${i.origem}-${i.codigo_omie}`}>
+                    <td>{ROTULO[i.tipo] || i.tipo}</td>
+                    <td>{i.empresa}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{i.data ? fmtData(i.data) : '—'}</td>
+                    <td>{i.documento || `#${i.codigo_omie}`}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{i.categoria || '—'}</td>
+                    <td className="num font-bold">{fmtBRL(i.valor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="help mt-2">
+            {data.qtd > data.itens.length ? `Mostrando os ${data.itens.length} maiores de ${data.qtd}. ` : ''}
+            Esses valores NÃO entram em nenhum fechamento. O caminho: abrir o lançamento na Omie, preencher o
+            projeto, e rodar Buscar dados de novo — ele passa a contar na hora.
+          </p>
+        </>
+      )}
     </div>
   )
 }
