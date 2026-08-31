@@ -963,6 +963,7 @@ tr.linha-clicavel:hover td {
   color: var(--text-muted);
   border-bottom: 2px solid transparent;
   cursor: pointer;
+  white-space: nowrap; /* o rótulo nunca quebra DENTRO do botão (celular) */
   transition: color 0.12s;
 }
 .tab:hover {
@@ -1177,12 +1178,19 @@ tr.linha-clicavel:hover td {
   animation: sobe-assenta 0.18s ease-out;
 }
 @media (max-width: 767px) {
-  /* no celular o gatilho está na barra do topo: o painel abre de cima */
+  /* No celular vira FOLHA DE BAIXO colada nas bordas — largura fixa em px
+     nao sofre quando o iOS estica o viewport por causa de conteudo largo. */
   .chat-painel {
-    top: 4rem;
-    bottom: auto;
-    right: 0.75rem;
-    height: min(70vh, 30rem);
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: min(78dvh, 34rem);
+    border-radius: 18px 18px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
   }
 }
 .chat-msgs {
@@ -1493,5 +1501,17 @@ input[type='date'] {
   /* chips de filtro mais juntos: a barra inteira cabe em menos linhas */
   .chip-preset {
     padding: 0.3rem 0.65rem;
+  }
+}
+
+/* ---------- blindagem contra estouro horizontal no celular ---------- */
+/* Basta UM elemento mais largo que a tela para o iOS esticar o viewport e
+   cortar tudo que e fixo (chat, topo). O estouro morre aqui; o que for largo
+   de verdade (tabela) rola DENTRO do proprio cartao, nunca a pagina. */
+@media (max-width: 767px) {
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100%;
   }
 }
