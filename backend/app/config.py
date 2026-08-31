@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     app_encryption_key: str = ""
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     omie_base_url: str = "https://app.omie.com.br/api/v1"
+    # Marca exibida no app e nos PDFs (duas linhas do logotipo). Para instalar o
+    # sistema em outro cliente basta trocar estas variaveis — nada de codigo.
+    marca_linha1: str = "GRUPO"
+    marca_linha2: str = "JPDV"
     # Intervalo minimo entre chamadas a Omie por empresa (segundos)
     omie_min_interval: float = 0.35
 

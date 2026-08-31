@@ -1,14 +1,28 @@
-import type { ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, type ReactNode } from 'react'
+import { api } from '../api/client'
 
-/** O logotipo GRUPO JPDV. `tamanho` é a altura do "JPDV" em px; o resto acompanha. */
+/** A marca vem do servidor (MARCA_LINHA1/2 no ambiente) — o mesmo código serve
+    a outros clientes. Enquanto carrega (ou offline), usa o padrão Grupo JPDV. */
+export function useMarca() {
+  const { data } = useQuery({ queryKey: ['marca'], queryFn: api.marca, staleTime: Infinity, retry: 1 })
+  const marca = data ?? { linha1: 'GRUPO', linha2: 'JPDV', nome: 'Grupo JPDV' }
+  useEffect(() => {
+    if (data) document.title = `${data.nome} — Fechamento de Projetos`
+  }, [data])
+  return marca
+}
+
+/** O logotipo em duas linhas. `tamanho` é a altura da linha de baixo em px. */
 export function Logotipo({ tamanho = 26 }: { tamanho?: number }) {
+  const m = useMarca()
   return (
-    <span className="marca" style={{ fontSize: tamanho }} role="img" aria-label="Grupo JPDV">
+    <span className="marca" style={{ fontSize: tamanho }} role="img" aria-label={m.nome}>
       <span className="grupo" aria-hidden>
-        Grupo
+        {m.linha1}
       </span>
       <span className="jpdv" aria-hidden>
-        JPDV
+        {m.linha2}
       </span>
     </span>
   )

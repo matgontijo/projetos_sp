@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { FiltrosBar, useFiltros } from '../components/Filtros'
 import { PageHeader } from '../components/Layout'
-import { BarraValor, Skeleton, ValorContado } from '../components/Viz'
+import { BarraValor, GraficoFluxo, Skeleton, ValorContado } from '../components/Viz'
 import { fmtBRL, fmtPct } from '../lib/format'
 
 export default function Analises() {
@@ -183,6 +183,38 @@ function Vendedores({ empresaIds, de, ate }: { empresaIds?: string; de?: string;
   )
 }
 
+function FluxoCard({ empresaIds, de, ate }: { empresaIds?: string; de?: string; ate?: string }) {
+  const [projeto, setProjeto] = useState('')
+  const { data, isLoading } = useQuery({
+    queryKey: ['analise-fluxo', empresaIds, de, ate, projeto],
+    queryFn: () => api.fluxo(empresaIds, de, ate, projeto || undefined),
+  })
+  return (
+    <div className="card mb-4 px-5 py-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span className="titulo-secao">Fluxo de caixa por vencimento</span>
+          <p className="help mt-0.5">
+            Quando o dinheiro dos projetos entra e sai de verdade — inclusive os meses ainda por vir.
+          </p>
+        </div>
+        <select
+          className="input w-52 py-1.5 text-sm"
+          aria-label="Filtrar fluxo por projeto"
+          value={projeto}
+          onChange={(e) => setProjeto(e.target.value)}
+        >
+          <option value="">Todos os projetos</option>
+          {(data?.projetos || []).map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+      </div>
+      {isLoading ? <Skeleton altura={200} /> : <GraficoFluxo serie={data?.meses || []} />}
+    </div>
+  )
+}
+
 function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: string; ate?: string; params: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['analise-caixa', empresaIds, de, ate],
@@ -192,6 +224,7 @@ function CaixaTab({ empresaIds, de, ate, params }: { empresaIds?: string; de?: s
   const t = data?.totais
   return (
     <div>
+      <FluxoCard empresaIds={empresaIds} de={de} ate={ate} />
       {t && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="card px-4 py-3">

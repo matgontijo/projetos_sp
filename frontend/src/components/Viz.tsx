@@ -805,3 +805,100 @@ export function BadgeLucro({ resultado }: { resultado: number }) {
     </span>
   )
 }
+
+/** Fluxo de caixa por mês de VENCIMENTO: barras de entrada (cima) e saída
+    (baixo), com o saldo acumulado corrente no rótulo do hover. A parte ainda em
+    aberto de cada barra vem hachurada em opacidade — o que falta acontecer. */
+export function GraficoFluxo({ serie }: { serie: import('../api/client').FluxoMes[] }) {
+  const [hover, setHover] = useState<number | null>(null)
+  if (!serie.length) {
+    return (
+      <p className="py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+        Nenhum título com vencimento no período.
+      </p>
+    )
+  }
+  const maxAbs = Math.max(...serie.map((m) => Math.max(m.entradas, m.saidas)), 1)
+  const ALTURA = 108 // px de cada metade (entrada acima do eixo, saída abaixo)
+  const mesCurto = (mes: string) => {
+    const [ano, m] = mes.split('-')
+    const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+    return `${nomes[Number(m) - 1]}/${ano.slice(2)}`
+  }
+  return (
+    <div className="overflow-x-auto pb-1">
+      <div className="flex items-stretch gap-3" style={{ minWidth: serie.length * 56 }}>
+        {serie.map((m, i) => {
+          const hEntrada = (m.entradas / maxAbs) * ALTURA
+          const hSaida = (m.saidas / maxAbs) * ALTURA
+          const fracAbertoE = m.entradas > 0 ? m.aberto_entradas / m.entradas : 0
+          const fracAbertoS = m.saidas > 0 ? m.aberto_saidas / m.saidas : 0
+          return (
+            <div
+              key={m.mes}
+              className="relative flex w-14 shrink-0 cursor-default flex-col items-center"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            >
+              {hover === i && (
+                <div
+                  className="absolute bottom-full z-10 mb-1 w-52 rounded-lg border p-2.5 text-xs shadow-lg"
+                  style={{ background: 'var(--card)', borderColor: 'var(--baseline)' }}
+                >
+                  <div className="mb-1 font-bold">{mesCurto(m.mes)}</div>
+                  {[
+                    ['Entradas', fmtBRL(m.entradas), 'var(--status-good-text)'],
+                    ['· ainda em aberto', fmtBRL(m.aberto_entradas), 'var(--text-muted)'],
+                    ['Saídas', fmtBRL(m.saidas), 'var(--neg)'],
+                    ['· ainda em aberto', fmtBRL(m.aberto_saidas), 'var(--text-muted)'],
+                    ['Saldo do mês', fmtBRL(m.saldo), m.saldo >= 0 ? 'var(--status-good-text)' : 'var(--neg)'],
+                    ['Acumulado', fmtBRL(m.acumulado), m.acumulado >= 0 ? 'var(--status-good-text)' : 'var(--neg)'],
+                  ].map(([rotulo, valor, cor]) => (
+                    <div key={rotulo as string} className="flex justify-between gap-2">
+                      <span style={{ color: 'var(--text-muted)' }}>{rotulo}</span>
+                      <span className="num font-semibold" style={{ color: cor as string }}>{valor}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* metade de cima: entradas */}
+              <div className="flex w-full items-end justify-center" style={{ height: ALTURA }}>
+                <div
+                  className="anima-cresce-y w-7 rounded-t"
+                  style={{
+                    height: Math.max(hEntrada, m.entradas > 0 ? 3 : 0),
+                    background: `linear-gradient(to top, var(--status-good) ${(1 - fracAbertoE) * 100}%, color-mix(in srgb, var(--status-good) 35%, transparent) ${(1 - fracAbertoE) * 100}%)`,
+                  }}
+                />
+              </div>
+              <div className="my-0 h-px w-full" style={{ background: 'var(--baseline)' }} />
+              {/* metade de baixo: saídas */}
+              <div className="flex w-full items-start justify-center" style={{ height: ALTURA * 0.72 }}>
+                <div
+                  className="w-7 rounded-b"
+                  style={{
+                    height: Math.max(hSaida * 0.72, m.saidas > 0 ? 3 : 0),
+                    background: `linear-gradient(to bottom, var(--neg) ${(1 - fracAbertoS) * 100}%, color-mix(in srgb, var(--neg) 35%, transparent) ${(1 - fracAbertoS) * 100}%)`,
+                  }}
+                />
+              </div>
+              <span className="mt-1 text-[10px] font-semibold" style={{ color: hover === i ? 'var(--text)' : 'var(--text-muted)' }}>
+                {mesCurto(m.mes)}
+              </span>
+              <span
+                className="num text-[10px] font-bold"
+                style={{ color: m.acumulado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}
+                title="Saldo acumulado até este mês"
+              >
+                {fmtBRLCurto(m.acumulado)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <p className="help mt-2">
+        Barras cheias = já liquidado; parte translúcida = ainda em aberto. Número embaixo = saldo acumulado.
+      </p>
+    </div>
+  )
+}

@@ -478,12 +478,14 @@ function Preferencias() {
   const queryClient = useQueryClient()
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.lerConfig })
   const [margem, setMargem] = useState<string | null>(null)
+  const [emails, setEmails] = useState<string | null>(null)
 
   const salvar = useMutation({
-    mutationFn: (dados: Partial<{ margem_alvo: number; sync_auto: boolean; sync_hora: number }>) =>
+    mutationFn: (dados: Partial<{ margem_alvo: number; sync_auto: boolean; sync_hora: number; relatorio_auto: boolean; relatorio_dia: number; relatorio_emails: string }>) =>
       api.salvarConfig(dados),
     onSuccess: () => {
       setMargem(null)
+      setEmails(null)
       queryClient.invalidateQueries({ queryKey: ['config'] })
       queryClient.invalidateQueries({ queryKey: ['alertas'] })
     },
@@ -542,6 +544,53 @@ function Preferencias() {
         </div>
         <p className="help mt-1">
           No plano gratuito do Render a busca só roda se o servidor estiver acordado; no plano pago roda sempre.
+        </p>
+      </div>
+      <div>
+        <span className="titulo-secao">Relatório mensal por e-mail</span>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={config.relatorio_auto}
+              onChange={(e) => salvar.mutate({ relatorio_auto: e.target.checked })}
+            />
+            Enviar o fechamento do mês anterior em PDF
+          </label>
+          {config.relatorio_auto && (
+            <>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>todo dia</span>
+              <select
+                className="input w-16 py-1"
+                value={config.relatorio_dia}
+                onChange={(e) => salvar.mutate({ relatorio_dia: Number(e.target.value) })}
+              >
+                {Array.from({ length: 28 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>{i + 1}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
+        {config.relatorio_auto && (
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              className="input w-80 text-sm"
+              placeholder="destinatarios@empresa.com, separados por vírgula"
+              value={emails ?? config.relatorio_emails}
+              onChange={(e) => setEmails(e.target.value)}
+            />
+            {emails !== null && emails !== config.relatorio_emails && (
+              <button className="btn btn-primary text-xs" disabled={salvar.isPending} onClick={() => salvar.mutate({ relatorio_emails: emails })}>
+                Salvar
+              </button>
+            )}
+          </div>
+        )}
+        <p className="help mt-1">
+          {config.email_configurado
+            ? 'Sai automaticamente com a marca da empresa — direto para a diretoria.'
+            : 'Atenção: o servidor está sem e-mail configurado (SMTP) — o relatório não tem como sair até configurar.'}
         </p>
       </div>
     </div>

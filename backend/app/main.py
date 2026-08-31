@@ -54,6 +54,7 @@ def _startup() -> None:
 
 # abertas: login/setup (a gestao de usuarios ja exige admin internamente)
 app.include_router(autenticacao.router)
+app.include_router(config_router.router_marca)  # so o nome da marca, p/ a tela de login
 app.include_router(autenticacao.router_usuarios)
 
 # custeio: exige sessao e BLOQUEIA o papel 'comercial' (guarda_custeio)
