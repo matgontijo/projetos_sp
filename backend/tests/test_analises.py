@@ -125,3 +125,17 @@ def test_simulador_com_comissao(db, empresa):
     assert com_preco["comissao"] == pytest.approx(100.0)
     assert com_preco["resultado"] == pytest.approx(700.0)
     assert com_preco["margem"] == pytest.approx(0.35)
+
+
+def test_alerta_despesa_sem_receita(db, empresa):
+    from .conftest import criar_projeto, criar_titulo, mapear_categoria
+
+    criar_projeto(db, empresa, 10, "BR26_900")
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    criar_titulo(db, empresa, "pagar", 1, 5000.0, projeto=10, categoria="2.01.01")
+
+    alertas = analises.gerar_alertas(db, [empresa.id], None, None, margem_alvo=0.2)
+    linha = next(a for a in alertas if "despesa sem nenhuma receita" in a["titulo"])
+    assert linha["gravidade"] == "critica"
+    assert "BR26_900" in linha["titulo"]
+    assert "5.000,00" in linha["detalhe"]

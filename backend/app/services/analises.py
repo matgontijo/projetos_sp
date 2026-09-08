@@ -350,6 +350,29 @@ def gerar_alertas(
              "detalhe": "Ordene a lista de projetos por resultado para ver todos.", "projeto": None}
         )
 
+    # pedido da cliente: despesa correndo num projeto que ainda nao faturou nada.
+    # Ou a receita esta por vir (atencao), ou foi lancada sem projeto/errada (pior).
+    def _custo(p: dict) -> float:
+        return p["producao"] + p["frete"] + p["comissao"] + p["outros"] + p["nao_classificado"]
+
+    sem_receita = [p for p in projetos if p["receita"] == 0 and _custo(p) > 0]
+    sem_receita.sort(key=_custo, reverse=True)
+    for p in sem_receita[:5]:
+        custo_total = _custo(p)
+        alertas.append(
+            {
+                "gravidade": "critica",
+                "titulo": f"{p['projeto']} tem despesa sem nenhuma receita",
+                "detalhe": f"{_brl(custo_total)} de custo lançado e receita zero — confira se a venda foi faturada com o projeto certo.",
+                "projeto": p["projeto"],
+            }
+        )
+    if len(sem_receita) > 5:
+        alertas.append(
+            {"gravidade": "critica", "titulo": f"+{len(sem_receita) - 5} outros projetos com despesa e sem receita",
+             "detalhe": "Filtre a lista de projetos por receita zero para ver todos.", "projeto": None}
+        )
+
     abaixo = [p for p in projetos if p["receita"] > 0 and 0 <= p["margem"] < margem_alvo]
     if abaixo:
         alertas.append(
