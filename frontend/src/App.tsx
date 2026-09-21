@@ -226,6 +226,8 @@ export default function App() {
 
   if (!usuario) {
     return (
+      <>
+      <FaixaServidorAcordando />
       <Login
         aoEntrar={(token, u) => {
           guardarSessao(token, u)
@@ -233,6 +235,7 @@ export default function App() {
           setUsuario(u)
         }}
       />
+      </>
     )
   }
 
@@ -361,6 +364,7 @@ export default function App() {
       <TituloDaAba />
       <Paleta telas={telasDaPaleta} buscaProjetos={!ehComercial} />
       {!ehComercial && <Sino />}
+      <FaixaServidorAcordando />
       <SuporteChat />
       {trocandoSenha && <ModalTrocarSenha aoFechar={() => setTrocandoSenha(false)} />}
       {/* Sidebar (desktop) — escura nos dois temas */}
@@ -548,6 +552,33 @@ function ModalTrocarSenha({ aoFechar }: { aoFechar: () => void }) {
           </form>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Faixa global do plano free: qualquer chamada passando de 4s liga o aviso
+    de que o servidor está acordando — em QUALQUER tela, não só no login. */
+function FaixaServidorAcordando() {
+  const [visivel, setVisivel] = useState(false)
+  useEffect(() => {
+    const liga = () => setVisivel(true)
+    const desliga = () => setVisivel(false)
+    window.addEventListener('servidor-acordando', liga)
+    window.addEventListener('servidor-ok', desliga)
+    return () => {
+      window.removeEventListener('servidor-acordando', liga)
+      window.removeEventListener('servidor-ok', desliga)
+    }
+  }, [])
+  if (!visivel) return null
+  return (
+    <div
+      className="anima-sobe fixed left-1/2 top-3 z-[70] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-lg"
+      style={{ background: 'var(--card)', borderColor: 'var(--baseline)', maxWidth: 'calc(100vw - 2rem)' }}
+      role="status"
+    >
+      <span className="pulsa inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: 'var(--status-warning)' }} aria-hidden />
+      <span>O servidor estava dormindo e está acordando — pode levar até 1 minuto. Já já carrega.</span>
     </div>
   )
 }

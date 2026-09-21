@@ -150,7 +150,7 @@ O repositório tem um **Blueprint** ([render.yaml](render.yaml)) que cria os 3 r
 2. **Confira as URLs**: o domínio `.onrender.com` é global — se os nomes já estiverem em uso, o Render sufixará as URLs; ajuste então o `destination` do rewrite `/api/*` e o `CORS_ORIGINS` no `render.yaml`.
 3. Cadastre as empresas com as credenciais Omie **pela tela** (ficam criptografadas no Postgres — nunca no repositório).
 
-**Planos:** o único plano pago **necessário** é o do banco — `basic-256mb` (~US$ 6/mês) — porque o Postgres free **expira em 30 dias** e apaga os dados. O web service pode ficar no plano free: a consequência é só a hibernação após 15 min sem uso (o 1º acesso do dia leva ~1 min, e o app avisa o usuário na tela de login). Upgrade **opcional** de conforto: `starter` na API (~US$ 7/mês) elimina a hibernação — o app abre na hora, sempre. Os `plan:` se trocam no `render.yaml`, que é quem manda na infraestrutura.
+**Planos:** o único plano pago **necessário** é o do banco — `basic-256mb` (~US$ 6/mês) — porque o Postgres free **expira em 30 dias** e apaga os dados. O web service pode ficar no plano free: a consequência é só a hibernação após 15 min sem uso (o 1º acesso do dia leva ~1 min — o app mostra o aviso "servidor acordando" em qualquer tela). Upgrade **opcional** de conforto: `starter` na API (~US$ 7/mês) elimina a hibernação — o app abre na hora, sempre. Os `plan:` se trocam no `render.yaml`, que é quem manda na infraestrutura.
 
 ## Limites da Omie respeitados
 

@@ -434,8 +434,36 @@ function cabecalhos(extra?: HeadersInit): HeadersInit {
   }
 }
 
+// ---- detector de servidor hibernado -------------------------------------
+// No plano free o servidor dorme apos 15 min e o 1o acesso do dia leva ate
+// ~1 min. Qualquer chamada que passe de 4s dispara 'servidor-acordando' (o
+// App mostra a faixa explicando); quando qualquer resposta chega, 'servidor-ok'.
+let _lentas = 0
+function _vigiarLentidao(): () => void {
+  const timer = setTimeout(() => {
+    _lentas += 1
+    if (_lentas === 1) window.dispatchEvent(new Event('servidor-acordando'))
+  }, 4000)
+  let contou = false
+  const cancelar = () => {
+    clearTimeout(timer)
+    if (!contou) {
+      contou = true
+      if (_lentas > 0) _lentas -= 1
+      if (_lentas === 0) window.dispatchEvent(new Event('servidor-ok'))
+    }
+  }
+  return cancelar
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(path, { ...init, headers: cabecalhos(init?.headers) })
+  const fimVigia = _vigiarLentidao()
+  let resp: Response
+  try {
+    resp = await fetch(path, { ...init, headers: cabecalhos(init?.headers) })
+  } finally {
+    fimVigia()
+  }
   if (resp.status === 401 && !path.startsWith('/api/auth/')) {
     limparSessao()
     window.dispatchEvent(new Event('sessao-expirada'))
