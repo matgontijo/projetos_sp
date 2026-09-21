@@ -1,43 +1,99 @@
 # Fechamento de Projetos — Integração Omie
 
-Aplicativo web de custeio: conecta nas contas Omie das suas empresas (multiempresa), busca **Contas a Receber**, **Contas a Pagar**, **Projetos**, **Clientes** e **NF-e emitidas**, agrupa tudo por número de projeto (ex.: `BR26_055`) e apura o resultado de cada um:
+Sistema web de custeio e fechamento por projeto. Conecta nas contas Omie das empresas do grupo (multiempresa), busca **Contas a Receber**, **Contas a Pagar**, **Projetos**, **Clientes**, **Vendedores**, **Pedidos de Compra** e **NF-e emitidas**, consolida tudo por número de projeto (ex.: `BR26_055`) e apura o resultado de cada um — sem ninguém digitar valor em planilha:
 
 ```
-Receita − Produção − Frete − Impostos (− Outros) = Resultado
+Receita − Produção − Frete − Comissão − Impostos − Outros = Resultado
 Margem % = Resultado ÷ Receita
 ```
 
-- **Mesmo projeto em várias empresas**: se o projeto é faturado por mais de um CNPJ (ex.: uma empresa no Lucro Presumido e outra no Simples), o app **consolida pela numeração do projeto** — uma linha só, somando as duas empresas, com o imposto certo de cada lado (NF-e no Presumido, alíquota do cadastro no Simples). O filtro de empresa mostra a parcela de cada uma.
-- **Impostos automáticos**: lidos dos tributos destacados nas NF-e (ICMS, ICMS-ST, FCP, IPI, PIS, COFINS — e IBS/CBS quando a Omie passar a retorná-los).
-- **Simples Nacional**: por empresa, dá para ligar o modo Simples — o imposto é a alíquota configurada no cadastro aplicada sobre a receita da empresa. Desligado por padrão.
-- **Tributos em Contas a Pagar** (gerados pela Omie): classificados como grupo "Imposto" — aparecem no detalhe mas **não somam no custo**, para não duplicar com a NF-e.
-- **Ajustes manuais auditáveis**: reclassificar um custo, corrigir um imposto, mover ou excluir um lançamento — sempre registrando quem, quando e por quê. O cache nunca é alterado.
-- **Dupla conferência (dois ok)**: cada projeto só fecha com **dois ok de pessoas diferentes** — o 1º ok (conferência) qualquer pessoa que escreva no custeio pode dar; o 2º ok (aprovação) é de quem estiver marcado como aprovador em **Empresas → Equipe**, e nunca de quem deu o 1º. Cada ok congela os números conferidos: se um ajuste mudar o resultado depois, o projeto passa a exibir "⚠ mudou depois do ok" sem perder os ok nem o histórico. Desfazer é privilégio de admin e não apaga nada.
-- **Exportação** do fechamento em CSV e Excel (pt-BR).
+A integração é **100% leitura**: o app só usa métodos `Listar*` da Omie — nunca grava, altera ou cancela nada lá (há teste automatizado garantindo isso: `tests/test_somente_leitura.py`). A Omie continua sendo a fonte da verdade; o app é a lente que organiza.
+
+---
+
+## Mapa das telas
+
+### 📊 Visão geral (Dashboard)
+O pulso do período: **resultado consolidado** com margem e sparkline, conferência do período (quantos projetos têm os dois ok), KPIs de receita/custos/impostos com comparação contra o período anterior, **central de alertas** ("Precisa de atenção"), gráfico de **evolução mensal** interativo (zoom e arrastar), comparativo **ano contra ano** (cada mês contra o mesmo mês do ano anterior), composição "para onde foi cada real" e ranking de margem dos maiores projetos. No celular mostra só o essencial — herói, três números, alertas e o ano a ano.
+
+### 📁 Projetos
+A lista completa do fechamento: uma linha por projeto com receita, custos, impostos, resultado, margem (semáforo pela meta configurada) e o status da conferência (`1/2`, `2/2`). Busca por projeto/cliente, filtros por situação da conferência, **ok em massa** (marque vários e aprove de uma vez) e exportação em **PDF** (A4 paisagem com a marca), **Excel** (formatado pt-BR, aba Resumo) e **CSV** — os três levam quem conferiu e quando.
+
+### 🔍 Detalhe do projeto
+O cálculo aberto na mesa: cabeçalho com resultado/margem/selo de lucro ou prejuízo, a fórmula linha a linha, **tributação por perfil de operação** (venda padrão paga a tabela cheia; fins de exportação sem PIS/COFINS/ICMS — escolhida por projeto), **resultado projetado × realizado** (digite o que a proposta prometia; o app compara e avisa quando render menos) e as abas: Recebimentos, Pagamentos, Notas fiscais, **Ajustes** (mover/reclassificar/excluir lançamento, sempre com motivo e autor) e Comentários. É aqui que se dão os dois ok da dupla conferência.
+
+### 📈 Análises (cinco abas)
+- **Clientes ABC** — curva ABC por receita, com resultado, margem e projetos no prejuízo por cliente.
+- **Vendedores** — ranking por receita vendida com o resultado atribuído.
+- **Comissões** — títulos efetivamente **recebidos** no período por vendedor; o % de comissão é editável na própria tabela (clique no número) e o app calcula o valor a pagar.
+- **Caixa** — a receber/a pagar em aberto e atrasado por projeto, mais o **fluxo de caixa por mês de vencimento**: barras de entrada e saída (parte translúcida = ainda em aberto) com saldo acumulado, inclusive meses futuros; filtrável por projeto.
+- **Sem projeto** — o dinheiro que o fechamento NÃO enxerga: títulos e NF-e lançados na Omie sem projeto, com totais e a lista dos maiores. É o guardião da qualidade dos números.
+
+### 🛒 Compras
+Pedidos de compra da Omie: comprometido nos próximos 30 dias (saída que ainda não virou conta a pagar), vencido, crédito de impostos (ICMS+PIS+COFINS) e a lista por situação.
+
+### 🧮 Simulador
+Antes de fechar um pedido: dado o custo estimado e a margem desejada, qual o preço mínimo — usando o **imposto real de cada empresa** (a % efetiva observada no Presumido; a alíquota do cadastro no Simples) e por qual empresa vale mais a pena faturar.
+
+### 💰 Precificação e Orçamentos (módulo comercial)
+Calculadora de orçamento com produtos, acabamentos, tabelas de preço e alíquotas por local — o preço sai com o imposto certo sem digitar alíquota. Cada orçamento vira um registro **imutável** (snapshot congelado do cálculo), com numeração automática, PDF de proposta com a marca, status rascunho→enviado→aprovado, resumo de faturamento e exportação. Orçamento aprovado pode ser **vinculado ao projeto Omie** que nasceu dele — a tabela **Previsto × Realizado** compara a margem prometida com a margem que o fechamento apurou (desvio em verde/vermelho): é o comercial prestando contas ao financeiro.
+
+### 🔄 Buscar dados
+Sincronização com a Omie: escolha empresas e período e o app pagina tudo (100 registros/página, com throttle, retry/backoff e tratamento do bloqueio HTTP 425), sem duplicar nada — pode rodar quantas vezes quiser. Tabela de progresso por recurso com status ao vivo. Há também a **busca automática diária** (ligada em Preferências).
+
+### 🏢 Empresas
+O centro de administração:
+- **Cadastro das empresas** com as chaves Omie (criptografadas em repouso; trocar a chave limpa automaticamente o cache da conta antiga) e a tributação de cada uma — regime, alíquota do Simples ou **tabela itemizada** do Presumido (PIS, COFINS, ICMS, CSLL, IRPJ…), fonte do imposto (nota fiscal ou alíquota) e **perfis de tributação por operação**.
+- **Classificar custos** — cada categoria do Contas a Pagar vira Produção, Frete, Comissão, Imposto ou Outros (nomes de tributo já vêm sugeridos).
+- **Equipe** — usuários, papéis e quem pode dar o 2º ok.
+- **Preferências** — meta de margem (semáforo), busca automática diária, **relatório mensal por e-mail** (o fechamento do mês anterior em PDF, no dia escolhido) e **backup automático mensal**.
+- **Backup do trabalho da equipe** — exporta/restaura em JSON tudo que uma sincronização não traz de volta: usuários, empresas, categorias classificadas, ajustes, aprovações, orçamentos, comentários. A restauração nunca sobrescreve trabalho humano — e sabe diferenciar classificação feita por gente de sugestão automática.
+
+### ❓ Como usar + 💬 Suporte
+Guia passo a passo para quem não conhece o sistema (imprimível) e **chat de suporte dentro do app**: o cliente escreve, quem atende recebe aviso por WhatsApp/e-mail, responde pelo próprio app — e o cliente recebe a resposta por e-mail, sem precisar ficar com o app aberto.
+
+### 📱 No celular
+O app é instalável como PWA (Android: "Instalar app"; iPhone: Compartilhar → Adicionar à Tela de Início) e as telas têm hierarquia própria em tela pequena — menos caixas, só o essencial, chat como folha de baixo.
+
+---
+
+## O que acontece sozinho (avisos e rotinas)
+
+| Rotina | Quando | Por onde |
+|---|---|---|
+| Busca automática dos dados da Omie | todo dia, na hora configurada | — |
+| **Sincronização que falha** avisa na hora (empresa, recurso, motivo) | sempre | WhatsApp + e-mail |
+| Mensagem nova no suporte | sempre | WhatsApp + e-mail (para quem atende) |
+| Resposta do suporte | sempre | e-mail (para o cliente) |
+| **Relatório mensal** — fechamento do mês anterior em PDF | dia configurado | e-mail (lista de destinatários) |
+| **Backup mensal** — JSON completo do trabalho da equipe | dia configurado | e-mail (somente para o suporte, por conter credenciais) |
+
+Central de alertas no Dashboard: projetos no prejuízo, abaixo da meta de margem, **despesa sem nenhuma receita** (custo lançado num projeto que não faturou — receita por vir ou lançamento errado), rendendo menos que o projetado, e caixa atrasado.
+
+---
+
+## Papéis e segurança
+
+- **Login obrigatório** (senha com scrypt, sessões revogáveis no banco, freio de força bruta). No primeiro acesso o app pede a criação da conta da administradora. Cada pessoa troca a própria senha clicando no próprio nome.
+- Papéis: `admin` (tudo + usuários) · `financeiro` (opera custeio e precificação) · `comercial` (só precificação e orçamentos) · `leitura` (consulta e simulador; o servidor bloqueia qualquer escrita).
+- **Dupla conferência**: projeto só fecha com dois ok de pessoas diferentes; o 2º é de quem for marcado como aprovador. Se um ajuste mudar o número depois do ok, o projeto exibe "mudou depois do ok" sem perder o histórico.
+- Credenciais Omie criptografadas em repouso (Fernet); o frontend **nunca** fala com a Omie, só com o backend; chaves não aparecem em logs nem em respostas.
+- Toda ação auditável (ajustes, classificações, ok, comentários, % de comissão) é assinada com a conta logada.
+
+## Marca configurável
+
+O logotipo, o título e os PDFs leem a marca de `MARCA_LINHA1`/`MARCA_LINHA2` no ambiente — o mesmo código serve outras empresas sem tocar em uma linha. Guia completo de instalação para um novo cliente: [INSTALACAO.md](INSTALACAO.md).
 
 ## Stack
 
 | Camada | Tecnologia |
 |---|---|
-| Backend | Python 3.11+ · FastAPI · SQLAlchemy 2 · Alembic · httpx |
+| Backend | Python 3.11+ · FastAPI · SQLAlchemy 2 · httpx · fpdf2 · openpyxl |
 | Banco | PostgreSQL (produção) ou SQLite (padrão, zero configuração) |
-| Frontend | React 18 · Vite · TypeScript · TanStack Query · Recharts · Tailwind |
-| Segurança | Credenciais Omie criptografadas em repouso (Fernet); chaves só no servidor |
+| Frontend | React 18 · Vite · TypeScript · TanStack Query · Tailwind |
+| Infra | Render (Blueprint `render.yaml`: API + site estático + Postgres) |
 
-O frontend **nunca** fala com a Omie — só com o backend. `app_key`/`app_secret` não aparecem em logs nem em respostas da API.
-
-**Integração 100% leitura**: o app só usa métodos `Listar*` da Omie — nunca grava, altera ou cancela nada lá (há um teste automatizado que garante isso: `tests/test_somente_leitura.py`).
-
-**Login e papéis**: todo acesso exige conta (senha com scrypt, sessões revogáveis no banco). No primeiro acesso o app pede a criação da conta da administradora; depois ela cadastra a equipe em Empresas → Equipe. Papéis: `admin` (tudo + usuários), `financeiro` (opera tudo) e `leitura` (só consulta e simulador — o servidor bloqueia qualquer escrita). Além do papel, cada conta de `admin`/`financeiro` pode ser marcada como **aprovadora** — é ela que dá o 2º ok da dupla conferência. Toda ação auditável (ajustes, classificações, os dois ok, comentários) é assinada com o nome da conta logada.
-
-## Onde obter app_key / app_secret
-
-1. Acesse o **Portal do Desenvolvedor da Omie**: <https://developer.omie.com.br/>
-2. Entre com a conta da empresa (cada CNPJ/conta Omie tem o seu par de chaves).
-3. Em **Minhas Aplicações / Chaves de Acesso**, gere ou copie o `app_key` e o `app_secret`.
-4. Cadastre esses valores na tela **Empresas** do app (botão "Testar conexão" valida na hora).
-
-## Como rodar
+## Como rodar localmente
 
 ### 1. Backend
 
@@ -49,7 +105,7 @@ copy .env.example .env                           # ajuste se quiser Postgres
 .venv\Scripts\python -m uvicorn app.main:app --port 8000 --reload
 ```
 
-Sem configurar nada, usa **SQLite** em `backend/custeio.db` (as tabelas são criadas na primeira subida). API em `http://localhost:8000` (docs interativas em `/docs`).
+Sem configurar nada, usa **SQLite** em `backend/custeio.db` (tabelas criadas e reparadas automaticamente na subida — em produção também: não há passo manual de migração). API em `http://localhost:8000` (docs em `/docs`).
 
 ### 2. Frontend
 
@@ -59,74 +115,44 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173` (o Vite faz proxy de `/api` para o backend na porta 8000).
+Abra `http://localhost:5173` (o Vite faz proxy de `/api` para a porta 8000).
 
-### 3. PostgreSQL (opcional, recomendado em produção)
-
-```powershell
-docker compose up -d db
-```
-
-E no `backend/.env`:
-
-```
-DATABASE_URL=postgresql+psycopg://custeio:custeio@localhost:5432/custeio
-```
-
-Migrações (alternativa ao create-all automático): `.venv\Scripts\python -m alembic upgrade head`.
-
-## Variáveis de ambiente (`backend/.env.example`)
-
-| Variável | O que é | Padrão |
-|---|---|---|
-| `DATABASE_URL` | conexão SQLAlchemy | SQLite local |
-| `APP_ENCRYPTION_KEY` | chave Fernet p/ criptografar credenciais (obrigatória em produção — gere com `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) | gerada em `.secret_key` (dev) |
-| `CORS_ORIGINS` | origens do frontend | `http://localhost:5173` |
-| `OMIE_BASE_URL` | base da API Omie | `https://app.omie.com.br/api/v1` |
-| `OMIE_MIN_INTERVAL` | intervalo mínimo entre chamadas (s) | `0.35` |
-
-## Fluxo de uso
-
-1. **Empresas** → cadastre cada CNPJ com suas chaves → "Testar conexão".
-2. **Sincronizar** → escolha empresas + período de emissão → o app pagina TODAS as páginas da Omie (100 registros/página, com throttle, retry/backoff e tratamento do bloqueio HTTP 425) e grava no cache.
-3. **Empresas → Mapear categorias** → diga qual categoria do Contas a Pagar é Produção, Frete, Imposto ou Outros (categorias com nome de tributo já vêm pré-sugeridas como Imposto).
-4. **Dashboard / Projetos** → KPIs, composição da receita, ranking de margem e a lista completa; clique num projeto para ver o cálculo aberto, títulos e NF-e.
-5. **Conferir** → na lista de Projetos, a coluna `Conf.` (1/2, 2/2) fica logo ao lado do número do projeto: dê o ok direto na linha com **+ ok**, ou **marque vários e dê o ok em massa** (filtre por "Pendentes" e use o seletor do cabeçalho para pegar todos de uma vez). Um projeto recusado não derruba o lote — o app diz quantos passaram e o motivo de cada um que sobrou. O Dashboard mostra a barra de progresso do período.
-6. **Exportar** na tela Projetos: **PDF** (relatório A4 paisagem com painel de KPI, uma linha por projeto e totais), **Excel** (cabeçalho fixo, filtro automático, moeda pt-BR, prejuízo em vermelho, escala de cor na margem e aba **Resumo**) e **CSV**. Os três trazem o status da conferência, quem conferiu e quando.
-
-### Como a NF-e vira imposto do projeto
-
-A consulta `ListarNF` (endpoint `produtos/nfconsultar`) traz os totais `ICMSTot` de cada nota e o vínculo com o projeto via `pedido.nIdProjeto` (ou, se ausente, `titulos[].nCodProjeto`). O app soma `vICMS + vST + vFCP + vFCPST + vIPI + vPIS + vCOFINS` das notas de saída não canceladas do projeto.
-
-## Testes
+### 3. Testes
 
 ```powershell
 cd backend
 .venv\Scripts\python -m pytest
 ```
 
-Cobrem: cliente Omie (paginação completa, faultstring, retry/backoff, HTTP 425), agrupamento por projeto, grupos de custo com rateio, não-duplicação de tributos, margem, filtro de período, ajustes auditáveis e a alíquota do Simples configurada no cadastro.
+Cobrem o cliente Omie (paginação, faultstring, retry/backoff, HTTP 425), o motor de fechamento (agrupamento, rateio, não-duplicação de tributos, margem, período), impostos por regime e por perfil, ajustes auditáveis, dupla conferência, backup/restauração, fluxo de caixa, comissões, lançamentos sem projeto, orçamentos comerciais e o bloqueio de escrita do papel leitura.
 
-## Deploy no Render (recomendado)
+## Variáveis de ambiente
 
-O repositório já tem um **Blueprint** ([render.yaml](render.yaml)) que cria os 3 recursos de uma vez: API Python, site estático do frontend (com proxy de `/api`) e Postgres.
+| Variável | O que é | Padrão |
+|---|---|---|
+| `DATABASE_URL` | conexão SQLAlchemy (`postgres://` é normalizado p/ `psycopg`) | SQLite local |
+| `APP_ENCRYPTION_KEY` | chave que criptografa as credenciais Omie — **obrigatória em produção**; guarde uma cópia | gerada em `.secret_key` (dev) |
+| `CORS_ORIGINS` | origens do frontend | `http://localhost:5173` |
+| `MARCA_LINHA1` / `MARCA_LINHA2` | as duas linhas do logotipo (app + PDFs) | `GRUPO` / `JPDV` |
+| `SUPORTE_EMAIL` | e-mail de quem atende o suporte (identifica a conta e recebe o backup) | — |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_DE` | envio de e-mail (avisos, relatório, backup) — Gmail com senha de app funciona | — |
+| `CALLMEBOT_TELEFONE` / `CALLMEBOT_APIKEY` | aviso por WhatsApp (callmebot.com, gratuito) | — |
+| `APP_URL` | URL pública do app (vira link nos avisos) | — |
+| `OMIE_BASE_URL` / `OMIE_MIN_INTERVAL` | base e throttle da API Omie | oficial / `0.35s` |
 
-1. Suba o projeto para um repositório no **GitHub** (ou GitLab):
-   ```powershell
-   git remote add origin https://github.com/SEU_USUARIO/projeto-custo.git
-   git push -u origin main
-   ```
-2. No [dashboard do Render](https://dashboard.render.com): **New + → Blueprint** → conecte o repositório → **Apply**. O Render lê o `render.yaml` e cria `custeio-db`, `custeio-api` e `custeio-app` (o `APP_ENCRYPTION_KEY` é gerado automaticamente; o app deriva a chave de criptografia dele).
-3. Ao terminar, abra `https://custeio-app.onrender.com`. **Se o Render tiver renomeado os serviços** (nome já em uso, ele adiciona um sufixo), ajuste em `custeio-app → Redirects/Rewrites` o destino do rewrite `/api/*` para a URL real da API, e em `custeio-api → Environment` o `CORS_ORIGINS` para a URL real do frontend.
-4. Cadastre as empresas com as credenciais Omie **pela tela** (elas ficam criptografadas no Postgres — nunca no repositório).
+Tudo que é de aviso é **opcional**: sem configurar, o app funciona normalmente — os avisos simplesmente não disparam.
 
-**Custos/limitações (planos free):** o Postgres free **expira em 30 dias** (os dados são apagados!) e o web service free hiberna após 15 min sem uso (a 1ª requisição demora ~1 min e sincronizações longas podem ser interrompidas). Para uso real: `basic-256mb` no banco (~US$ 6/mês) e `starter` na API (~US$ 7/mês) — basta trocar os `plan:` no `render.yaml` e reaplicar, ou mudar no dashboard.
+## Deploy no Render
 
-### Outras opções de deploy
+O repositório tem um **Blueprint** ([render.yaml](render.yaml)) que cria os 3 recursos de uma vez: API, site estático (com proxy `/api`) e Postgres.
 
-- **Backend**: qualquer host Python. Rode `uvicorn app.main:app --host 0.0.0.0 --port 8000` atrás de um proxy HTTPS, com `DATABASE_URL`, `APP_ENCRYPTION_KEY` e `CORS_ORIGINS` definidos. URLs `postgres://` são normalizadas automaticamente para o driver `psycopg`.
-- **Frontend**: `npm run build` e sirva `frontend/dist` (Netlify, Vercel, nginx) com rewrite de `/api` para o backend.
-- **Banco**: `docker-compose.yml` como base ou Postgres gerenciado. Faça backup — os ajustes manuais e o mapeamento de categorias vivem nele.
+1. **New + → Blueprint** no [dashboard do Render](https://dashboard.render.com) → conecte este repositório → Apply.
+2. **Confira as URLs**: o domínio `.onrender.com` é global — se os nomes já estiverem em uso, o Render sufixará as URLs; ajuste então o `destination` do rewrite `/api/*` e o `CORS_ORIGINS` no `render.yaml`.
+3. Cadastre as empresas com as credenciais Omie **pela tela** (ficam criptografadas no Postgres — nunca no repositório).
+
+**Planos:** o Postgres free **expira em 30 dias** (apaga os dados) e o web service free hiberna após 15 min (o 1º acesso do dia leva ~1 min — o app avisa o usuário na tela de login). Para uso real: `basic-256mb` no banco (~US$ 6/mês) e `starter` na API (~US$ 7/mês) — troque os `plan:` no `render.yaml`, que é quem manda na infraestrutura.
+
+Passo a passo completo (incluindo nova instalação para outro cliente): [INSTALACAO.md](INSTALACAO.md).
 
 ## Limites da Omie respeitados
 
@@ -134,3 +160,4 @@ O repositório já tem um **Blueprint** ([render.yaml](render.yaml)) que cria os
 - ~240 req/min por método — throttle configurável (`OMIE_MIN_INTERVAL`).
 - Erros de negócio (`faultstring`) não são retentados; instabilidade (5xx/timeout) tem backoff exponencial; **HTTP 425** (bloqueio de 30 min) falha com mensagem clara.
 - "Não existem registros" é tratado como resultado vazio, não como erro.
+- Impostos da NF-e: `ListarNF` (`produtos/nfconsultar`) com `cDetalhesPedido: "S"`; o app soma `vICMS + vST + vFCP + vFCPST + vIPI + vPIS + vCOFINS` das notas de saída não canceladas; o projeto vem de `pedido.nIdProjeto` ou `titulos[].nCodProjeto`.
