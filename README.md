@@ -82,7 +82,7 @@ Central de alertas no Dashboard: projetos no prejuízo, abaixo da meta de margem
 
 ## Marca configurável
 
-O logotipo, o título e os PDFs leem a marca de `MARCA_LINHA1`/`MARCA_LINHA2` no ambiente — o mesmo código serve outras empresas sem tocar em uma linha. Guia completo de instalação para um novo cliente: [INSTALACAO.md](INSTALACAO.md).
+O logotipo, o título e os PDFs leem a marca de `MARCA_LINHA1`/`MARCA_LINHA2` no ambiente — o mesmo código serve outras empresas sem tocar em uma linha.
 
 ## Stack
 
@@ -151,8 +151,6 @@ O repositório tem um **Blueprint** ([render.yaml](render.yaml)) que cria os 3 r
 3. Cadastre as empresas com as credenciais Omie **pela tela** (ficam criptografadas no Postgres — nunca no repositório).
 
 **Planos:** o Postgres free **expira em 30 dias** (apaga os dados) e o web service free hiberna após 15 min (o 1º acesso do dia leva ~1 min — o app avisa o usuário na tela de login). Para uso real: `basic-256mb` no banco (~US$ 6/mês) e `starter` na API (~US$ 7/mês) — troque os `plan:` no `render.yaml`, que é quem manda na infraestrutura.
-
-Passo a passo completo (incluindo nova instalação para outro cliente): [INSTALACAO.md](INSTALACAO.md).
 
 ## Limites da Omie respeitados
 
