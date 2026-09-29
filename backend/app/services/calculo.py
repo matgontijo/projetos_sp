@@ -20,6 +20,7 @@ Regras (do levantamento de requisitos):
 """
 
 import re
+from functools import lru_cache
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
@@ -28,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
+from ..config import settings
 
 SEM_PROJETO_NOME = "Sem projeto"
 
@@ -35,7 +37,10 @@ SEM_PROJETO_NOME = "Sem projeto"
 # VENDA, e projeto de venda e o que comeca com "BR" (ex.: BR26_055). Centros
 # de custo cadastrados como projeto na Omie (Administrativo, Estoque, Diversos)
 # e lancamentos sem projeto ficam fora — nao aparecem nem somam na receita.
-PREFIXO_PROJETO_VENDA = "BR"
+# Configuravel via PREFIXOS_VENDA (ex.: "BR,CHINA") — a numeracao evolui sem codigo.
+@lru_cache(maxsize=1)
+def prefixos_venda() -> tuple[str, ...]:
+    return tuple(p.strip().upper() for p in settings.prefixos_venda.split(",") if p.strip()) or ("BR",)
 
 
 def _f(value) -> float:
@@ -51,7 +56,7 @@ def chave_projeto(nome: str) -> str:
 
 
 def e_projeto_de_venda(nome: str) -> bool:
-    return chave_projeto(nome).startswith(PREFIXO_PROJETO_VENDA)
+    return chave_projeto(nome).startswith(prefixos_venda())
 
 
 @dataclass

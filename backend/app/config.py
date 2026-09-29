@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # sistema em outro cliente basta trocar estas variaveis — nada de codigo.
     marca_linha1: str = "GRUPO"
     marca_linha2: str = "JPDV"
+    # Prefixos de numeracao que contam como projeto DE VENDA no fechamento
+    # (separados por virgula). O resto - Administrativo, Estoque etc. - fica fora.
+    prefixos_venda: str = "BR"
     # Intervalo minimo entre chamadas a Omie por empresa (segundos)
     omie_min_interval: float = 0.35
 

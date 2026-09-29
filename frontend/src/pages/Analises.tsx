@@ -15,7 +15,7 @@ export default function Analises() {
     <div>
       <PageHeader
         titulo="Análises"
-        subtitulo="Quem sustenta a margem, quem vende bem e onde o dinheiro está parado — só projetos de venda (BR)"
+        subtitulo="Quem sustenta a margem, quem vende bem e onde o dinheiro está parado — só projetos de venda"
       />
       <FiltrosBar />
       {/* 5 abas não cabem num celular: a régua rola de lado em vez de quebrar */}

@@ -319,7 +319,7 @@ export default function Projetos() {
     <div>
       <PageHeader
         titulo="Projetos"
-        subtitulo="Só projetos de venda (numeração BR) — clique na linha para abrir o detalhe"
+        subtitulo="Só projetos de venda — clique na linha para abrir o detalhe"
         acoes={
           <>
             <BotaoExport rotulo="Exportar PDF" url={api.urlExportPdf(empresaIds, de, ate)} nome="fechamento.pdf" primario />

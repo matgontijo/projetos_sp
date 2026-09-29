@@ -456,3 +456,20 @@ def test_ultimo_ajuste_vence(db, empresa):
     linha = _linha(calculo.fechar_projetos(db, [empresa.id]), "BR26_001")
     assert linha["producao"] == 0.0
     assert linha["outros"] == 500.0
+
+
+def test_prefixos_de_venda_configuraveis(monkeypatch):
+    """A cliente criou numeracao CHINA — o prefixo virou configuracao."""
+    from app import config
+    from app.services import calculo
+
+    monkeypatch.setattr(config.settings, "prefixos_venda", "BR, china")
+    calculo.prefixos_venda.cache_clear()
+    try:
+        assert calculo.e_projeto_de_venda("BR26_055")
+        assert calculo.e_projeto_de_venda("CHINA 01")       # novo prefixo entra
+        assert calculo.e_projeto_de_venda("china_02")       # caixa nao importa
+        assert not calculo.e_projeto_de_venda("Administrativo")
+        assert not calculo.e_projeto_de_venda("")
+    finally:
+        calculo.prefixos_venda.cache_clear()

@@ -295,7 +295,7 @@ export default function Dashboard() {
     <div>
       <PageHeader
         titulo="Visão geral"
-        subtitulo="Só projetos de venda (numeração BR), com as duas empresas somadas por número de projeto"
+        subtitulo="Só projetos de venda, com as empresas somadas por número de projeto"
       />
       <FiltrosBar />
       {isLoading && (

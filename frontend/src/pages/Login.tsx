@@ -69,7 +69,7 @@ export default function Login({ aoEntrar }: { aoEntrar: (token: string, usuario:
             className="anima-sobe mt-4 max-w-sm text-sm leading-relaxed"
             style={{ color: 'var(--nav-muted)', animationDelay: '0.12s' }}
           >
-            Receita, custos, impostos e margem por projeto — direto da Omie, com as duas empresas consolidadas.
+            Receita, custos, impostos e margem por projeto — direto da Omie, com as empresas consolidadas.
           </p>
         </div>
         <div className="relative flex items-end gap-1.5" aria-hidden>

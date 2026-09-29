@@ -134,6 +134,7 @@ Cobrem o cliente Omie (paginação, faultstring, retry/backoff, HTTP 425), o mot
 | `APP_ENCRYPTION_KEY` | chave que criptografa as credenciais Omie — **obrigatória em produção**; guarde uma cópia | gerada em `.secret_key` (dev) |
 | `CORS_ORIGINS` | origens do frontend | `http://localhost:5173` |
 | `MARCA_LINHA1` / `MARCA_LINHA2` | as duas linhas do logotipo (app + PDFs) | `GRUPO` / `JPDV` |
+| `PREFIXOS_VENDA` | prefixos de numeração que contam como projeto de venda (ex.: `BR,CHINA`) | `BR` |
 | `SUPORTE_EMAIL` | e-mail de quem atende o suporte (identifica a conta e recebe o backup) | — |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_DE` | envio de e-mail (avisos, relatório, backup) — Gmail com senha de app funciona | — |
 | `CALLMEBOT_TELEFONE` / `CALLMEBOT_APIKEY` | aviso por WhatsApp (callmebot.com, gratuito) | — |
