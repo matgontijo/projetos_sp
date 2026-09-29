@@ -244,6 +244,8 @@ export interface ComparativoOrcamento {
 
 export interface Alerta {
   gravidade: 'critica' | 'atencao'
+  tipo: 'prejuizo' | 'sem_receita' | 'caixa' | 'meta' | 'projetado' | 'classificacao'
+  valor: number | null
   titulo: string
   detalhe: string
   projeto: string | null

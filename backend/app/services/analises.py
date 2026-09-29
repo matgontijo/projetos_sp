@@ -424,6 +424,8 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "critica",
+                "tipo": "prejuizo",
+                "valor": g["resultado"],
                 "titulo": f"{_rotulo_grupo(g)} está no prejuízo",
                 "detalhe": f"Somando tudo: receita {_brl(g['receita'])}, resultado {_brl(g['resultado'])}.{_explica_grupo(g)}",
                 "projeto": g["projeto"],
@@ -431,7 +433,7 @@ def gerar_alertas(
         )
     if len(prejuizo) > 5:
         alertas.append(
-            {"gravidade": "critica", "titulo": f"+{len(prejuizo) - 5} outros projetos no prejuízo",
+            {"gravidade": "critica", "tipo": "prejuizo", "valor": None, "titulo": f"+{len(prejuizo) - 5} outros projetos no prejuízo",
              "detalhe": "Ordene a lista de projetos por resultado para ver todos.", "projeto": None}
         )
 
@@ -447,6 +449,8 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "critica",
+                "tipo": "sem_receita",
+                "valor": -custo_total,
                 "titulo": f"{_rotulo_grupo(g)} tem despesa sem nenhuma receita",
                 "detalhe": f"{_brl(custo_total)} de custo lançado e receita zero — confira se a venda foi faturada com o projeto certo.{_explica_grupo(g)}",
                 "projeto": g["projeto"],
@@ -454,7 +458,7 @@ def gerar_alertas(
         )
     if len(sem_receita) > 5:
         alertas.append(
-            {"gravidade": "critica", "titulo": f"+{len(sem_receita) - 5} outros projetos com despesa e sem receita",
+            {"gravidade": "critica", "tipo": "sem_receita", "valor": None, "titulo": f"+{len(sem_receita) - 5} outros projetos com despesa e sem receita",
              "detalhe": "Filtre a lista de projetos por receita zero para ver todos.", "projeto": None}
         )
 
@@ -463,6 +467,8 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "atencao",
+                "tipo": "meta",
+                "valor": None,
                 "titulo": f"{len(abaixo)} projetos abaixo da meta de {margem_alvo * 100:.0f}%",
                 "detalhe": "Estão dando lucro, mas menos do que a meta definida.",
                 "projeto": None,
@@ -480,6 +486,8 @@ def gerar_alertas(
             alertas.append(
                 {
                     "gravidade": "atencao",
+                    "tipo": "projetado",
+                    "valor": None,
                     "titulo": f"{p['projeto']} rendeu menos do que o projetado",
                     "detalhe": (
                         f"Projetado {_brl(_f(orc.resultado_previsto))}, "
@@ -494,6 +502,8 @@ def gerar_alertas(
             alertas.append(
                 {
                     "gravidade": "atencao",
+                    "tipo": "projetado",
+                    "valor": None,
                     "titulo": f"{p['projeto']} estourou o orçamento de custo",
                     "detalhe": f"Previsto {_brl(_f(orc.custo_previsto))}, realizado {_brl(p['custo_total'])} (+{_brl(estouro)}).",
                     "projeto": p["projeto"],
@@ -505,6 +515,8 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "atencao",
+                "tipo": "classificacao",
+                "valor": -nao_classificado,
                 "titulo": f"{_brl(nao_classificado)} em custos sem classificação",
                 "detalhe": "Estão somados em 'Outros'. Classifique em Empresas → Classificar custos.",
                 "projeto": None,
@@ -517,6 +529,8 @@ def gerar_alertas(
         alertas.append(
             {
                 "gravidade": "critica",
+                "tipo": "caixa",
+                "valor": caixa["totais"]["receber_atrasado"],
                 "titulo": f"{_brl(caixa['totais']['receber_atrasado'])} a receber ATRASADOS",
                 "detalhe": "Veja a aba Caixa em Análises para cobrar por projeto.",
                 "projeto": None,

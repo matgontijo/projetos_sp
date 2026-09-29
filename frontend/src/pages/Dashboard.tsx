@@ -16,9 +16,20 @@ import {
 } from '../components/Viz'
 import { fmtBRL, fmtBRLCurto, fmtPct } from '../lib/format'
 
-/** Central de alertas: uma linha de resumo; a lista completa só abre se pedirem. */
+/** Central de alertas: resumo numa linha; aberta, agrupa por TIPO com chips,
+ * valor forte à direita e o detalhe inteiro embaixo — nada truncado. */
+const TIPO_ALERTA: [Alerta['tipo'], string][] = [
+  ['prejuizo', 'No prejuízo'],
+  ['sem_receita', 'Sem receita'],
+  ['caixa', 'Caixa'],
+  ['meta', 'Abaixo da meta'],
+  ['projetado', 'Projetado'],
+  ['classificacao', 'Classificação'],
+]
+
 function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string }) {
   const [expandido, setExpandido] = useState(false)
+  const [tipo, setTipo] = useState<'' | Alerta['tipo']>('')
   const criticos = alertas.filter((a) => a.gravidade === 'critica').length
   const atencao = alertas.length - criticos
   const resumo = [
@@ -27,6 +38,13 @@ function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string 
   ]
     .filter(Boolean)
     .join(' · ')
+
+  const chips = TIPO_ALERTA.map(([id, rotulo]) => ({
+    id,
+    rotulo,
+    qtd: alertas.filter((a) => a.tipo === id).length,
+  })).filter((c) => c.qtd > 0)
+  const visiveis = tipo ? alertas.filter((a) => a.tipo === tipo) : alertas
 
   return (
     <div className="card mt-4 px-5 py-3">
@@ -51,28 +69,58 @@ function PainelAtencao({ alertas, params }: { alertas: Alerta[]; params: string 
       </div>
       {expandido && (
         <div className="mt-3">
-          {alertas.map((a, i) => (
-            <div key={i} className="alerta-linha">
-              <span className="flex min-w-0 items-baseline gap-2">
-                <span
-                  className="h-2 w-2 shrink-0 self-center rounded-full"
-                  style={{ background: a.gravidade === 'critica' ? 'var(--neg)' : 'var(--status-warning)' }}
-                  title={a.gravidade === 'critica' ? 'Crítico' : 'Atenção'}
-                />
-                {a.projeto ? (
-                  <Link
-                    to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params}`}
-                    className="truncate font-bold underline-offset-2 hover:underline"
+          {/* um assunto de cada vez: os chips separam a lista por tipo */}
+          <div className="mb-1 flex flex-wrap gap-1.5">
+            <button
+              className="chip-preset"
+              style={tipo === '' ? { borderColor: 'var(--accent)', color: 'var(--text-primary)' } : undefined}
+              onClick={() => setTipo('')}
+            >
+              Tudo ({alertas.length})
+            </button>
+            {chips.map((c) => (
+              <button
+                key={c.id}
+                className="chip-preset"
+                style={tipo === c.id ? { borderColor: 'var(--accent)', color: 'var(--text-primary)' } : undefined}
+                onClick={() => setTipo(tipo === c.id ? '' : c.id)}
+              >
+                {c.rotulo} ({c.qtd})
+              </button>
+            ))}
+          </div>
+          {visiveis.map((a, i) => (
+            <div key={i} className="border-b py-2.5 last:border-b-0" style={{ borderColor: 'var(--gridline)' }}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="h-2 w-2 shrink-0 self-center rounded-full"
+                    style={{ background: a.gravidade === 'critica' ? 'var(--neg)' : 'var(--status-warning)' }}
+                    title={a.gravidade === 'critica' ? 'Crítico' : 'Atenção'}
+                  />
+                  {a.projeto ? (
+                    <Link
+                      to={`/projeto?nome=${encodeURIComponent(a.projeto)}&${params}`}
+                      className="truncate text-sm font-bold underline-offset-2 hover:underline"
+                    >
+                      {a.titulo}
+                    </Link>
+                  ) : (
+                    <b className="truncate text-sm">{a.titulo}</b>
+                  )}
+                </span>
+                {a.projeto && a.valor !== null && (
+                  <span
+                    className="num shrink-0 text-sm font-extrabold"
+                    style={{ color: a.valor < 0 ? 'var(--neg)' : 'var(--text-primary)' }}
                   >
-                    {a.titulo}
-                  </Link>
-                ) : (
-                  <b className="truncate">{a.titulo}</b>
+                    {fmtBRL(a.valor)}
+                  </span>
                 )}
-              </span>
-              <span className="hidden truncate text-xs sm:block" style={{ color: 'var(--text-muted)', maxWidth: '55%' }}>
+              </div>
+              <p className="mt-0.5 pl-4 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                 {a.detalhe}
-              </span>
+              </p>
             </div>
           ))}
         </div>
