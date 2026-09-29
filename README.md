@@ -68,7 +68,7 @@ O app é instalável como PWA (Android: "Instalar app"; iPhone: Compartilhar →
 | **Relatório mensal** — fechamento do mês anterior em PDF | dia configurado | e-mail (lista de destinatários) |
 | **Backup mensal** — JSON completo do trabalho da equipe | dia configurado | e-mail (somente para o suporte, por conter credenciais) |
 
-Central de alertas no Dashboard: projetos no prejuízo, abaixo da meta de margem, **despesa sem nenhuma receita** (custo lançado num projeto que não faturou — receita por vir ou lançamento errado), rendendo menos que o projetado, e caixa atrasado.
+Central de alertas no Dashboard: projetos no prejuízo, abaixo da meta de margem — **avaliados por grupo de BRs faturados juntos** (quando a nota de vários BRs sai junta, sem rateio na Omie, o alerta considera o conjunto, não o BR isolado) —, **despesa sem nenhuma receita** (custo lançado num projeto que não faturou — receita por vir ou lançamento errado), rendendo menos que o projetado, e caixa atrasado.
 
 ---
 

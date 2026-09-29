@@ -1,6 +1,7 @@
 """Analises derivadas do fechamento: clientes (curva ABC), vendedores, ciclo de caixa,
 alertas e simulador de preco. Tudo reusa o motor de fechamento (so projetos BR)."""
 
+import re
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -318,6 +319,75 @@ def comissoes(db: Session, empresa_ids: list[int], de: date | None, ate: date | 
 # ---------- Central de alertas ----------
 
 
+# ---------- Agrupamento por BR (varios BRs faturados numa nota so) ----------
+
+# A numeracao e zero-padded de 3 digitos (BR26_055); um projeto pode citar
+# varios BRs no nome ("BR24_348/BR24_261/...") quando a nota saiu junta.
+_RE_BR = re.compile(r"BR\s*(\d{2})\s*[_\s.\-]*(\d{3})", re.IGNORECASE)
+
+_CAMPOS_SOMA = ("receita", "producao", "frete", "comissao", "outros", "imposto", "nao_classificado", "resultado")
+
+
+def raizes_br(nome: str) -> frozenset[str]:
+    return frozenset(f"BR{a}_{b}" for a, b in _RE_BR.findall(nome or ""))
+
+
+def agrupar_por_br(projetos: list[dict]) -> list[dict]:
+    """Pedido da cliente: a Omie nao permite ratear uma nota entre BRs, entao
+    varios BRs saem faturados juntos num projeto so — e o BR individual parece
+    no prejuizo enquanto a receita mora no vizinho. A analise justa e por GRUPO
+    de BRs faturados juntos (uniao transitiva pelos codigos BR citados no nome)."""
+    pai: dict[str, str] = {}
+
+    def achar(x: str) -> str:
+        while pai.setdefault(x, x) != x:
+            pai[x] = pai[pai[x]]
+            x = pai[x]
+        return x
+
+    def unir(a: str, b: str) -> None:
+        pai[achar(a)] = achar(b)
+
+    raizes_de: list[frozenset[str]] = []
+    for pr in projetos:
+        rs = raizes_br(pr["projeto"])
+        raizes_de.append(rs)
+        primeiro = None
+        for r in rs:
+            if primeiro is None:
+                primeiro = r
+            else:
+                unir(primeiro, r)
+
+    por_grupo: dict[str, list[int]] = defaultdict(list)
+    sem_raiz: list[int] = []
+    for i, rs in enumerate(raizes_de):
+        if rs:
+            por_grupo[achar(next(iter(rs)))].append(i)
+        else:
+            sem_raiz.append(i)  # projeto de venda sem codigo BR legivel: fica sozinho
+
+    grupos: list[dict] = []
+    for indices in list(por_grupo.values()) + [[i] for i in sem_raiz]:
+        membros = [projetos[i] for i in indices]
+        g: dict = {campo: round(sum(m[campo] for m in membros), 2) for campo in _CAMPOS_SOMA}
+        g["margem"] = round(g["resultado"] / g["receita"], 6) if g["receita"] > 0 else 0.0
+        # o rosto do grupo e o membro com mais receita (e um link que existe)
+        principal = max(membros, key=lambda m: m["receita"])
+        g["projeto"] = principal["projeto"]
+        g["membros"] = [m["projeto"] for m in membros]
+        g["qtd_membros"] = len(membros)
+        grupos.append(g)
+    return grupos
+
+
+def _rotulo_grupo(g: dict) -> str:
+    if g["qtd_membros"] <= 1:
+        return g["projeto"]
+    return f"{g['projeto']} (+{g['qtd_membros'] - 1} BRs faturados juntos)"
+
+
+
 def gerar_alertas(
     db: Session,
     empresa_ids: list[int],
@@ -332,16 +402,20 @@ def gerar_alertas(
     if fechamento is None:
         fechamento = fechar_projetos(db, empresa_ids, de, ate)
     projetos = fechamento["projetos"]
+    # varios BRs faturados numa nota so (sem rateio na Omie): o alerta olha o
+    # grupo inteiro — um BR "no prejuizo" cuja receita mora no vizinho nao grita
+    grupos = agrupar_por_br(projetos)
 
-    prejuizo = [p for p in projetos if p["receita"] > 0 and p["resultado"] < 0]
-    prejuizo.sort(key=lambda p: p["resultado"])
-    for p in prejuizo[:5]:
+    prejuizo = [g for g in grupos if g["receita"] > 0 and g["resultado"] < 0]
+    prejuizo.sort(key=lambda g: g["resultado"])
+    for g in prejuizo[:5]:
+        extra = " Soma dos BRs faturados juntos: " + ", ".join(g["membros"]) + "." if g["qtd_membros"] > 1 else ""
         alertas.append(
             {
                 "gravidade": "critica",
-                "titulo": f"{p['projeto']} está no prejuízo",
-                "detalhe": f"Resultado de {_brl(p['resultado'])} com receita de {_brl(p['receita'])}.",
-                "projeto": p["projeto"],
+                "titulo": f"{_rotulo_grupo(g)} está no prejuízo",
+                "detalhe": f"Resultado de {_brl(g['resultado'])} com receita de {_brl(g['receita'])}.{extra}",
+                "projeto": g["projeto"],
             }
         )
     if len(prejuizo) > 5:
@@ -355,16 +429,16 @@ def gerar_alertas(
     def _custo(p: dict) -> float:
         return p["producao"] + p["frete"] + p["comissao"] + p["outros"] + p["nao_classificado"]
 
-    sem_receita = [p for p in projetos if p["receita"] == 0 and _custo(p) > 0]
+    sem_receita = [g for g in grupos if g["receita"] == 0 and _custo(g) > 0]
     sem_receita.sort(key=_custo, reverse=True)
-    for p in sem_receita[:5]:
-        custo_total = _custo(p)
+    for g in sem_receita[:5]:
+        custo_total = _custo(g)
         alertas.append(
             {
                 "gravidade": "critica",
-                "titulo": f"{p['projeto']} tem despesa sem nenhuma receita",
+                "titulo": f"{_rotulo_grupo(g)} tem despesa sem nenhuma receita",
                 "detalhe": f"{_brl(custo_total)} de custo lançado e receita zero — confira se a venda foi faturada com o projeto certo.",
-                "projeto": p["projeto"],
+                "projeto": g["projeto"],
             }
         )
     if len(sem_receita) > 5:
@@ -373,7 +447,7 @@ def gerar_alertas(
              "detalhe": "Filtre a lista de projetos por receita zero para ver todos.", "projeto": None}
         )
 
-    abaixo = [p for p in projetos if p["receita"] > 0 and 0 <= p["margem"] < margem_alvo]
+    abaixo = [g for g in grupos if g["receita"] > 0 and 0 <= g["margem"] < margem_alvo]
     if abaixo:
         alertas.append(
             {

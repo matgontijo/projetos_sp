@@ -139,3 +139,37 @@ def test_alerta_despesa_sem_receita(db, empresa):
     assert linha["gravidade"] == "critica"
     assert "BR26_900" in linha["titulo"]
     assert "5.000,00" in linha["detalhe"]
+
+
+def test_alerta_olha_o_grupo_de_brs_faturados_juntos(db, empresa):
+    """Cenário da cliente: a nota de vários BRs sai junta (sem rateio na Omie).
+    O BR com o custo parecia no prejuízo — mas o grupo inteiro está no lucro."""
+    from .conftest import criar_projeto, criar_titulo, mapear_categoria
+
+    mapear_categoria(db, empresa, "2.01.01", "producao")
+    criar_projeto(db, empresa, 10, "BR26_100")
+    criar_projeto(db, empresa, 11, "BR26_100/BR26_101")  # a nota conjunta
+
+    # o BR individual carrega o custo...
+    criar_titulo(db, empresa, "pagar", 1, 8000.0, projeto=10, categoria="2.01.01")
+    # ...e a receita mora no projeto combinado
+    criar_titulo(db, empresa, "receber", 2, 20000.0, projeto=11)
+
+    alertas = analises.gerar_alertas(db, [empresa.id], None, None, margem_alvo=0.2)
+    assert not any("prejuízo" in a["titulo"] for a in alertas)
+    assert not any("despesa sem nenhuma receita" in a["titulo"] for a in alertas)
+
+    # mas grupo que esta MESMO no prejuizo continua gritando
+    criar_projeto(db, empresa, 20, "BR26_200")
+    criar_titulo(db, empresa, "pagar", 3, 9000.0, projeto=20, categoria="2.01.01")
+    criar_titulo(db, empresa, "receber", 4, 1000.0, projeto=20)
+    alertas = analises.gerar_alertas(db, [empresa.id], None, None, margem_alvo=0.2)
+    ruim = next(a for a in alertas if "prejuízo" in a["titulo"])
+    assert "BR26_200" in ruim["titulo"]
+    assert "BRs faturados juntos" not in ruim["titulo"]  # grupo de um só, sem rótulo extra
+
+    # e o rotulo do grupo conjunto aparece quando o grupo e que esta mal
+    grupos = analises.agrupar_por_br(analises.fechar_projetos(db, [empresa.id], None, None)["projetos"])
+    conjunto = next(g for g in grupos if g["qtd_membros"] == 2)
+    assert set(conjunto["membros"]) == {"BR26_100", "BR26_100/BR26_101"}
+    assert conjunto["resultado"] == 12000.0
