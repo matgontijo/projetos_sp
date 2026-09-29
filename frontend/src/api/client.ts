@@ -172,6 +172,8 @@ export interface DetalheProjeto {
   titulos: TituloDetalhe[]
   nfes: NFeDetalhe[]
   ajustes: Ajuste[]
+  /** presente quando este projeto saiu numa nota conjunta com outros BRs */
+  grupo_br?: { membros: string[]; receita: number; resultado: number; margem: number }
 }
 
 export interface CategoriaGrupo {

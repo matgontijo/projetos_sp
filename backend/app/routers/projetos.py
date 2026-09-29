@@ -74,4 +74,21 @@ def detalhe(
     ids = _empresa_ids(db, empresa_ids)
     if not ids:
         raise HTTPException(status_code=404, detail="Nenhuma empresa ativa")
-    return calculo.detalhe_projeto(db, ids, nome, de, ate, fechamento=fechamento_anotado(db, ids, de, ate))
+    fechamento = fechamento_anotado(db, ids, de, ate)
+    resposta = calculo.detalhe_projeto(db, ids, nome, de, ate, fechamento=fechamento)
+
+    # Nota conjunta: se este projeto faz parte de um grupo de BRs faturados
+    # juntos, a tela precisa contar isso — senao o numero individual engana.
+    from ..services.analises import agrupar_por_br
+
+    chave = calculo.chave_projeto(nome)
+    for g in agrupar_por_br(fechamento["projetos"]):
+        if g["qtd_membros"] > 1 and any(calculo.chave_projeto(m) == chave for m in g["membros"]):
+            resposta["grupo_br"] = {
+                "membros": [m for m in g["membros"] if calculo.chave_projeto(m) != chave],
+                "receita": g["receita"],
+                "resultado": g["resultado"],
+                "margem": g["margem"],
+            }
+            break
+    return resposta

@@ -411,6 +411,33 @@ export default function ProjetoDetalhe() {
         <p style={{ color: 'var(--text-muted)' }}>Projeto sem lançamentos no período/empresas filtrados.</p>
       )}
 
+      {f && data?.grupo_br && (
+        <div
+          className="card mb-4 px-5 py-3.5 text-sm"
+          style={{ borderLeft: '3px solid var(--status-warning)' }}
+        >
+          <b>Nota conjunta:</b> este projeto foi vendido junto com{' '}
+          {data.grupo_br.membros.map((m, i) => (
+            <span key={m}>
+              {i > 0 && ', '}
+              <Link
+                to={`/projeto?nome=${encodeURIComponent(m)}&${searchParams.toString()}`}
+                className="font-semibold underline underline-offset-2"
+              >
+                {m}
+              </Link>
+            </span>
+          ))}
+          . A conta que vale é a soma do grupo:{' '}
+          <b>receita {fmtBRL(data.grupo_br.receita)}</b> ·{' '}
+          <b style={{ color: data.grupo_br.resultado >= 0 ? 'var(--status-good-text)' : 'var(--neg)' }}>
+            resultado {fmtBRL(data.grupo_br.resultado)}
+          </b>{' '}
+          (margem {fmtPct(data.grupo_br.margem)}) — é ela que os alertas usam. Os números abaixo são só a
+          fatia deste projeto.
+        </div>
+      )}
+
       {f && (
         <div className="card overflow-hidden">
           <div className="hero-metricas">

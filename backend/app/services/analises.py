@@ -384,7 +384,19 @@ def agrupar_por_br(projetos: list[dict]) -> list[dict]:
 def _rotulo_grupo(g: dict) -> str:
     if g["qtd_membros"] <= 1:
         return g["projeto"]
-    return f"{g['projeto']} (+{g['qtd_membros'] - 1} BRs faturados juntos)"
+    return f"{g['projeto']} + {g['qtd_membros'] - 1} BRs vendidos juntos"
+
+
+def _explica_grupo(g: dict) -> str:
+    """Frase que ensina a conta na hora: quem soma com quem, e por quê."""
+    if g["qtd_membros"] <= 1:
+        return ""
+    outros = [m for m in g["membros"] if m != g["projeto"]]
+    lista = ", ".join(outros[:4]) + ("…" if len(outros) > 4 else "")
+    return (
+        f" Estes projetos saíram na mesma nota ({lista}), então a conta certa é a soma de todos"
+        " — o número de um projeto sozinho não conta a história."
+    )
 
 
 
@@ -409,12 +421,11 @@ def gerar_alertas(
     prejuizo = [g for g in grupos if g["receita"] > 0 and g["resultado"] < 0]
     prejuizo.sort(key=lambda g: g["resultado"])
     for g in prejuizo[:5]:
-        extra = " Soma dos BRs faturados juntos: " + ", ".join(g["membros"]) + "." if g["qtd_membros"] > 1 else ""
         alertas.append(
             {
                 "gravidade": "critica",
                 "titulo": f"{_rotulo_grupo(g)} está no prejuízo",
-                "detalhe": f"Resultado de {_brl(g['resultado'])} com receita de {_brl(g['receita'])}.{extra}",
+                "detalhe": f"Somando tudo: receita {_brl(g['receita'])}, resultado {_brl(g['resultado'])}.{_explica_grupo(g)}",
                 "projeto": g["projeto"],
             }
         )
@@ -437,7 +448,7 @@ def gerar_alertas(
             {
                 "gravidade": "critica",
                 "titulo": f"{_rotulo_grupo(g)} tem despesa sem nenhuma receita",
-                "detalhe": f"{_brl(custo_total)} de custo lançado e receita zero — confira se a venda foi faturada com o projeto certo.",
+                "detalhe": f"{_brl(custo_total)} de custo lançado e receita zero — confira se a venda foi faturada com o projeto certo.{_explica_grupo(g)}",
                 "projeto": g["projeto"],
             }
         )
