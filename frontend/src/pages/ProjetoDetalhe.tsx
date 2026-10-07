@@ -558,8 +558,8 @@ export default function ProjetoDetalhe() {
           <thead>
             <tr>
               {/* no celular só cabem as colunas que identificam e valoram o título;
-                  empresa e vencimento saem (a sigla da empresa está no cabeçalho) */}
-              <th className="hidden sm:table-cell">Empresa</th>
+                  o vencimento sai, a empresa fica (a sigla é curta e diz quem faturou) */}
+              <th>Empresa</th>
               <th>Emissão</th>
               <th>Cliente</th>
               <th className="hidden sm:table-cell">Vencimento</th>
@@ -572,7 +572,7 @@ export default function ProjetoDetalhe() {
           <tbody>
             {receber.map((t) => (
               <tr key={t.id} style={t.cancelado || t.excluido ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="hidden text-xs whitespace-nowrap sm:table-cell" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
+                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
                   {siglaEmpresa(t.empresa_nome)}
                 </td>
                 <td>{fmtData(t.data_emissao)}</td>
@@ -614,7 +614,7 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={4} className="sm:hidden">Total a receber</td>
+              <td colSpan={5} className="sm:hidden">Total a receber</td>
               <td colSpan={6} className="hidden sm:table-cell">
                 Total recebido/a receber
                 {totalReceber.fora > 0 && (
@@ -636,9 +636,9 @@ export default function ProjetoDetalhe() {
         <table className="data tabela-rica">
           <thead>
             <tr>
-              {/* o Grupo é o que se confere aqui; empresa, código da categoria
-                  e status saem no celular para ele caber */}
-              <th className="hidden sm:table-cell">Empresa</th>
+              {/* o Grupo é o que se confere aqui; código da categoria e status
+                  saem no celular para ele caber — a empresa fica */}
+              <th>Empresa</th>
               <th>Emissão</th>
               <th>Fornecedor</th>
               <th className="hidden sm:table-cell">Categoria</th>
@@ -651,7 +651,7 @@ export default function ProjetoDetalhe() {
           <tbody>
             {pagar.map((t) => (
               <tr key={t.id} style={t.cancelado || t.excluido ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="hidden text-xs whitespace-nowrap sm:table-cell" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
+                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={t.empresa_nome}>
                   {siglaEmpresa(t.empresa_nome)}
                 </td>
                 <td>{fmtData(t.data_emissao)}</td>
@@ -712,7 +712,7 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3} className="sm:hidden">Total a pagar</td>
+              <td colSpan={4} className="sm:hidden">Total a pagar</td>
               <td colSpan={6} className="hidden sm:table-cell">
                 Total pago/a pagar
                 {totalPagar.fora > 0 && (
@@ -736,7 +736,7 @@ export default function ProjetoDetalhe() {
             <tr>
               {/* 12 colunas não cabem num celular. A abertura por tributo só a
                   partir de 1024px; o total de impostos fica sempre visível. */}
-              <th className="hidden sm:table-cell">Empresa</th>
+              <th>Empresa</th>
               <th>NF</th>
               <th className="hidden sm:table-cell">Emissão</th>
               <th>Destinatário</th>
@@ -753,7 +753,7 @@ export default function ProjetoDetalhe() {
           <tbody>
             {(data?.nfes || []).map((n) => (
               <tr key={n.id} style={n.cancelada || n.excluida ? { opacity: 0.45, textDecoration: 'line-through' } : undefined}>
-                <td className="hidden text-xs whitespace-nowrap sm:table-cell" style={{ color: 'var(--text-secondary)' }} title={n.empresa_nome}>
+                <td className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }} title={n.empresa_nome}>
                   {siglaEmpresa(n.empresa_nome)}
                 </td>
                 <td className="font-semibold" title={`Emitida em ${fmtData(n.d_emi)}`}>
@@ -816,7 +816,7 @@ export default function ProjetoDetalhe() {
               {/* dois rótulos com colSpan diferente: colSpan não muda por CSS, e um
                   colSpan que atravessa coluna escondida cria coluna fantasma e
                   desalinha os totais */}
-              <td colSpan={2} className="sm:hidden">Total das notas</td>
+              <td colSpan={3} className="sm:hidden">Total das notas</td>
               <td colSpan={4} className="hidden sm:table-cell">
                 Total das notas
                 {totalNfe.fora > 0 && (
