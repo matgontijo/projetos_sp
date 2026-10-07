@@ -473,3 +473,29 @@ def test_prefixos_de_venda_configuraveis(monkeypatch):
         assert not calculo.e_projeto_de_venda("")
     finally:
         calculo.prefixos_venda.cache_clear()
+
+
+def test_detalhe_traz_nome_do_fornecedor_e_do_cliente(db, empresa):
+    """Cliente e fornecedor sao o mesmo cadastro na Omie: o codigo do titulo
+    vira nome nas abas Recebimentos e Pagamentos."""
+    from app import models
+    from app.services import calculo
+
+    from .conftest import criar_projeto, criar_titulo
+
+    criar_projeto(db, empresa, 10, "BR26_500")
+    db.add(models.Cliente(empresa_id=empresa.id, codigo_cliente_omie=111,
+                          razao_social="ACRILICOS SAO PAULO LTDA", nome_fantasia="Acrilicos SP", cnpj_cpf="11.111.111/0001-11"))
+    db.add(models.Cliente(empresa_id=empresa.id, codigo_cliente_omie=222,
+                          razao_social="TOP CAU COMERCIO LTDA", nome_fantasia=""))
+    db.commit()
+    criar_titulo(db, empresa, "pagar", 1, 500.0, projeto=10, cliente=111)
+    criar_titulo(db, empresa, "receber", 2, 900.0, projeto=10, cliente=222)
+    criar_titulo(db, empresa, "pagar", 3, 50.0, projeto=10, cliente=999)  # codigo sem cadastro
+
+    d = calculo.detalhe_projeto(db, [empresa.id], "BR26_500")
+    por_valor = {t["valor_documento"]: t for t in d["titulos"]}
+    assert por_valor[500.0]["parceiro"] == "Acrilicos SP"                      # fantasia primeiro
+    assert por_valor[500.0]["parceiro_cnpj"] == "11.111.111/0001-11"
+    assert por_valor[900.0]["parceiro"] == "TOP CAU COMERCIO LTDA"             # sem fantasia: razao social
+    assert por_valor[50.0]["parceiro"] == ""                                   # sem cadastro: vazio, sem quebrar

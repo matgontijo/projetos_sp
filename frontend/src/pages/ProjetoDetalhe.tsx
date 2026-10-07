@@ -561,6 +561,7 @@ export default function ProjetoDetalhe() {
                   empresa e vencimento saem (a sigla da empresa está no cabeçalho) */}
               <th className="hidden sm:table-cell">Empresa</th>
               <th>Emissão</th>
+              <th>Cliente</th>
               <th className="hidden sm:table-cell">Vencimento</th>
               <th>Doc / NF</th>
               <th>Status</th>
@@ -575,6 +576,9 @@ export default function ProjetoDetalhe() {
                   {siglaEmpresa(t.empresa_nome)}
                 </td>
                 <td>{fmtData(t.data_emissao)}</td>
+                <td className="max-w-[14rem] truncate text-sm font-semibold" title={[t.parceiro_razao_social, t.parceiro_cnpj].filter(Boolean).join(' · ')}>
+                  {t.parceiro || '—'}
+                </td>
                 <td className="hidden sm:table-cell">{fmtData(t.data_vencimento)}</td>
                 <td>{t.numero_documento_fiscal || t.numero_documento || '—'}</td>
                 <td className="text-xs">{t.status_titulo}{t.excluido && ' (excluído por ajuste)'}</td>
@@ -610,8 +614,8 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3} className="sm:hidden">Total a receber</td>
-              <td colSpan={5} className="hidden sm:table-cell">
+              <td colSpan={4} className="sm:hidden">Total a receber</td>
+              <td colSpan={6} className="hidden sm:table-cell">
                 Total recebido/a receber
                 {totalReceber.fora > 0 && (
                   <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
@@ -636,6 +640,7 @@ export default function ProjetoDetalhe() {
                   e status saem no celular para ele caber */}
               <th className="hidden sm:table-cell">Empresa</th>
               <th>Emissão</th>
+              <th>Fornecedor</th>
               <th className="hidden sm:table-cell">Categoria</th>
               <th>Grupo</th>
               <th className="hidden sm:table-cell">Status</th>
@@ -650,6 +655,9 @@ export default function ProjetoDetalhe() {
                   {siglaEmpresa(t.empresa_nome)}
                 </td>
                 <td>{fmtData(t.data_emissao)}</td>
+                <td className="max-w-[14rem] truncate text-sm font-semibold" title={[t.parceiro_razao_social, t.parceiro_cnpj].filter(Boolean).join(' · ')}>
+                  {t.parceiro || '—'}
+                </td>
                 <td className="hidden text-xs sm:table-cell">{t.codigo_categoria || '—'}</td>
                 <td>
                   {t.parcelas.length > 1 ? (
@@ -684,7 +692,7 @@ export default function ProjetoDetalhe() {
                     onMover={() =>
                       abrirModal({
                         empresa_id: t.empresa_id, alvo_tipo: 'titulo', alvo_id: t.id, campo: 'codigo_projeto',
-                        descricao: `Mover título ${t.id} para outro projeto (código Omie da ${t.empresa_nome})`, valorAtual: '',
+                        descricao: `Mover título ${t.parceiro ? `de ${t.parceiro} ` : ''}(${fmtBRL(t.valor_documento)}) para outro projeto (código Omie da ${t.empresa_nome})`, valorAtual: '',
                       })
                     }
                     onExcluir={() =>
@@ -704,8 +712,8 @@ export default function ProjetoDetalhe() {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2} className="sm:hidden">Total a pagar</td>
-              <td colSpan={5} className="hidden sm:table-cell">
+              <td colSpan={3} className="sm:hidden">Total a pagar</td>
+              <td colSpan={6} className="hidden sm:table-cell">
                 Total pago/a pagar
                 {totalPagar.fora > 0 && (
                   <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>

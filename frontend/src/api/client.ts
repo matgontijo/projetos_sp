@@ -126,6 +126,10 @@ export interface TituloDetalhe {
   status_titulo: string
   numero_documento: string
   numero_documento_fiscal: string
+  /** quem recebeu (pagar) ou quem pagou (receber) — cadastro unificado da Omie */
+  parceiro: string
+  parceiro_razao_social: string
+  parceiro_cnpj: string
   cancelado: boolean
   excluido: boolean
   projeto_ajustado: boolean

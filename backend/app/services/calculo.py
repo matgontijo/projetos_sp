@@ -518,10 +518,18 @@ def detalhe_projeto(
 
     ctx = _Contexto(db, empresa_ids, de, ate)
 
+    # Na Omie cliente e fornecedor sao o MESMO cadastro: o codigo do titulo
+    # vira o nome de quem pagou (receber) ou de quem recebeu (pagar).
+    parceiros = {
+        (c.empresa_id, c.codigo_cliente_omie): c
+        for c in db.scalars(select(models.Cliente).where(models.Cliente.empresa_id.in_(empresa_ids)))
+    }
+
     titulos_out = []
     for t in ctx.titulos:
         if chave_projeto(ctx.projeto_do_titulo(t)) != chave:
             continue
+        parceiro = parceiros.get((t.empresa_id, t.codigo_cliente_fornecedor))
         grupo_override = ctx.ajustes.get("titulo", t.id, "grupo")
         # mesmas parcelas usadas no fechamento (respeita rateio de categorias),
         # para o detalhe SEMPRE conciliar com a linha consolidada
@@ -549,6 +557,9 @@ def detalhe_projeto(
                 "status_titulo": t.status_titulo,
                 "numero_documento": t.numero_documento,
                 "numero_documento_fiscal": t.numero_documento_fiscal,
+                "parceiro": (parceiro.nome_fantasia or parceiro.razao_social) if parceiro else "",
+                "parceiro_razao_social": parceiro.razao_social if parceiro else "",
+                "parceiro_cnpj": parceiro.cnpj_cpf if parceiro else "",
                 "cancelado": _cancelado(t.status_titulo),
                 "excluido": ctx.ajustes.excluido("titulo", t.id),
                 "projeto_ajustado": ctx.ajustes.projeto("titulo", t.id) is not None,
