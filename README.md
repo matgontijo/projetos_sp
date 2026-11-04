@@ -1,5 +1,9 @@
 # Fechamento de Projetos — Integração Omie
 
+Project finance analytics with ERP ingestion, calculations, access controls and regression coverage.
+
+Technical evidence, validation and limitations: [portfolio notes](docs/PORTFOLIO.md).
+
 Sistema web de custeio e fechamento por projeto. Conecta nas contas Omie das empresas do grupo (multiempresa), busca **Contas a Receber**, **Contas a Pagar**, **Projetos**, **Clientes**, **Vendedores**, **Pedidos de Compra** e **NF-e emitidas**, consolida tudo por número de projeto (ex.: `BR26_055`) e apura o resultado de cada um — sem ninguém digitar valor em planilha:
 
 ```
